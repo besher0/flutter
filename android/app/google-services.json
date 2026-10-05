@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "248492920225",
+    "project_id": "coursaty-510e0",
+    "storage_bucket": "coursaty-510e0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:248492920225:android:fc8bdb3d7a7fd0085bcfe0",
+        "android_client_info": {
+          "package_name": "com.YamanKartal.coursaty_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXjtRzqGDP81gHjFHHyI6YZUa2CuL-Glk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
