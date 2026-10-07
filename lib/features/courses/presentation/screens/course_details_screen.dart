@@ -487,7 +487,8 @@ class _DetailsTab extends StatelessWidget {
             height: 1.8,
           ),
         ),
-        if (details.discussionGroupUrl != null ||
+        if (course.telegramUrl?.trim().isNotEmpty == true ||
+            details.discussionGroupUrl?.trim().isNotEmpty == true ||
             details.introVideoUrl != null) ...{
           15.verticalSpace,
           Divider(color: AppColors.secondary.withValues(alpha: 0.2)),
@@ -509,7 +510,18 @@ class _DetailsTab extends StatelessWidget {
               ),
               15.verticalSpace,
             },
-            if (details.discussionGroupUrl != null) ...{
+            if (course.telegramUrl?.trim().isNotEmpty == true) ...{
+              MediaItem(
+                assetUrl: AppAssets.telegram,
+                color: Color(0xff1DA0E0),
+                onTap: () {
+                  HelperFunctions.urlLauncher(course.telegramUrl!.trim());
+                },
+                title: "قناة التلغرام",
+              ),
+              15.verticalSpace,
+            },
+            if (details.discussionGroupUrl?.trim().isNotEmpty == true) ...{
               BlocBuilder<HomeBloc, HomeState>(
                 builder: (context, state) {
                   return MediaItem(
@@ -523,7 +535,9 @@ class _DetailsTab extends StatelessWidget {
                         showPaidContentDialog(context, courseId: course.id!);
                         return;
                       }
-                      HelperFunctions.urlLauncher(details.discussionGroupUrl!);
+                      HelperFunctions.urlLauncher(
+                        details.discussionGroupUrl!.trim(),
+                      );
                     },
                     title: "مجموعة المتابعة مع الاستاذ",
                   );

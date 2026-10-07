@@ -549,7 +549,9 @@ class _VideosTab extends StatelessWidget {
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 10),
                           itemBuilder: (_, i) {
-                            final url = videos[i].videoUrl;
+                            final url = videos[i].id;
+                            final canDownload =
+                                videos[i].offlineDownloadEnabled ?? true;
                             final isFree =
                                 isCourseFree || (videos[i].isFree ?? false);
                             print(myDownloadState.urlToFileReferences);
@@ -602,9 +604,7 @@ class _VideosTab extends StatelessWidget {
                                     onChooseQuality: (context, quality) {
                                       context.pushPage(
                                         VideoDetailsScreen(
-                                          video: videos[i].copyWith(
-                                            videoUrl: "${videos[i].videoUrl}",
-                                          ),
+                                          video: videos[i],
                                           courseId: courseId,
                                           quality: quality,
                                           fromNetwork: !videoExist,
@@ -640,7 +640,7 @@ class _VideosTab extends StatelessWidget {
                                     height: 25,
                                   ),
                                 },
-                                if (!videoExist) ...{
+                                if (!videoExist && canDownload) ...{
                                   downloadState.downloadingStatus[url] == true
                                       ? Row(
                                           spacing: 5,
@@ -697,23 +697,25 @@ class _VideosTab extends StatelessWidget {
                                               context,
                                               videoId: videos[i].id!,
                                               toDownload: true,
-                                              onChooseQuality: (context, quality) {
-                                                BlocProvider.of<
-                                                      DownloadingMediaBloc
-                                                    >(context)
-                                                    .add(
-                                                      DownloadFileEvent(
-                                                        fileUrl: url,
-                                                        downloadUrl:
-                                                            "$url$quality.mp4",
-                                                        quality: quality,
-                                                        fileType: 'video',
-                                                        fileName:
-                                                            videos[i].videoName,
-                                                        courseId: courseId,
-                                                      ),
-                                                    );
-                                              },
+                                              onChooseQuality:
+                                                  (context, quality) {
+                                                    BlocProvider.of<
+                                                          DownloadingMediaBloc
+                                                        >(context)
+                                                        .add(
+                                                          DownloadFileEvent(
+                                                            fileUrl: url!,
+                                                            downloadUrl: url!,
+                                                            quality: quality,
+                                                            fileType: 'video',
+                                                            fileName: videos[i]
+                                                                .videoName,
+                                                            courseId: courseId,
+                                                            lectureId: videos[i]
+                                                                .lectureId,
+                                                          ),
+                                                        );
+                                                  },
                                             );
                                           },
                                           child: SvgPicture.asset(

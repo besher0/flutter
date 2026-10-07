@@ -77,6 +77,7 @@ class CourseModel {
   final Year? year;
   final Season? season;
   final bool? isFree;
+  final String? telegramUrl;
 
   CourseModel({
     this.id,
@@ -87,6 +88,7 @@ class CourseModel {
     this.year,
     this.season,
     this.isFree,
+    this.telegramUrl,
   });
 
   CourseModel copyWith({
@@ -98,6 +100,7 @@ class CourseModel {
     Year? year,
     Season? season,
     bool? isFree,
+    String? telegramUrl,
   }) => CourseModel(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -107,6 +110,7 @@ class CourseModel {
     year: year ?? this.year,
     season: season ?? this.season,
     isFree: isFree ?? this.isFree,
+    telegramUrl: telegramUrl ?? this.telegramUrl,
   );
 
   factory CourseModel.fromJson(Map<String, dynamic> json) => CourseModel(
@@ -116,6 +120,7 @@ class CourseModel {
     imageUrl: json["imageUrl"],
     duration: json["duration"],
     isFree: json["isFree"],
+    telegramUrl: json["telegramUrl"] as String?,
     year: json["year"] == null ? null : Year.fromJson(json["year"]),
     season: json["season"] == null ? null : Season.fromJson(json["season"]),
   );
@@ -127,6 +132,7 @@ class CourseModel {
     "imageUrl": imageUrl,
     "duration": duration,
     "isFree": isFree,
+    "telegramUrl": telegramUrl,
     "year": year?.toJson(),
     "season": season?.toJson(),
   };

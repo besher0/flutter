@@ -3,10 +3,14 @@ import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/cours
 import 'package:coursaty_student_and_teacher/app/widgets/paid_content_dialog.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/you_are_guest_dialog.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
+import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/courses_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/video_segement_item.dart';
 import 'package:coursaty_student_and_teacher/features/home/presentation/bloc/home_bloc.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/secure_video_models.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/secure_offline_playback_service.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_access_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_model.dart';
 import 'package:flutter/material.dart';
@@ -35,7 +39,8 @@ class MyVideoWidgetBetterPlayer extends StatefulWidget {
     required this.videoId,
     required this.duration,
     required this.segments,
-    required this.videoUrl,
+    this.videoUrl,
+    this.preferredResolution = '720p',
     this.videoDescription,
     this.teacher,
     required this.courseId,
@@ -46,7 +51,8 @@ class MyVideoWidgetBetterPlayer extends StatefulWidget {
   final String videoId;
   final String duration;
   final String? filePath;
-  final String videoUrl;
+  final String? videoUrl;
+  final String preferredResolution;
   final bool isFromNetwork;
   final String? videoDescription;
   final Teacher? teacher;
@@ -58,39 +64,141 @@ class MyVideoWidgetBetterPlayer extends StatefulWidget {
 }
 
 class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
-  late final BetterPlayerDataSource betterPlayerDataSource;
-  late final BetterPlayerController betterPlayerController;
+  late BetterPlayerDataSource betterPlayerDataSource;
+  late BetterPlayerController betterPlayerController;
+  final VideoAccessService _videoAccessService = GetIt.I<VideoAccessService>();
+  final SecureOfflinePlaybackService _secureOfflinePlaybackService =
+      GetIt.I<SecureOfflinePlaybackService>();
+  SecureOfflinePlaybackSession? _offlineSession;
+  PlaybackSessionResponse? _onlineSession;
+  bool _refreshingPlaybackSession = false;
+  bool _hasRefreshedForCurrentError = false;
   bool initialized = false;
+  String? _initializationError;
 
   Future<void> init() async {
     if (initialized) return;
-    betterPlayerDataSource = BetterPlayerDataSource(
-      widget.filePath != null
-          ? BetterPlayerDataSourceType.file
-          : BetterPlayerDataSourceType.network,
-      widget.filePath ?? widget.videoUrl,
-    );
+    try {
+      final source = await _resolveSource();
+      if (!mounted) return;
+      betterPlayerDataSource = BetterPlayerDataSource(
+        BetterPlayerDataSourceType.network,
+        source.url,
+        videoFormat: BetterPlayerVideoFormat.hls,
+        headers: source.headers,
+      );
 
-    betterPlayerController = BetterPlayerController(
-      BetterPlayerConfiguration(
-        autoDetectFullscreenDeviceOrientation: true,
-        deviceOrientationsAfterFullScreen: [DeviceOrientation.portraitUp],
-        deviceOrientationsOnFullScreen: [
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ],
-        controlsConfiguration: BetterPlayerControlsConfiguration(
-          progressBarPlayedColor: Theme.of(context).colorScheme.primary,
+      betterPlayerController = BetterPlayerController(
+        BetterPlayerConfiguration(
+          autoDetectFullscreenDeviceOrientation: true,
+          deviceOrientationsAfterFullScreen: [DeviceOrientation.portraitUp],
+          deviceOrientationsOnFullScreen: [
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ],
+          controlsConfiguration: BetterPlayerControlsConfiguration(
+            progressBarPlayedColor: Theme.of(context).colorScheme.primary,
+          ),
+          fit: BoxFit.contain,
+          autoPlay: false,
+          looping: false,
         ),
-        fit: BoxFit.contain,
-        autoPlay: false,
-        looping: false,
-      ),
-      betterPlayerDataSource: betterPlayerDataSource,
+        betterPlayerDataSource: betterPlayerDataSource,
+      );
+      betterPlayerController.addEventsListener(_onBetterPlayerEvent);
+      setState(() {
+        initialized = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _initializationError = 'تعذر تشغيل الفيديو';
+      });
+    }
+  }
+
+  Future<_PlaybackSource> _resolveSource() async {
+    if (widget.filePath != null) {
+      _offlineSession = await _secureOfflinePlaybackService.start(
+        videoId: widget.videoId,
+        allowRenewal: true,
+      );
+      return _PlaybackSource(_offlineSession!.playlistUri.toString());
+    }
+    final session = await _videoAccessService.createPlaybackSession(
+      videoId: widget.videoId,
+      preferredResolution: widget.preferredResolution,
     );
-    setState(() {
-      initialized = true;
-    });
+    _onlineSession = session;
+    if (session.playbackHeaders.isNotEmpty) {
+      return _PlaybackSource(session.playbackUrl, session.playbackHeaders);
+    }
+    final playbackUrl = await _videoAccessService.resolvePlayableHlsUrl(
+      playbackUrl: session.playbackUrl,
+      preferredResolution: widget.preferredResolution,
+    );
+    return _PlaybackSource(playbackUrl);
+  }
+
+  Future<void> _onBetterPlayerEvent(BetterPlayerEvent event) async {
+    if (event.betterPlayerEventType != BetterPlayerEventType.exception) {
+      if (event.betterPlayerEventType == BetterPlayerEventType.play) {
+        _hasRefreshedForCurrentError = false;
+      }
+      return;
+    }
+    if (widget.filePath != null ||
+        _refreshingPlaybackSession ||
+        _hasRefreshedForCurrentError) {
+      return;
+    }
+    _refreshingPlaybackSession = true;
+    _hasRefreshedForCurrentError = true;
+    try {
+      final wasPlaying = betterPlayerController.isPlaying() ?? false;
+      final position =
+          await betterPlayerController.videoPlayerController?.position ??
+          Duration.zero;
+      final speed =
+          betterPlayerController.videoPlayerController?.value.speed ?? 1.0;
+      final previousSession = _onlineSession;
+      final session = previousSession?.accessToken == null
+          ? await _videoAccessService.createPlaybackSession(
+              videoId: widget.videoId,
+              preferredResolution: widget.preferredResolution,
+            )
+          : await _videoAccessService.refreshPlaybackSession(
+              videoId: widget.videoId,
+              playbackSessionId: previousSession!.playbackSessionId,
+              preferredResolution: widget.preferredResolution,
+            );
+      _onlineSession = session;
+      final playbackUrl = session.playbackHeaders.isNotEmpty
+          ? session.playbackUrl
+          : await _videoAccessService.resolvePlayableHlsUrl(
+              playbackUrl: session.playbackUrl,
+              preferredResolution: widget.preferredResolution,
+            );
+      await betterPlayerController.setupDataSource(
+        BetterPlayerDataSource(
+          BetterPlayerDataSourceType.network,
+          playbackUrl,
+          videoFormat: BetterPlayerVideoFormat.hls,
+          headers: session.playbackHeaders,
+        ),
+      );
+      await betterPlayerController.setSpeed(speed);
+      await betterPlayerController.seekTo(position);
+      if (wasPlaying) {
+        betterPlayerController.play();
+      }
+    } catch (_) {
+      if (mounted) {
+        showMessage('تعذر تجديد جلسة تشغيل الفيديو');
+      }
+    } finally {
+      _refreshingPlaybackSession = false;
+    }
   }
 
   @override
@@ -101,12 +209,30 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
 
   @override
   void dispose() {
-    betterPlayerController.dispose();
+    if (initialized) {
+      betterPlayerController.removeEventsListener(_onBetterPlayerEvent);
+      betterPlayerController.dispose();
+    }
+    _offlineSession?.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_initializationError != null) {
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Center(
+          child: Text(
+            _initializationError!,
+            style: GoogleFonts.cairo(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
     return initialized
         ? Directionality(
             textDirection: TextDirection.rtl,
@@ -418,4 +544,11 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
           )
         : Center(child: CoursatyAppLoader());
   }
+}
+
+class _PlaybackSource {
+  const _PlaybackSource(this.url, [this.headers = const {}]);
+
+  final String url;
+  final Map<String, String> headers;
 }

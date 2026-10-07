@@ -19,13 +19,12 @@ class PersonalDataStep extends StatelessWidget {
     required this.onGenderChanged,
     required this.requiredValidator,
     required this.phoneValidator,
-    required this.teacherTelegram,
     required this.teacherInstagram,
   });
 
   final bool isForTeacher;
   final bool isActiveStep;
-  final TextEditingController description, teacherTelegram, teacherInstagram;
+  final TextEditingController description, teacherInstagram;
   final TextEditingController nameController;
   final TextEditingController lastNameController;
   final TextEditingController phoneController;
@@ -40,24 +39,24 @@ class PersonalDataStep extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         CoursatyTextField(
-          label: 'الاسم',
-          hint: 'الاسم',
+          label: 'ط§ظ„ط§ط³ظ…',
+          hint: 'ط§ظ„ط§ط³ظ…',
           controller: nameController,
           textInputAction: TextInputAction.next,
           validator: isActiveStep ? requiredValidator : null,
         ),
         const SizedBox(height: 16),
         CoursatyTextField(
-          label: 'الكنية',
-          hint: 'الكنية',
+          label: 'ط§ظ„ظƒظ†ظٹط©',
+          hint: 'ط§ظ„ظƒظ†ظٹط©',
           controller: lastNameController,
           textInputAction: TextInputAction.next,
           validator: isActiveStep ? requiredValidator : null,
         ),
         const SizedBox(height: 16),
         CoursatyTextField(
-          label: 'رقم الهاتف',
-          hint: 'رقم الهاتف',
+          label: 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ',
+          hint: 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ',
           controller: phoneController,
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.next,
@@ -69,38 +68,33 @@ class PersonalDataStep extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         CoursatyDropdown<String>(
-          label: 'الجنس',
-          hint: 'الجنس',
+          label: 'ط§ظ„ط¬ظ†ط³',
+          hint: 'ط§ظ„ط¬ظ†ط³',
           value: gender,
           onChanged: onGenderChanged,
           validator: isActiveStep
-              ? (v) => v == null || v.isEmpty ? 'هذا الحقل مطلوب' : null
+              ? (v) => v == null || v.isEmpty
+                    ? 'ظ‡ط°ط§ ط§ظ„ط­ظ‚ظ„ ظ…ط·ظ„ظˆط¨'
+                    : null
               : null,
           items: const [
-            DropdownMenuItem(value: 'MALE', child: Text('ذكر')),
-            DropdownMenuItem(value: 'FEMALE', child: Text('أنثى')),
+            DropdownMenuItem(value: 'MALE', child: Text('ط°ظƒط±')),
+            DropdownMenuItem(value: 'FEMALE', child: Text('ط£ظ†ط«ظ‰')),
           ],
         ),
         if (isForTeacher) ...{
           const SizedBox(height: 16),
           CoursatyTextField(
-            label: 'الوصف',
-            hint: 'الوصف',
+            label: 'ط§ظ„ظˆطµظپ',
+            hint: 'ط§ظ„ظˆطµظپ',
             controller: description,
             textInputAction: TextInputAction.next,
             validator: isActiveStep ? requiredValidator : null,
           ),
           10.verticalSpace,
           CoursatyTextField(
-            label: 'رابط قناة التلفرام',
-            hint: 'رابط قناة التلفرام',
-            controller: teacherTelegram,
-            validator: requiredValidator,
-          ),
-          10.verticalSpace,
-          CoursatyTextField(
-            label: 'رابط صفحة الانستغرام (اختياري)',
-            hint: 'رابط صفحة الانستغرام (اختياري)',
+            label: 'ط±ط§ط¨ط· طµظپط­ط© ط§ظ„ط§ظ†ط³طھط؛ط±ط§ظ… (ط§ط®طھظٹط§ط±ظٹ)',
+            hint: 'ط±ط§ط¨ط· طµظپط­ط© ط§ظ„ط§ظ†ط³طھط؛ط±ط§ظ… (ط§ط®طھظٹط§ط±ظٹ)',
             controller: teacherInstagram,
           ),
         },

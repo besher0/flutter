@@ -83,6 +83,7 @@ class CourseInSubjectModel {
   final int? studentsCount;
   final int? duration;
   final bool? isFree;
+  final String? telegramUrl;
 
   CourseInSubjectModel({
     this.id,
@@ -95,6 +96,7 @@ class CourseInSubjectModel {
     this.studentsCount,
     this.duration,
     this.isFree,
+    this.telegramUrl,
   });
 
   CourseInSubjectModel copyWith({
@@ -108,6 +110,7 @@ class CourseInSubjectModel {
     int? studentsCount,
     int? duration,
     bool? isFree,
+    String? telegramUrl,
   }) => CourseInSubjectModel(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -119,6 +122,7 @@ class CourseInSubjectModel {
     studentsCount: studentsCount ?? this.studentsCount,
     duration: duration ?? this.duration,
     isFree: isFree ?? this.isFree,
+    telegramUrl: telegramUrl ?? this.telegramUrl,
   );
 
   factory CourseInSubjectModel.fromJson(Map<String, dynamic> json) =>
@@ -135,6 +139,7 @@ class CourseInSubjectModel {
             : Teacher.fromJson(json["teacher"]),
         studentsCount: json["studentsCount"],
         isFree: json["isFree"],
+        telegramUrl: json["telegramUrl"] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -148,6 +153,7 @@ class CourseInSubjectModel {
     "teacher": teacher?.toJson(),
     "studentsCount": studentsCount,
     "isFree": isFree,
+    "telegramUrl": telegramUrl,
   };
 }
 

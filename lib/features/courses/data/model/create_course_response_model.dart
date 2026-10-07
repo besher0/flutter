@@ -30,6 +30,7 @@ class CreateCourseResponseModel {
   final DateTime? expiresAt;
   final String? introVideoUrl;
   final String? discussionGroupUrl;
+  final String? telegramUrl;
   final String? status;
   final String? teacherPercentage;
   final dynamic approvedById;
@@ -56,6 +57,7 @@ class CreateCourseResponseModel {
     this.expiresAt,
     this.introVideoUrl,
     this.discussionGroupUrl,
+    this.telegramUrl,
     this.status,
     this.teacherPercentage,
     this.approvedById,
@@ -83,6 +85,7 @@ class CreateCourseResponseModel {
     DateTime? expiresAt,
     String? introVideoUrl,
     String? discussionGroupUrl,
+    String? telegramUrl,
     String? status,
     String? teacherPercentage,
     dynamic approvedById,
@@ -109,6 +112,7 @@ class CreateCourseResponseModel {
     expiresAt: expiresAt ?? this.expiresAt,
     introVideoUrl: introVideoUrl ?? this.introVideoUrl,
     discussionGroupUrl: discussionGroupUrl ?? this.discussionGroupUrl,
+    telegramUrl: telegramUrl ?? this.telegramUrl,
     status: status ?? this.status,
     teacherPercentage: teacherPercentage ?? this.teacherPercentage,
     approvedById: approvedById ?? this.approvedById,
@@ -139,6 +143,7 @@ class CreateCourseResponseModel {
             : DateTime.parse(json["expiresAt"]),
         introVideoUrl: json["introVideoUrl"],
         discussionGroupUrl: json["discussionGroupUrl"],
+        telegramUrl: json["telegramUrl"] as String?,
         status: json["status"],
         teacherPercentage: json["teacherPercentage"],
         approvedById: json["approvedById"],
@@ -168,6 +173,7 @@ class CreateCourseResponseModel {
     "expiresAt": expiresAt?.toIso8601String(),
     "introVideoUrl": introVideoUrl,
     "discussionGroupUrl": discussionGroupUrl,
+    "telegramUrl": telegramUrl,
     "status": status,
     "teacherPercentage": teacherPercentage,
     "approvedById": approvedById,

@@ -10,6 +10,7 @@ class DownloadFileEvent extends DownloadingMediaEvent {
   final String fileType;
   final String? fileName;
   final String courseId;
+  final String? lectureId;
 
   DownloadFileEvent({
     required this.fileUrl,
@@ -18,6 +19,7 @@ class DownloadFileEvent extends DownloadingMediaEvent {
     required this.courseId,
     required this.downloadUrl,
     this.quality,
+    this.lectureId,
   });
 }
 

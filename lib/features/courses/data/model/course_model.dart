@@ -143,6 +143,7 @@ class CourseModel {
   final double? rating;
   final CollegeYear? collegeYear;
   final bool? isFree;
+  final String? telegramUrl;
 
   CourseModel({
     this.id,
@@ -160,6 +161,7 @@ class CourseModel {
     this.rating,
     this.collegeYear,
     this.isFree,
+    this.telegramUrl,
   });
 
   CourseModel copyWith({
@@ -178,6 +180,7 @@ class CourseModel {
     Teacher? teacher,
     double? rating,
     bool? isFree,
+    String? telegramUrl,
   }) => CourseModel(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -192,6 +195,7 @@ class CourseModel {
     studentsCount: studentsCount ?? this.studentsCount,
     rating: rating ?? this.rating,
     isFree: isFree ?? this.isFree,
+    telegramUrl: telegramUrl ?? this.telegramUrl,
     freeCourseExpirationAt:
         freeCourseExpirationAt ?? this.freeCourseExpirationAt,
   );
@@ -202,6 +206,7 @@ class CourseModel {
     description: json["description"],
     imageUrl: json["imageUrl"],
     price: json["price"],
+    telegramUrl: json["telegramUrl"] as String?,
     isFree: json["isFree"] ?? false,
     subscriptionExpiresAt: DateTime.tryParse(
       json["subscriptionExpiresAt"].toString(),
@@ -227,6 +232,7 @@ class CourseModel {
     "description": description,
     "imageUrl": imageUrl,
     "price": price,
+    "telegramUrl": telegramUrl,
     "isFree": isFree,
     "subscriptionExpiresAt": subscriptionExpiresAt?.toIso8601String(),
     "subscribedAt": subscribedAt?.toIso8601String(),

@@ -75,6 +75,7 @@ class Course {
   final bool? isFree;
   final bool? locked;
   final String? paymentQrUrl;
+  final String? telegramUrl;
 
   Course({
     this.id,
@@ -85,6 +86,7 @@ class Course {
     this.isFree,
     this.locked,
     this.paymentQrUrl,
+    this.telegramUrl,
   });
 
   Course copyWith({
@@ -97,6 +99,7 @@ class Course {
     bool? isFree,
     bool? locked,
     String? paymentQrUrl,
+    String? telegramUrl,
   }) => Course(
     id: id ?? this.id,
     imageUrl: imageUrl ?? this.imageUrl,
@@ -106,6 +109,7 @@ class Course {
     isFree: isFree ?? this.isFree,
     locked: locked ?? this.locked,
     paymentQrUrl: paymentQrUrl ?? this.paymentQrUrl,
+    telegramUrl: telegramUrl ?? this.telegramUrl,
   );
 
   factory Course.fromJson(Map<String, dynamic> json) => Course(
@@ -117,6 +121,7 @@ class Course {
     isFree: json["isFree"],
     locked: json["locked"],
     paymentQrUrl: json["paymentQrUrl"],
+    telegramUrl: json["telegramUrl"] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -128,6 +133,7 @@ class Course {
     "isFree": isFree,
     "locked": locked,
     "paymentQrUrl": paymentQrUrl,
+    "telegramUrl": telegramUrl,
   };
 }
 

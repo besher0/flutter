@@ -53,7 +53,6 @@ class CreateTeacherParams {
   final String name;
   final String description;
   final String? image;
-  final String telegramUrl;
   final String? instagramUrl;
   final String universityId;
   final String collegeId;
@@ -63,7 +62,6 @@ class CreateTeacherParams {
     required this.name,
     required this.description,
     this.image,
-    required this.telegramUrl,
     this.instagramUrl,
     required this.universityId,
     required this.collegeId,
@@ -73,7 +71,6 @@ class CreateTeacherParams {
   Map<String, dynamic> get data => {
     "name": name,
     "description": description,
-    "telegramUrl": telegramUrl,
     "instagramUrl": instagramUrl,
     "universityId": universityId,
     "collegeId": collegeId,

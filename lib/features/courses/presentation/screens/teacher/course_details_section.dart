@@ -53,6 +53,7 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
   late final TextEditingController courseName,
       courseDescription,
       courseTelegram,
+      courseDiscussionGroup,
       courseYoutube,
       courseInstagram,
       price,
@@ -75,6 +76,7 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
     courseName = TextEditingController();
     courseDescription = TextEditingController();
     courseTelegram = TextEditingController();
+    courseDiscussionGroup = TextEditingController();
     courseYoutube = TextEditingController();
     courseInstagram = TextEditingController();
     price = TextEditingController();
@@ -94,6 +96,7 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
     courseName.dispose();
     courseDescription.dispose();
     courseTelegram.dispose();
+    courseDiscussionGroup.dispose();
     courseYoutube.dispose();
     // duration.dispose();
     priceAfterDiscount.dispose();
@@ -404,12 +407,18 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
                   : "رفع صورة للكورس",
               choosedFile: chooseFile,
             ),
-          // CoursatyTextField(
-          //   label: 'رابط قناة التلفرام',
-          //   hint: 'رابط قناة التلفرام',
-          //   controller: courseTelegram,
-          // ),
-          // 10.verticalSpace,
+          CoursatyTextField(
+            label: 'رابط التلغرام (اختياري)',
+            hint: 'https://t.me/...',
+            controller: courseTelegram,
+          ),
+          10.verticalSpace,
+          CoursatyTextField(
+            label: 'رابط مجموعة النقاش (اختياري)',
+            hint: 'https://t.me/...',
+            controller: courseDiscussionGroup,
+          ),
+          10.verticalSpace,
           CoursatyTextField(
             label: ' رابط فيديو تعريفي(يوتيوب) (اختياري)',
             hint: 'رابط فيديو تعريفي(يوتيوب) (اختياري)',
@@ -444,136 +453,134 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
             },
           ),
           const SizedBox(height: 16),
-          if (widget.courseDetailsModel == null)
-            BlocConsumer<
-              CourseContentManagementBloc,
-              CourseContentManagementState
-            >(
-              buildWhen: (p, c) => p.createCourse != c.createCourse,
-              listenWhen: (p, c) => p.createCourse != c.createCourse,
-              listener: (context, state) {
-                if (state.createCourse.isFailed) {
-                  showMessage(state.errorMessage);
-                }
-                if (state.createCourse.isSuccess) {
-                  context.go(GRouter.config.applicationRoutes.home);
-                  BlocProvider.of<HomeBloc>(
-                    context,
-                  ).add(ChangeCurrentScreenEvent(newPage: 1));
-                  BlocProvider.of<CoursesBloc>(
-                    context,
-                  ).add(GetTeacherCourses(getActive: true, reset: true));
-                  BlocProvider.of<CoursesBloc>(
-                    context,
-                  ).add(GetTeacherCourses(getActive: false, reset: true));
-                }
-              },
-              builder: (context, state) {
-                return state.createCourse.isLoading
-                    ? CoursatyAppLoader()
-                    : CoursatyPrimaryButton(
-                        label: widget.courseDetailsModel != null
-                            ? 'تعديل'
-                            : "إضافة",
-                        onPressed: () {
-                          if (widget.courseDetailsModel != null &&
-                              expiredDate != null &&
-                              !DateTime.now()
-                                  .difference(expiredDate!)
-                                  .isNegative) {
+          BlocConsumer<
+            CourseContentManagementBloc,
+            CourseContentManagementState
+          >(
+            buildWhen: (p, c) => p.createCourse != c.createCourse,
+            listenWhen: (p, c) => p.createCourse != c.createCourse,
+            listener: (context, state) {
+              if (state.createCourse.isFailed) {
+                showMessage(state.errorMessage);
+              }
+              if (state.createCourse.isSuccess) {
+                context.go(GRouter.config.applicationRoutes.home);
+                BlocProvider.of<HomeBloc>(
+                  context,
+                ).add(ChangeCurrentScreenEvent(newPage: 1));
+                BlocProvider.of<CoursesBloc>(
+                  context,
+                ).add(GetTeacherCourses(getActive: true, reset: true));
+                BlocProvider.of<CoursesBloc>(
+                  context,
+                ).add(GetTeacherCourses(getActive: false, reset: true));
+              }
+            },
+            builder: (context, state) {
+              return state.createCourse.isLoading
+                  ? CoursatyAppLoader()
+                  : CoursatyPrimaryButton(
+                      label: widget.courseDetailsModel != null
+                          ? 'تعديل'
+                          : "إضافة",
+                      onPressed: () {
+                        if (widget.courseDetailsModel != null &&
+                            expiredDate != null &&
+                            !DateTime.now()
+                                .difference(expiredDate!)
+                                .isNegative) {
+                          showMessage(
+                            "انتهت مدة الكورس , لم يعد بالإمكان التعديل عليه",
+                          );
+                          return;
+                        }
+                        if (_formKey.currentState!.validate()) {
+                          if (widget.courseDetailsModel == null &&
+                              chooseFile.value == null) {
+                            showMessage("الرجاء إرفاق صورة للكورس");
+                            return;
+                          }
+
+                          // if (expiredDate == null) {
+                          //   showMessage("الرجاء إرفاق تاريخ انتهاء الكورس");
+                          //   return;
+                          // }
+                          int priceBefore = int.parse(price.text);
+                          int priceAfter = priceAfterDiscount.text.isEmpty
+                              ? priceBefore
+                              : int.parse(priceAfterDiscount.text);
+                          double percent = priceBefore == 0
+                              ? 0
+                              : (((priceBefore - priceAfter) * 100) /
+                                    priceBefore);
+                          if (percent < 0 || percent > 100) {
+                            showMessage("السعر قبل الخصم وبعده غير متوافقان");
+                            return;
+                          }
+                          if (isFreeNotifier.value &&
+                              (priceBefore != 0 || priceAfter != 0)) {
                             showMessage(
-                              "انتهت مدة الكورس , لم يعد بالإمكان التعديل عليه",
+                              "الكورس مجاني , يجب ان يكون سعره مساو للصفر قبل وبعد الخصم",
                             );
                             return;
                           }
-                          if (_formKey.currentState!.validate()) {
-                            if (widget.courseDetailsModel == null &&
-                                chooseFile.value == null) {
-                              showMessage("الرجاء إرفاق صورة للكورس");
-                              return;
-                            }
-
-                            // if (expiredDate == null) {
-                            //   showMessage("الرجاء إرفاق تاريخ انتهاء الكورس");
-                            //   return;
-                            // }
-                            int priceBefore = int.parse(price.text);
-                            int priceAfter = priceAfterDiscount.text.isEmpty
-                                ? priceBefore
-                                : int.parse(priceAfterDiscount.text);
-                            double percent = priceBefore == 0
-                                ? 0
-                                : (((priceBefore - priceAfter) * 100) /
-                                      priceBefore);
-                            if (percent < 0 || percent > 100) {
-                              showMessage("السعر قبل الخصم وبعده غير متوافقان");
-                              return;
-                            }
-                            if (isFreeNotifier.value &&
-                                (priceBefore != 0 || priceAfter != 0)) {
-                              showMessage(
-                                "الكورس مجاني , يجب ان يكون سعره مساو للصفر قبل وبعد الخصم",
-                              );
-                              return;
-                            }
-                            // if (!isFreeNotifier.value && priceBefore == 0) {
-                            //   showMessage("يجب أن يكون للكورس سعر أكبر من 0");
-                            //   return;
-                            // }
-                            BlocProvider.of<CourseContentManagementBloc>(
-                              context,
-                            ).add(
-                              UpsertCourseEvent(
-                                image: chooseFile.value == null
+                          // if (!isFreeNotifier.value && priceBefore == 0) {
+                          //   showMessage("يجب أن يكون للكورس سعر أكبر من 0");
+                          //   return;
+                          // }
+                          BlocProvider.of<CourseContentManagementBloc>(
+                            context,
+                          ).add(
+                            UpsertCourseEvent(
+                              image: chooseFile.value == null
+                                  ? null
+                                  : File(chooseFile.value!.path),
+                              params: UpsertCourseParams(
+                                name: courseName.text,
+                                description: courseDescription.text,
+                                subjectId:
+                                    widget.subjectId ??
+                                    widget
+                                        .courseDetailsModel
+                                        ?.details
+                                        ?.subjectId ??
+                                    'f1501fa6-6b10-48d8-84d5-e7f2006a7363',
+                                categoryId: categoryController.text,
+                                price: int.parse(price.text),
+                                courseDiscountPercentage: percent,
+                                // duration: double.parse(duration.text),
+                                isFree: isFreeNotifier.value,
+                                expiresAt: expiredDate,
+                                // seasonId: seasonController.text,
+                                // universityId: universityController.text,
+                                // collegeId: collegeController.text,
+                                // yearId: yearController.text,
+                                // departmentId: departmentController.text.isEmpty
+                                //     ? null
+                                //     : departmentController.text,
+                                telegramUrl: courseTelegram.text.trim().isEmpty
                                     ? null
-                                    : File(chooseFile.value!.path),
-                                params: UpsertCourseParams(
-                                  name: courseName.text,
-                                  description: courseDescription.text,
-                                  subjectId:
-                                      widget.subjectId ??
-                                      widget
-                                          .courseDetailsModel
-                                          ?.details
-                                          ?.subjectId ??
-                                      'f1501fa6-6b10-48d8-84d5-e7f2006a7363',
-                                  categoryId: categoryController.text,
-                                  price: int.parse(price.text),
-                                  courseDiscountPercentage: percent,
-                                  // duration: double.parse(duration.text),
-                                  isFree: isFreeNotifier.value,
-                                  expiresAt: expiredDate,
-                                  // seasonId: seasonController.text,
-                                  // universityId: universityController.text,
-                                  // collegeId: collegeController.text,
-                                  // yearId: yearController.text,
-                                  // departmentId: departmentController.text.isEmpty
-                                  //     ? null
-                                  //     : departmentController.text,
-                                  discussionGroupUrl:
-                                      courseTelegram.text.trim().isEmpty
-                                      ? null
-                                      : courseTelegram.text,
-                                  introVideoUrl:
-                                      courseYoutube.text.trim().isEmpty
-                                      ? null
-                                      : courseYoutube.text,
-                                  instagramUrl: courseInstagram.text,
-                                  imageUrl: widget
-                                      .courseDetailsModel
-                                      ?.course
-                                      ?.imageUrl,
+                                    : courseTelegram.text.trim(),
+                                discussionGroupUrl:
+                                    courseDiscussionGroup.text.trim().isEmpty
+                                    ? null
+                                    : courseDiscussionGroup.text.trim(),
+                                introVideoUrl: courseYoutube.text.trim().isEmpty
+                                    ? null
+                                    : courseYoutube.text,
+                                instagramUrl: courseInstagram.text,
+                                imageUrl:
+                                    widget.courseDetailsModel?.course?.imageUrl,
 
-                                  courseId:
-                                      widget.courseDetailsModel?.course?.id,
-                                ),
+                                courseId: widget.courseDetailsModel?.course?.id,
                               ),
-                            );
-                          }
-                        },
-                      );
-              },
-            ),
+                            ),
+                          );
+                        }
+                      },
+                    );
+            },
+          ),
           const SizedBox(height: 16),
           CoursatySecondaryButton(
             label: 'إلغاء',
@@ -605,7 +612,8 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
         categoryController.text = data.details?.categoryId ?? '';
         courseName.text = data.course?.name ?? '';
         courseDescription.text = data.details?.description ?? '';
-        courseTelegram.text = data.details?.discussionGroupUrl ?? '';
+        courseTelegram.text = data.course?.telegramUrl ?? '';
+        courseDiscussionGroup.text = data.details?.discussionGroupUrl ?? '';
         courseYoutube.text = data.details?.introVideoUrl ?? '';
         // universityController.text = data.details?.universityId ?? '';
         // collegeController.text = data.details?.collegeId ?? '';

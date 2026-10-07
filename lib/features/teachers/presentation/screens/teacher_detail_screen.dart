@@ -11,7 +11,6 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:injectable_generator/utils.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../app/widgets/chip_widget.dart';
@@ -103,7 +102,6 @@ class _TeacherDetailScreenState extends State<TeacherDetailScreen> {
                       _AboutSection(
                         aboutText: state.teacherDetails?.description ?? '',
                         instagram: state.teacherDetails?.instagramUrl,
-                        telegram: state.teacherDetails?.telegramUrl,
                       ),
                       15.verticalSpace,
                     },
@@ -318,10 +316,9 @@ class _ProfileRow extends StatelessWidget {
 }
 
 class _AboutSection extends StatelessWidget {
-  const _AboutSection({required this.aboutText, this.telegram, this.instagram});
+  const _AboutSection({required this.aboutText, this.instagram});
 
   final String aboutText;
-  final String? telegram;
   final String? instagram;
 
   @override
@@ -354,13 +351,6 @@ class _AboutSection extends StatelessWidget {
                   ),
                   10.horizontalSpace,
                 },
-                // if (telegram != null)
-                //   InkWell(
-                //     onTap: () {
-                //       HelperFunctions.urlLauncher(telegram!);
-                //     },
-                //     child: Icon(Icons.telegram , color: Colors.blue, size: 35,),
-                //   ),
               ],
             ),
           ],

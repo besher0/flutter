@@ -171,6 +171,33 @@ abstract class EndPoints {
     return '${''.uploadsVideosScope}$id/resolutions';
   }
 
+  static String createPlaybackSession({required String videoId}) {
+    return 'videos/$videoId/playback-session'.noScope;
+  }
+
+  static String createPlaybackChallenge({required String videoId}) {
+    return 'videos/$videoId/playback-challenge'.noScope;
+  }
+
+  static String refreshPlaybackSession({
+    required String videoId,
+    required String sessionId,
+  }) {
+    return 'videos/$videoId/playback-session/$sessionId/refresh'.noScope;
+  }
+
+  static String createDownloadSession({required String videoId}) {
+    return 'videos/$videoId/download-session'.noScope;
+  }
+
+  static String renewOfflineLicense({required String videoId}) {
+    return 'videos/$videoId/offline-license/renew'.noScope;
+  }
+
+  static String getOfflineLicensePublicKey() {
+    return 'videos/offline-license/public-key'.noScope;
+  }
+
   static String getCourseStatistics({required String id}) {
     return '${''.coursesScope}$id/statistics';
   }

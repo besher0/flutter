@@ -146,7 +146,12 @@ class CoursesRemoteDataSource {
       requestPrams: RequestConfig(
         endpoint: EndPoints.getVideoResolutions(id: videoId),
         response: ResponseValue(
-          fromJson: (data) => resolutionModelFromJson(data["mp4Resolutions"]),
+          fromJson: (data) => resolutionModelFromJson(
+            data["playlistResolutions"] ??
+                data["availableResolutions"] ??
+                data["mp4Resolutions"] ??
+                const [],
+          ),
         ),
       ),
     );

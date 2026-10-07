@@ -21,7 +21,6 @@ class UpdateProfileParams {
   final String? name;
   final String? gender;
   final String? phone;
-  final String? telegramUrl;
   final String? instagramUrl;
   final String? universityNumber;
   final String? description;
@@ -32,7 +31,6 @@ class UpdateProfileParams {
     this.gender,
     this.phone,
     this.instagramUrl,
-    this.telegramUrl,
     this.universityNumber,
     this.imageUrl,
     this.description,
@@ -42,7 +40,6 @@ class UpdateProfileParams {
     if (name != null) "name": name,
     if (gender != null) "gender": gender,
     if (phone != null) "phone": phone,
-    if (telegramUrl != null) "telegramUrl": telegramUrl,
     if (instagramUrl != null) "instagramUrl": instagramUrl,
     if (universityNumber != null) "universityNumber": universityNumber,
     if (imageUrl != null) "image": imageUrl,

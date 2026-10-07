@@ -22,27 +22,78 @@ bool isDateFraud = false;
 ///   student
 ///   0968045822
 
+// void main() async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+//   try {
+//     await Firebase.initializeApp(
+//       options: DefaultFirebaseOptions.currentPlatform,
+//     );
+//     HydratedBloc.storage = await HydratedStorage.build(
+//       storageDirectory: HydratedStorageDirectory(
+//         (await getApplicationDocumentsDirectory()).path,
+//       ),
+//     );
+//   } catch (e) {
+//     print(e);
+//   }
+//   await Future.wait([
+//     EasyLocalization.ensureInitialized(),
+//     configureDependencies(),
+//     NotificationProcess.init(),
+//     DeviceInfoService.init(),
+//   ]);
+//   isDateFraud = NetworkTimeProtocolService.checkLocalTimeValidity();
+//   runApp(const CoursatyApp());
+// }
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+  print('STEP 1: START');
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+  print('STEP 2: Orientation OK');
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    print('STEP 3: Firebase OK');
+
     HydratedBloc.storage = await HydratedStorage.build(
       storageDirectory: HydratedStorageDirectory(
         (await getApplicationDocumentsDirectory()).path,
       ),
     );
-  } catch (e) {
-    print(e);
+    print('STEP 4: HydratedBloc OK');
+  } catch (e, stackTrace) {
+    print('INIT ERROR: $e');
+    print(stackTrace);
   }
-  await Future.wait([
-    EasyLocalization.ensureInitialized(),
-    configureDependencies(),
-    NotificationProcess.init(),
-    DeviceInfoService.init(),
-  ]);
+
+  print('STEP 5: EasyLocalization START');
+  await EasyLocalization.ensureInitialized();
+  print('STEP 5: EasyLocalization OK');
+
+  print('STEP 6: DI START');
+  await configureDependencies();
+  print('STEP 6: DI OK');
+
+  print('STEP 7: Notification START');
+  await NotificationProcess.init();
+  print('STEP 7: Notification OK');
+
+  print('STEP 8: DeviceInfo START');
+  await DeviceInfoService.init();
+  print('STEP 8: DeviceInfo OK');
+
+  print('STEP 9: Time check START');
   isDateFraud = NetworkTimeProtocolService.checkLocalTimeValidity();
+  print('STEP 9: Time check OK - isDateFraud=$isDateFraud');
+
+  print('STEP 10: RUN APP');
   runApp(const CoursatyApp());
 }

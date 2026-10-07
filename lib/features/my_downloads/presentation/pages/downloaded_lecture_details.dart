@@ -209,7 +209,7 @@ class _DownloadedLectureDetailsState extends State<DownloadedLectureDetails>
           .state
           .urlToFileReferences;
       files.removeWhere((item) => savedUrls[item.fileUrl!] == null);
-      videos.removeWhere((item) => savedUrls[item.videoUrl!] == null);
+      videos.removeWhere((item) => savedUrls[item.id!] == null);
       return {'files': files, 'videos': videos};
     }
   }
@@ -289,7 +289,7 @@ class _VideosTab extends StatelessWidget {
             .state
             .urlToFileReferences;
         downloaded.removeWhere((item) {
-          final url = item.videoUrl!;
+          final url = item.id!;
           return existUrls[url] == null;
         });
         return ListView.separated(
@@ -298,7 +298,7 @@ class _VideosTab extends StatelessWidget {
           itemCount: downloaded.length,
           separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (_, i) {
-            final url = downloaded[i].videoUrl!;
+            final url = downloaded[i].id!;
             return ContentItem(
               isExist: true,
               fileUrl: url,

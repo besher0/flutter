@@ -5,7 +5,7 @@
 import 'dart:convert';
 
 List<ResolutionModel> resolutionModelFromJson(List<dynamic> data) =>
-    List<ResolutionModel>.from(data.map((x) => ResolutionModel.fromJson(x)));
+    List<ResolutionModel>.from(data.map(ResolutionModel.fromJson));
 
 String resolutionModelToJson(List<ResolutionModel> data) =>
     json.encode(List<dynamic>.from(data.map((x) => x.toJson())));
@@ -27,12 +27,17 @@ class ResolutionModel {
     sizeBytes: sizeBytes ?? this.sizeBytes,
   );
 
-  factory ResolutionModel.fromJson(Map<String, dynamic> json) =>
-      ResolutionModel(
-        resolution: json["resolution"],
-        path: json["path"],
-        sizeBytes: json["sizeBytes"],
-      );
+  factory ResolutionModel.fromJson(dynamic json) {
+    if (json is String) {
+      return ResolutionModel(resolution: json);
+    }
+    final map = json as Map<String, dynamic>;
+    return ResolutionModel(
+      resolution: map["resolution"],
+      path: map["path"],
+      sizeBytes: (map["sizeBytes"] as num?)?.toInt(),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     "resolution": resolution,

@@ -43,6 +43,13 @@ Future<String?> showVideoQualityDialog(
               BlocBuilder<CoursesBloc, CoursesState>(
                 buildWhen: (p, c) => p.getResolutions != c.getResolutions,
                 builder: (context, state) {
+                  final resolutions = state.resolutions
+                      .where(
+                        (resolution) =>
+                            resolution.resolution != null &&
+                            resolution.resolution!.isNotEmpty,
+                      )
+                      .toList();
                   return state.getResolutions.isLoading
                       ? CoursatyAppLoader()
                       : state.getResolutions.isFailed
@@ -55,11 +62,11 @@ Future<String?> showVideoQualityDialog(
                             },
                           ),
                         )
-                      : state.resolutions.isNotEmpty
+                      : resolutions.isNotEmpty
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            ...state.resolutions.map(
+                            ...resolutions.map(
                               (resolution) => Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: InkWell(
@@ -68,7 +75,7 @@ Future<String?> showVideoQualityDialog(
                                     Navigator.pop(context);
                                     onChooseQuality.call(
                                       context,
-                                      resolution.resolution!,
+                                      resolution.resolution ?? '720p',
                                     );
                                   },
                                   child: Container(
@@ -92,7 +99,7 @@ Future<String?> showVideoQualityDialog(
 
                                         Expanded(
                                           child: Text(
-                                            resolution.resolution!,
+                                            resolution.resolution ?? '',
                                             style: GoogleFonts.cairo(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w600,
@@ -102,19 +109,21 @@ Future<String?> showVideoQualityDialog(
                                           ),
                                         ),
                                         const SizedBox(width: 5),
-                                        Text(
-                                          HelperFunctions.getSizeFromBytes(
-                                            resolution.sizeBytes!,
+                                        if (resolution.sizeBytes != null) ...[
+                                          Text(
+                                            HelperFunctions.getSizeFromBytes(
+                                              resolution.sizeBytes!,
+                                            ),
+                                            style: GoogleFonts.cairo(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
+                                            ),
                                           ),
-                                          style: GoogleFonts.cairo(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurface,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
+                                          const SizedBox(width: 5),
+                                        ],
                                       ],
                                     ),
                                   ),

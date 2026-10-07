@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/encrypted_hls_download_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get_it/get_it.dart';
@@ -20,15 +21,37 @@ part 'downloading_media_state.dart';
 @LazySingleton()
 class DownloadingMediaBloc
     extends Bloc<DownloadingMediaEvent, DownloadingMediaState> {
-  DownloadingMediaBloc() : super(DownloadingMediaState()) {
+  DownloadingMediaBloc(
+    this._prefsRepository,
+    this._encryptedHlsDownloadService,
+    this._client,
+  ) : super(DownloadingMediaState()) {
     _fetchAppDirectory();
+    _encryptedHlsDownloadService.cleanupLegacyPlaintextDownloads();
     on<DownloadingMediaEvent>((event, emit) {});
     on<DownloadFileEvent>(_onDownloadFileEvent);
     on<ClearState>(_onClearState);
     on<CancelDownloadEvent>(_onCancelDownloadEvent);
   }
 
-  final PrefsRepository _prefsRepository = GetIt.I<PrefsRepository>();
+  String _redactLogMessage(String message) {
+    return message
+        .replaceAll(
+          RegExp(r'https?://[^\s]+', caseSensitive: false),
+          '<redacted-url>',
+        )
+        .replaceAll(
+          RegExp(
+            r'(jwt|token|signature|signedPayload|downloadUrl)[^,\s]*',
+            caseSensitive: false,
+          ),
+          '<redacted-secret>',
+        );
+  }
+
+  final PrefsRepository _prefsRepository;
+  final EncryptedHlsDownloadService _encryptedHlsDownloadService;
+  final Dio _client;
 
   bool appDirFetched = false;
   Directory? appDir;
@@ -74,7 +97,6 @@ class DownloadingMediaBloc
     required String fileType,
   }) async {
     Map<String, bool> downloadingStatuses;
-    final dio = Dio();
     final tempPath = '$filePath.temp'; // use temp file for download
     final fileKey = originalUrlForVideo ?? url;
     final tempFile = File(tempPath);
@@ -83,7 +105,7 @@ class DownloadingMediaBloc
       _cancelTokens[filePath] = CancelToken();
     }
     try {
-      final response = await dio.get<ResponseBody>(
+      final response = await _client.get<ResponseBody>(
         url,
         cancelToken: _cancelTokens[filePath],
         options: Options(
@@ -159,12 +181,17 @@ class DownloadingMediaBloc
           _handleError(fileKey, fileType, e);
         },
       );
-    } catch (e) {
-      _handleError(fileKey, fileType, e);
+    } catch (e, stackTrace) {
+      _handleError(fileKey, fileType, e, stackTrace);
     }
   }
 
-  void _handleError(String fileKey, String fileType, dynamic e) {
+  void _handleError(
+    String fileKey,
+    String fileType,
+    dynamic e, [
+    StackTrace? stackTrace,
+  ]) {
     Map<String, bool> downloadingStatuses;
     downloadingStatuses = Map.of(state.downloadingStatus);
     Map<String, double> downloadingProgress = Map.of(
@@ -181,7 +208,13 @@ class DownloadingMediaBloc
             state.currentDownloadingImagesTasks - (fileType == 'image' ? 1 : 0),
       ),
     );
-    log('Unexpected error: $e');
+    final message = e is Error
+        ? e.toString().split(': ').skip(1).join(': ')
+        : e.toString();
+    log(
+      'Download failed: type=${e.runtimeType}, message=${_redactLogMessage(message)}',
+      stackTrace: stackTrace,
+    );
     if (e is DioException &&
         e.message == "The request was manually cancelled by the user.") {
       return;
@@ -209,6 +242,51 @@ class DownloadingMediaBloc
             (event.fileType == 'image' ? 1 : 0),
       ),
     );
+    if (event.fileType == 'video') {
+      _cancelTokens[url] = CancelToken();
+      try {
+        await _encryptedHlsDownloadService.download(
+          videoId: event.fileUrl,
+          courseId: event.courseId,
+          lectureId: event.lectureId ?? '',
+          preferredResolution: event.quality ?? '720p',
+          cancelToken: _cancelTokens[url],
+          onProgress: (progress) {
+            final downloadingProgress = Map<String, double>.of(
+              state.downloadingProcesses,
+            );
+            downloadingProgress[url] = progress;
+            emit(state.copyWith(downloadingProcesses: downloadingProgress));
+          },
+        );
+        downloadingStatuses = Map.of(state.downloadingStatus);
+        downloadingProgress = Map.of(state.downloadingProcesses);
+        downloadingStatuses.remove(url);
+        downloadingProgress.remove(url);
+        GetIt.I<MyDownloadsBloc>().add(
+          SaveReferenceOfDownloadedFile(
+            fileUrl: url,
+            localFilePath: 'secure-hls://$url',
+            courseId: event.courseId,
+          ),
+        );
+        if (event.quality != null) {
+          _prefsRepository.setQuality(url, event.quality!);
+        }
+        emit(
+          state.copyWith(
+            downloadingStatus: downloadingStatuses,
+            downloadingProcesses: downloadingProgress,
+            currentDownloadingTasks: state.currentDownloadingTasks - 1,
+          ),
+        );
+      } catch (e, stackTrace) {
+        _handleError(url, event.fileType, e, stackTrace);
+      } finally {
+        _cancelTokens.remove(url);
+      }
+      return;
+    }
     String name;
     if (event.fileType == "video") {
       name =
@@ -327,8 +405,9 @@ class DownloadingMediaBloc
       fileType: event.fileType,
       fileName: name,
     );
-    _cancelTokens[filePath]?.cancel();
+    (_cancelTokens[filePath] ?? _cancelTokens[url])?.cancel();
     _cancelTokens.remove(filePath);
+    _cancelTokens.remove(url);
     final tempPath = '$filePath.temp';
     try {
       File(tempPath).delete();
@@ -336,6 +415,9 @@ class DownloadingMediaBloc
     try {
       File(filePath).delete();
     } catch (e) {}
+    if (event.fileType == 'video') {
+      await _encryptedHlsDownloadService.deleteVideo(event.fileUrl);
+    }
 
     emit(
       state.copyWith(

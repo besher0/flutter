@@ -140,6 +140,14 @@ import '../../features/home/domain/usecases/get_teacher_summary_usecase.dart'
     as _i345;
 import '../../features/home/domain/usecases/search_usecase.dart' as _i587;
 import '../../features/home/presentation/bloc/home_bloc.dart' as _i202;
+import '../../features/my_downloads/data/services/encrypted_hls_download_service.dart'
+    as _i763;
+import '../../features/my_downloads/data/services/offline_license_service.dart'
+    as _i621;
+import '../../features/my_downloads/data/services/secure_offline_playback_service.dart'
+    as _i213;
+import '../../features/my_downloads/data/services/video_access_service.dart'
+    as _i516;
 import '../../features/my_downloads/presentation/bloc/downloading_media/downloading_media_bloc.dart'
     as _i575;
 import '../../features/my_downloads/presentation/bloc/my_downloads_bloc.dart'
@@ -256,10 +264,6 @@ Future<_i174.GetIt> $initGetIt(
   await gh.singletonAsync<_i866.PrefsRepository>(
     () => appModule.prefsRepository,
     preResolve: true,
-  );
-  gh.singleton<_i722.MyDownloadsBloc>(() => _i722.MyDownloadsBloc());
-  gh.lazySingleton<_i575.DownloadingMediaBloc>(
-    () => _i575.DownloadingMediaBloc(),
   );
   gh.lazySingleton<_i599.CourseContentManagementRepository>(
     () => _i1.CourseContentManagementRepositoryImpl(
@@ -566,6 +570,13 @@ Future<_i174.GetIt> $initGetIt(
       gh<_i297.SubscriptionsRepository>(),
     ),
   );
+  gh.lazySingleton<_i516.VideoAccessService>(
+    () => _i516.VideoAccessService(
+      gh<_i361.Dio>(),
+      gh<_i866.PrefsRepository>(),
+      gh<_i460.SharedPreferences>(),
+    ),
+  );
   gh.lazySingleton<_i152.SubscriptionBloc>(
     () => _i152.SubscriptionBloc(
       gh<_i964.GetCourseInterestsUsecase>(),
@@ -585,6 +596,13 @@ Future<_i174.GetIt> $initGetIt(
     () => _i120.AppBloc(
       scanCodeUsecase: gh<_i618.ScanCodeUsecase>(),
       getCustomerServiceUsecase: gh<_i418.GetCustomerServiceUsecase>(),
+    ),
+  );
+  gh.lazySingleton<_i621.OfflineLicenseService>(
+    () => _i621.OfflineLicenseService(
+      gh<_i516.VideoAccessService>(),
+      gh<_i866.PrefsRepository>(),
+      gh<_i460.SharedPreferences>(),
     ),
   );
   gh.lazySingleton<_i836.CoursesBloc>(
@@ -623,6 +641,33 @@ Future<_i174.GetIt> $initGetIt(
       uploadFileUsecase: gh<_i942.UploadFileUsecase>(),
       changePasswordUsecase: gh<_i607.ChangePasswordUsecase>(),
       deleteAccountUsecase: gh<_i812.DeleteAccountUsecase>(),
+    ),
+  );
+  gh.lazySingleton<_i763.EncryptedHlsDownloadService>(
+    () => _i763.EncryptedHlsDownloadService(
+      gh<_i361.Dio>(),
+      gh<_i516.VideoAccessService>(),
+      gh<_i621.OfflineLicenseService>(),
+      gh<_i866.PrefsRepository>(),
+    ),
+  );
+  gh.lazySingleton<_i213.SecureOfflinePlaybackService>(
+    () => _i213.SecureOfflinePlaybackService(
+      gh<_i763.EncryptedHlsDownloadService>(),
+      gh<_i621.OfflineLicenseService>(),
+    ),
+  );
+  gh.singleton<_i722.MyDownloadsBloc>(
+    () => _i722.MyDownloadsBloc(
+      gh<_i866.PrefsRepository>(),
+      gh<_i763.EncryptedHlsDownloadService>(),
+    ),
+  );
+  gh.lazySingleton<_i575.DownloadingMediaBloc>(
+    () => _i575.DownloadingMediaBloc(
+      gh<_i866.PrefsRepository>(),
+      gh<_i763.EncryptedHlsDownloadService>(),
+      gh<_i361.Dio>(),
     ),
   );
   return getIt;

@@ -152,6 +152,7 @@ class Course {
   final int? studentsCount;
   final SeasonClass? season;
   final bool? isFree;
+  final String? telegramUrl;
 
   Course({
     this.id,
@@ -162,6 +163,7 @@ class Course {
     this.studentsCount,
     this.season,
     this.isFree,
+    this.telegramUrl,
   });
 
   Course copyWith({
@@ -173,6 +175,7 @@ class Course {
     int? studentsCount,
     bool? isFree,
     SeasonClass? season,
+    String? telegramUrl,
   }) => Course(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -182,6 +185,7 @@ class Course {
     studentsCount: studentsCount ?? this.studentsCount,
     season: season ?? this.season,
     isFree: isFree ?? this.isFree,
+    telegramUrl: telegramUrl ?? this.telegramUrl,
   );
 
   factory Course.fromJson(Map<String, dynamic> json) => Course(
@@ -190,6 +194,7 @@ class Course {
     imageUrl: json["imageUrl"],
     duration: json["duration"],
     isFree: json["isFree"],
+    telegramUrl: json["telegramUrl"] as String?,
     expiresAt: json["expiresAt"] == null
         ? null
         : DateTime.parse(json["expiresAt"]),
@@ -205,6 +210,7 @@ class Course {
     "imageUrl": imageUrl,
     "duration": duration,
     "isFree": isFree,
+    "telegramUrl": telegramUrl,
     "expiresAt": expiresAt?.toIso8601String(),
     "studentsCount": studentsCount,
     "season": season?.toJson(),

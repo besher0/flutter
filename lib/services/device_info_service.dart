@@ -1,7 +1,10 @@
-import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:device_safety_info/device_safety_info.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 bool kIsIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 bool kIsAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -13,6 +16,8 @@ class DeviceInfoService {
   static bool isRealDevice = false;
   static bool screenLockEnabled = false;
   static bool isRealDeviceEmulatorDetector = false;
+  static const String _deviceIdPrefsKey = 'coursaty_installation_device_id_v2';
+  static String? _installationDeviceId;
   DeviceInfoService();
 
   static Future<void> init() async {
@@ -23,7 +28,23 @@ class DeviceInfoService {
     } else if (kIsIOS) {
       iosDeviceInfo = await deviceInfoPlugin.iosInfo;
     }
+    await _initInstallationDeviceId();
     isRealDevice = isPhysicalDevice();
+  }
+
+  static Future<void> _initInstallationDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getString(_deviceIdPrefsKey);
+    if (current != null && current.isNotEmpty) {
+      _installationDeviceId = current;
+      return;
+    }
+
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    final deviceId = 'install_${base64Url.encode(bytes)}';
+    await prefs.setString(_deviceIdPrefsKey, deviceId);
+    _installationDeviceId = deviceId;
   }
 
   static bool isPhysicalDevice() {
@@ -91,5 +112,9 @@ class DeviceInfoService {
       return '${androidDeviceInfo.id}_${androidDeviceInfo.model}';
     }
     return 'AAAA-BBBB-99CC-36EE';
+  }
+
+  static String getSecureVideoDeviceId() {
+    return _installationDeviceId ?? getDeviceId();
   }
 }

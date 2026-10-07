@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/storage/prefs_repository.dart';
 
@@ -39,6 +40,21 @@ class NetworkTimeProtocolService {
   }
 
   static bool checkLocalTimeValidity() {
+    final sharedPreferences = GetIt.I<SharedPreferences>();
+    final trustedServerTime = DateTime.tryParse(
+      sharedPreferences.getString('trustedServerTime') ?? '',
+    );
+    final trustedLocalRecordedTime = DateTime.tryParse(
+      sharedPreferences.getString('trustedLocalRecordedTime') ?? '',
+    );
+    if (trustedServerTime != null && trustedLocalRecordedTime != null) {
+      final elapsed = DateTime.now().toUtc().difference(
+        trustedLocalRecordedTime,
+      );
+      if (elapsed.isNegative && elapsed.inMinutes.abs() > 2) {
+        return true;
+      }
+    }
     DateTime? networkTime = storedDate != 'null'
         ? DateTime.tryParse(storedDate.toString())
         : _dealWithIos();

@@ -76,7 +76,6 @@ class Teacher {
   final int? coursesCount;
   final int? likesCount;
   final String? instagramUrl;
-  final String? telegramUrl;
 
   Teacher({
     this.id,
@@ -86,7 +85,6 @@ class Teacher {
     this.coursesCount,
     this.likesCount,
     this.instagramUrl,
-    this.telegramUrl,
   });
 
   Teacher copyWith({
@@ -97,7 +95,6 @@ class Teacher {
     int? coursesCount,
     int? likesCount,
     String? instagramUrl,
-    String? telegramUrl,
   }) => Teacher(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -106,7 +103,6 @@ class Teacher {
     coursesCount: coursesCount ?? this.coursesCount,
     likesCount: likesCount ?? this.likesCount,
     instagramUrl: instagramUrl ?? this.instagramUrl,
-    telegramUrl: telegramUrl ?? this.telegramUrl,
   );
 
   factory Teacher.fromJson(Map<String, dynamic> json) => Teacher(
@@ -117,7 +113,6 @@ class Teacher {
     coursesCount: json["coursesCount"],
     likesCount: json["likesCount"],
     instagramUrl: json["instagramUrl"],
-    telegramUrl: json["telegramUrl"],
   );
 
   Map<String, dynamic> toJson() => {
@@ -128,6 +123,5 @@ class Teacher {
     "coursesCount": coursesCount,
     "likesCount": likesCount,
     "instagramUrl": instagramUrl,
-    "telegramUrl": telegramUrl,
   };
 }

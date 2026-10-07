@@ -32,7 +32,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController universityNumber = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  final TextEditingController telegram = TextEditingController();
   final TextEditingController instagram = TextEditingController();
   final TextEditingController university = TextEditingController();
   final TextEditingController college = TextEditingController();
@@ -46,17 +45,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final PrefsRepository prefsRepository = GetIt.I<PrefsRepository>();
 
   String? _validateRequired(String? value) {
-    if ((value ?? '').trim().isEmpty) return 'هذا الحقل مطلوب';
+    if ((value ?? '').trim().isEmpty) return 'ظ‡ط°ط§ ط§ظ„ط­ظ‚ظ„ ظ…ط·ظ„ظˆط¨';
     return null;
   }
 
   String? _validatePhone(String? value) {
     final phone = (value ?? '').trim();
-    if (phone.isEmpty) return 'رقم الهاتف مطلوب';
+    if (phone.isEmpty) return 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ ظ…ط·ظ„ظˆط¨';
     if (!RegExp(r'^\d+$').hasMatch(phone)) {
-      return 'رقم الهاتف يجب أن يحتوي أرقام فقط';
+      return 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ ظٹط¬ط¨ ط£ظ† ظٹط­طھظˆظٹ ط£ط±ظ‚ط§ظ… ظپظ‚ط·';
     }
-    if (phone.length != 10) return 'رقم الهاتف يجب أن يكون 10 أرقام';
+    if (phone.length != 10)
+      return 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ ظٹط¬ط¨ ط£ظ† ظٹظƒظˆظ† 10 ط£ط±ظ‚ط§ظ…';
     return null;
   }
 
@@ -126,24 +126,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
                 CoursatyTextField(
-                  label: 'الاسم',
-                  hint: 'الاسم',
+                  label: 'ط§ظ„ط§ط³ظ…',
+                  hint: 'ط§ظ„ط§ط³ظ…',
                   controller: nameController,
                   textInputAction: TextInputAction.next,
                   validator: _validateRequired,
                 ),
                 const SizedBox(height: 16),
                 CoursatyTextField(
-                  label: 'الكنية',
-                  hint: 'الكنية',
+                  label: 'ط§ظ„ظƒظ†ظٹط©',
+                  hint: 'ط§ظ„ظƒظ†ظٹط©',
                   controller: lastNameController,
                   textInputAction: TextInputAction.next,
                   validator: _validateRequired,
                 ),
                 const SizedBox(height: 16),
                 CoursatyTextField(
-                  label: 'رقم الهاتف',
-                  hint: 'رقم الهاتف',
+                  label: 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ',
+                  hint: 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ',
                   readOnly: true,
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
@@ -156,31 +156,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 CoursatyDropdown<String>(
-                  label: 'الجنس',
-                  hint: 'الجنس',
+                  label: 'ط§ظ„ط¬ظ†ط³',
+                  hint: 'ط§ظ„ط¬ظ†ط³',
                   value: gender,
                   onChanged: (v) => setState(() => gender = v!),
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'هذا الحقل مطلوب' : null,
+                  validator: (v) => v == null || v.isEmpty
+                      ? 'ظ‡ط°ط§ ط§ظ„ط­ظ‚ظ„ ظ…ط·ظ„ظˆط¨'
+                      : null,
                   items: const [
-                    DropdownMenuItem(value: 'MALE', child: Text('ذكر')),
-                    DropdownMenuItem(value: 'FEMALE', child: Text('أنثى')),
+                    DropdownMenuItem(value: 'MALE', child: Text('ط°ظƒط±')),
+                    DropdownMenuItem(value: 'FEMALE', child: Text('ط£ظ†ط«ظ‰')),
                   ],
                 ),
                 const SizedBox(height: 16),
                 if (!widget.isForTeacher) ...{
                   CoursatyTextField(
-                    label: 'الرقم الجامعي',
-                    hint: 'الرقم الجامعي',
+                    label: 'ط§ظ„ط±ظ‚ظ… ط§ظ„ط¬ط§ظ…ط¹ظٹ',
+                    hint: 'ط§ظ„ط±ظ‚ظ… ط§ظ„ط¬ط§ظ…ط¹ظٹ',
                     controller: universityNumber,
                     readOnly: true,
                     textInputAction: TextInputAction.next,
                     validator: (text) {
                       if (text == null) {
-                        return "الرقم الجامعي مطلوب";
+                        return "ط§ظ„ط±ظ‚ظ… ط§ظ„ط¬ط§ظ…ط¹ظٹ ظ…ط·ظ„ظˆط¨";
                       }
                       if (int.tryParse(text) == null) {
-                        return "الرقم الجامعي المدخل غير صالح";
+                        return "ط§ظ„ط±ظ‚ظ… ط§ظ„ط¬ط§ظ…ط¹ظٹ ط§ظ„ظ…ط¯ط®ظ„ ط؛ظٹط± طµط§ظ„ط­";
                       }
                       return null;
                     },
@@ -189,7 +190,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 },
                 if (widget.isForTeacher) ...{
                   CustomChooseFileButton(
-                    title: "تغيير صورة الملف الشخصي",
+                    title: "طھط؛ظٹظٹط± طµظˆط±ط© ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ",
                     usedForImage: true,
                     usedForFile: false,
                     choosedFile: chooseFile,
@@ -205,20 +206,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               spacing: 10,
                               children: [
                                 CoursatyTextField(
-                                  label: 'رابط قناة التلفرام',
-                                  hint: 'رابط قناة التلفرام',
-                                  controller: telegram,
-                                  validator: _validateRequired,
-                                ),
-                                CoursatyTextField(
-                                  label: 'رابط صفحة الانستغرام (اختياري)',
-                                  hint: 'رابط صفحة الانستغرام (اختياري)',
+                                  label:
+                                      'ط±ط§ط¨ط· طµظپط­ط© ط§ظ„ط§ظ†ط³طھط؛ط±ط§ظ… (ط§ط®طھظٹط§ط±ظٹ)',
+                                  hint:
+                                      'ط±ط§ط¨ط· طµظپط­ط© ط§ظ„ط§ظ†ط³طھط؛ط±ط§ظ… (ط§ط®طھظٹط§ط±ظٹ)',
                                   controller: instagram,
                                 ),
                                 CoursatyTextField(
                                   validator: _validateRequired,
-                                  label: 'وصف المدرس',
-                                  hint: 'وصفي الشخصي',
+                                  label: 'ظˆطµظپ ط§ظ„ظ…ط¯ط±ط³',
+                                  hint: 'ظˆطµظپظٹ ط§ظ„ط´ط®طµظٹ',
                                   controller: description,
                                 ),
                               ],
@@ -240,7 +237,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     return state.updateProfileStatus.isLoading
                         ? CoursatyAppLoader()
                         : CoursatyPrimaryButton(
-                            label: 'حفظ',
+                            label: 'ط­ظپط¸',
                             onPressed: () {
                               if (_formKey.currentState!.validate()) {
                                 BlocProvider.of<AuthBloc>(context).add(
@@ -255,9 +252,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                           "${nameController.text} ${lastNameController.text}",
                                       phone: phoneController.text,
                                       gender: gender,
-                                      telegramUrl: telegram.text.trim().isEmpty
-                                          ? null
-                                          : telegram.text,
                                       instagramUrl:
                                           instagram.text.trim().isEmpty
                                           ? null
@@ -286,7 +280,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initializeTeacher() {
     setState(() {
       final profile = GetIt.I<AuthBloc>().state.profileModel;
-      telegram.text = profile?.teacher?.telegramUrl ?? '';
       instagram.text = profile?.teacher?.instagramUrl ?? '';
       description.text = profile?.teacher?.description ?? '';
     });

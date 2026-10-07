@@ -43,7 +43,6 @@ class Teacher {
   final String? name;
   final String? description;
   final String? image;
-  final String? telegramUrl;
   final String? instagramUrl;
   final int? likesCount;
   final DateTime? createdAt;
@@ -57,7 +56,6 @@ class Teacher {
     this.likesCount,
     this.createdAt,
     this.count,
-    this.telegramUrl,
     this.instagramUrl,
   });
 
@@ -65,7 +63,6 @@ class Teacher {
     String? id,
     String? name,
     String? description,
-    String? telegramUrl,
     String? instagramUrl,
     String? image,
     int? likesCount,
@@ -79,7 +76,6 @@ class Teacher {
     likesCount: likesCount ?? this.likesCount,
     createdAt: createdAt ?? this.createdAt,
     count: count ?? this.count,
-    telegramUrl: telegramUrl ?? this.telegramUrl,
     instagramUrl: instagramUrl ?? this.instagramUrl,
   );
 
@@ -89,7 +85,6 @@ class Teacher {
     description: json["description"],
     image: json["image"],
     instagramUrl: json["instagramUrl"],
-    telegramUrl: json["telegramUrl"],
     likesCount: json["likesCount"],
     createdAt: json["createdAt"] == null
         ? null
@@ -104,7 +99,6 @@ class Teacher {
     "image": image,
     "likesCount": likesCount,
     "instagramUrl": instagramUrl,
-    "telegramUrl": telegramUrl,
     "createdAt": createdAt?.toIso8601String(),
     "_count": count?.toJson(),
   };

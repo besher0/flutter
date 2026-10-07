@@ -7,8 +7,8 @@ import 'package:coursaty_student_and_teacher/features/courses/data/model/course_
 import 'package:coursaty_student_and_teacher/features/courses/data/model/course_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart'
     hide Lecture;
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/encrypted_hls_download_service.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable_generator/utils.dart';
@@ -19,7 +19,8 @@ part 'my_downloads_event.dart';
 
 @singleton
 class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
-  MyDownloadsBloc() : super(MyDownloadsState()) {
+  MyDownloadsBloc(this._prefsRepository, this._encryptedHlsDownloadService)
+    : super(MyDownloadsState()) {
     on<MyDownloadsEvent>((event, emit) {});
     on<SaveCoursesInLocalEvent>(_onSaveCoursesInLocalEvent);
     on<SaveReferenceOfDownloadedFile>(_onSaveReferenceOfDownloadedFile);
@@ -30,7 +31,8 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     on<DeleteCoursesWhichAreExpired>(_onDeleteCoursesWhichAreExpired);
   }
 
-  final PrefsRepository _prefsRepository = GetIt.I<PrefsRepository>();
+  final PrefsRepository _prefsRepository;
+  final EncryptedHlsDownloadService _encryptedHlsDownloadService;
 
   @override
   MyDownloadsState? fromJson(Map<String, dynamic> json) {
@@ -96,11 +98,12 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     coursesDetails[event.courseId]?.lectures?.forEach((item) {
       lecturesIds.add(item.id!);
       lecturesDetails[item.id!]?.videos?.forEach((item) {
-        final url = filePaths[item.videoUrl!];
+        final videoKey = item.id!;
+        final url = filePaths[videoKey];
         if (url != null) {
-          _deleteFileFromLocal(path: url);
+          _deleteFileFromLocal(path: url, videoId: videoKey);
         }
-        filePaths.remove(item.videoUrl!);
+        filePaths.remove(videoKey);
       });
       lecturesDetails[item.id!]?.files?.forEach((item) {
         final url = filePaths[item.fileUrl!];
@@ -160,9 +163,13 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     emit(state.copyWith(lectureIdToLectureDetailsReferences: lecturesDetails));
   }
 
-  void _deleteFileFromLocal({required String path}) {
+  void _deleteFileFromLocal({required String path, String? videoId}) {
     try {
-      File(path).delete();
+      if (path.startsWith('secure-hls://') && videoId != null) {
+        _encryptedHlsDownloadService.deleteVideo(videoId);
+      } else {
+        File(path).delete();
+      }
     } catch (e) {
       debugPrint(e.toString());
     }
@@ -176,7 +183,11 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     final filePath = urlToFileReferences[event.fileUrl];
     if (filePath != null) {
       try {
-        File(filePath).delete();
+        if (filePath.startsWith('secure-hls://')) {
+          _encryptedHlsDownloadService.deleteVideo(event.fileUrl);
+        } else {
+          File(filePath).delete();
+        }
       } catch (e) {
         debugPrint(e.toString());
       }

@@ -51,7 +51,7 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
     _captureLease = StudentContentProtection.claim();
     if (!widget.fromNetwork) {
       myDownloadsState = BlocProvider.of<MyDownloadsBloc>(context).state;
-      filePath = myDownloadsState.urlToFileReferences[widget.video.videoUrl];
+      filePath = myDownloadsState.urlToFileReferences[widget.video.id];
       videoName =
           widget.video.videoName ??
           filePath?.split('/').last.split('.').first ??
@@ -83,7 +83,9 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
                     DownloadingMediaState
                   >(
                     builder: (context, downloadState) {
-                      final url = widget.video.videoUrl!;
+                      final url = widget.video.id!;
+                      final canDownload =
+                          widget.video.offlineDownloadEnabled ?? true;
                       return downloadState.downloadingStatus[url] == true
                           ? Row(
                               spacing: 5,
@@ -123,7 +125,8 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
                                 ),
                               ],
                             )
-                          : state.urlToFileReferences[url] == null
+                          : state.urlToFileReferences[url] == null &&
+                                canDownload
                           ? InkWell(
                               onTap: () {
                                 showVideoQualityDialog(
@@ -136,11 +139,12 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
                                     ).add(
                                       DownloadFileEvent(
                                         fileUrl: url,
-                                        downloadUrl: "$url$quality.mp4",
+                                        downloadUrl: url,
                                         quality: quality,
                                         fileType: 'video',
                                         fileName: widget.video.videoName,
                                         courseId: widget.courseId,
+                                        lectureId: widget.video.lectureId,
                                       ),
                                     );
                                   },
@@ -168,7 +172,8 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
                   borderRadius: BorderRadius.circular(14),
                   child: MyVideoWidgetBetterPlayer(
                     filePath: !widget.fromNetwork ? filePath : null,
-                    videoUrl: "${widget.video.videoUrl!}${widget.quality}.mp4",
+                    videoUrl: widget.video.videoUrl,
+                    preferredResolution: widget.quality ?? '720p',
                     videoName: videoName,
                     videoId: widget.video.id!,
                     isFromNetwork: widget.fromNetwork,

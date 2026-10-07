@@ -58,6 +58,7 @@ class Course {
   final int? discountedPrice;
   final bool? isFree;
   final bool? locked;
+  final String? telegramUrl;
 
   Course({
     this.id,
@@ -67,6 +68,7 @@ class Course {
     this.discountedPrice,
     this.isFree,
     this.locked,
+    this.telegramUrl,
   });
 
   Course copyWith({
@@ -77,6 +79,7 @@ class Course {
     int? discountedPrice,
     bool? isFree,
     bool? locked,
+    String? telegramUrl,
   }) => Course(
     id: id ?? this.id,
     imageUrl: imageUrl ?? this.imageUrl,
@@ -85,6 +88,7 @@ class Course {
     discountedPrice: discountedPrice ?? this.discountedPrice,
     isFree: isFree ?? this.isFree,
     locked: locked ?? this.locked,
+    telegramUrl: telegramUrl ?? this.telegramUrl,
   );
 
   factory Course.fromJson(Map<String, dynamic> json) => Course(
@@ -95,6 +99,7 @@ class Course {
     discountedPrice: json["discountedPrice"]?.toInt(),
     isFree: json["isFree"],
     locked: json["locked"],
+    telegramUrl: json["telegramUrl"] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -105,6 +110,7 @@ class Course {
     "discountedPrice": discountedPrice,
     "isFree": isFree,
     "locked": locked,
+    "telegramUrl": telegramUrl,
   };
 }
 
@@ -114,7 +120,6 @@ class Details {
   final String? description;
   final String? introVideoUrl;
   final String? discussionGroupUrl;
-  final String? telegramUrl;
   final int? studentsCount;
   final Season? year;
   final Season? season;
@@ -137,7 +142,6 @@ class Details {
     this.description,
     this.introVideoUrl,
     this.discussionGroupUrl,
-    this.telegramUrl,
     this.studentsCount,
     this.year,
     this.season,
@@ -161,7 +165,6 @@ class Details {
     String? description,
     String? introVideoUrl,
     String? discussionGroupUrl,
-    String? telegramUrl,
     int? studentsCount,
     Season? year,
     Season? season,
@@ -183,7 +186,6 @@ class Details {
     description: description ?? this.description,
     introVideoUrl: introVideoUrl ?? this.introVideoUrl,
     discussionGroupUrl: discussionGroupUrl ?? this.discussionGroupUrl,
-    telegramUrl: telegramUrl ?? this.telegramUrl,
     studentsCount: studentsCount ?? this.studentsCount,
     year: year ?? this.year,
     season: season ?? this.season,
@@ -207,7 +209,6 @@ class Details {
     description: json["description"],
     introVideoUrl: json["introVideoUrl"],
     discussionGroupUrl: json["discussionGroupUrl"],
-    telegramUrl: json["telegramUrl"],
     studentsCount: json["studentsCount"],
     year: json["year"] == null ? null : Season.fromJson(json["year"]),
     season: json["season"] == null ? null : Season.fromJson(json["season"]),
@@ -231,7 +232,6 @@ class Details {
     "description": description,
     "introVideoUrl": introVideoUrl,
     "discussionGroupUrl": discussionGroupUrl,
-    "telegramUrl": telegramUrl,
     "studentsCount": studentsCount,
     "year": year?.toJson(),
     "season": season?.toJson(),

@@ -197,6 +197,8 @@ class Video {
   final int? durationSeconds;
   final int? viewsCount;
   final bool? isFree;
+  final bool? offlineDownloadEnabled;
+  final int? contentVersion;
   final List<Segment>? segments;
   final bool? locked;
   final int? sortOrder;
@@ -210,6 +212,8 @@ class Video {
     this.durationSeconds,
     this.viewsCount,
     this.isFree,
+    this.offlineDownloadEnabled,
+    this.contentVersion,
     this.segments,
     this.locked,
     this.videoSize,
@@ -226,6 +230,8 @@ class Video {
     int? durationSeconds,
     int? viewsCount,
     bool? isFree,
+    bool? offlineDownloadEnabled,
+    int? contentVersion,
     int? sortOrder,
     List<Segment>? segments,
     bool? locked,
@@ -239,6 +245,9 @@ class Video {
     durationSeconds: durationSeconds ?? this.durationSeconds,
     viewsCount: viewsCount ?? this.viewsCount,
     isFree: isFree ?? this.isFree,
+    offlineDownloadEnabled:
+        offlineDownloadEnabled ?? this.offlineDownloadEnabled,
+    contentVersion: contentVersion ?? this.contentVersion,
     segments: segments ?? this.segments,
     locked: locked ?? this.locked,
     sortOrder: sortOrder ?? this.sortOrder,
@@ -254,6 +263,8 @@ class Video {
     durationSeconds: int.tryParse(json["durationSeconds"].toString()),
     viewsCount: json["viewsCount"],
     isFree: json["isFree"],
+    offlineDownloadEnabled: json["offlineDownloadEnabled"],
+    contentVersion: (json["contentVersion"] as num?)?.toInt(),
     segments: json["segments"] == null
         ? []
         : List<Segment>.from(json["segments"]!.map((x) => Segment.fromJson(x))),
@@ -271,6 +282,8 @@ class Video {
     "durationSeconds": durationSeconds,
     "viewsCount": viewsCount,
     "isFree": isFree,
+    "offlineDownloadEnabled": offlineDownloadEnabled,
+    "contentVersion": contentVersion,
     "sortOrder": sortOrder,
     "segments": segments == null
         ? []

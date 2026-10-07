@@ -50,7 +50,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   final _description = TextEditingController(); // teacher
   final _teacherInstagram = TextEditingController(); // teacher
-  final _teacherTelegram = TextEditingController(); // teacher
 
   String _gender = "MALE"; // student & teacher
 
@@ -116,7 +115,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   instagramUrl: _teacherInstagram.text.trim().isEmpty
                       ? null
                       : _teacherInstagram.text,
-                  telegramUrl: _teacherTelegram.text,
                   universityId: _universityController.text,
                   collegeId: _collegeController.text,
                   departmentId: _departmentController.text.trim().isEmpty
@@ -218,7 +216,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             requiredValidator: _validateRequired,
                             phoneValidator: _validatePhone,
                             teacherInstagram: _teacherInstagram,
-                            teacherTelegram: _teacherTelegram,
                           ),
                           _buildButtons(),
                         ],

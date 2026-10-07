@@ -29,6 +29,7 @@ class UpsertCourseParams {
   final DateTime? expiresAt;
   final String? introVideoUrl;
   final String? discussionGroupUrl;
+  final String? telegramUrl;
   final String? instagramUrl;
   final String? courseId;
 
@@ -48,6 +49,7 @@ class UpsertCourseParams {
     this.expiresAt,
     this.introVideoUrl,
     this.discussionGroupUrl,
+    this.telegramUrl,
     this.instagramUrl,
     this.courseId,
     this.seasonId,
@@ -74,6 +76,7 @@ class UpsertCourseParams {
     "isFree": isFree,
     if (expiresAt != null) "expiresAt": expiresAt!.toIso8601String(),
     if (introVideoUrl != null) "introVideoUrl": introVideoUrl,
+    if (courseId != null || telegramUrl != null) "telegramUrl": telegramUrl,
     if (discussionGroupUrl != null) "discussionGroupUrl": discussionGroupUrl,
     if (instagramUrl != null) "instagramUrl": instagramUrl,
   };

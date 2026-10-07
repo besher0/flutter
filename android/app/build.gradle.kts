@@ -22,6 +22,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
@@ -33,6 +37,15 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+
+        val playIntegrityProjectNumber =
+            (project.findProperty("GOOGLE_PLAY_INTEGRITY_PROJECT_NUMBER") as String?) ?: "0"
+        buildConfigField(
+            "long",
+            "GOOGLE_PLAY_INTEGRITY_PROJECT_NUMBER",
+            "${playIntegrityProjectNumber}L"
+        )
+
     }
     buildTypes {
         release {
@@ -47,4 +60,5 @@ flutter {
 }
 dependencies {
     implementation("androidx.multidex:multidex:2.0.1")
+    implementation("com.google.android.play:integrity:1.6.0")
 }
