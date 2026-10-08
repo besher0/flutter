@@ -4,11 +4,17 @@ sealed class MyDownloadsEvent {}
 
 class SaveReferenceOfDownloadedFile extends MyDownloadsEvent {
   final String fileUrl, localFilePath, courseId;
+  final String? lectureId;
+  final CourseDetailsModel? courseDetailsModel;
+  final LectureDetailsModel? lectureDetailsModel;
 
   SaveReferenceOfDownloadedFile({
     required this.courseId,
     required this.fileUrl,
     required this.localFilePath,
+    this.lectureId,
+    this.courseDetailsModel,
+    this.lectureDetailsModel,
   });
 }
 

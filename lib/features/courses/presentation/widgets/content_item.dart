@@ -3,7 +3,6 @@ import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart'
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get_it/get_it.dart';
@@ -181,9 +180,9 @@ class ContentItem extends StatelessWidget {
         onConfirmed: () {
           context.pop();
           if (fileUrl != null) {
-            BlocProvider.of<MyDownloadsBloc>(
-              context,
-            ).add(DeleteReferenceOfDownloadedFile(fileUrl: fileUrl!));
+            GetIt.I<MyDownloadsBloc>().add(
+              DeleteReferenceOfDownloadedFile(fileUrl: fileUrl!),
+            );
           }
         },
       ),

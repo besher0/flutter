@@ -27,124 +27,128 @@ Future<String?> showVideoQualityDialog(
       return SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "اختر جودة ${toDownload ? "التحميل" : "التشغيل"}",
-                style: GoogleFonts.cairo(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: context.colorScheme.onSurface,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "اختر جودة ${toDownload ? "التحميل" : "التشغيل"}",
+                  style: GoogleFonts.cairo(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: context.colorScheme.onSurface,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 20),
-              BlocBuilder<CoursesBloc, CoursesState>(
-                buildWhen: (p, c) => p.getResolutions != c.getResolutions,
-                builder: (context, state) {
-                  final resolutions = state.resolutions
-                      .where(
-                        (resolution) =>
-                            resolution.resolution != null &&
-                            resolution.resolution!.isNotEmpty,
-                      )
-                      .toList();
-                  return state.getResolutions.isLoading
-                      ? CoursatyAppLoader()
-                      : state.getResolutions.isFailed
-                      ? Center(
-                          child: TryAgainWidget(
-                            onPress: () {
-                              BlocProvider.of<CoursesBloc>(
-                                context,
-                              ).add(GetVideoResolutionsEvent(videoId: videoId));
-                            },
-                          ),
+                const SizedBox(height: 20),
+                BlocBuilder<CoursesBloc, CoursesState>(
+                  buildWhen: (p, c) => p.getResolutions != c.getResolutions,
+                  builder: (context, state) {
+                    final resolutions = state.resolutions
+                        .where(
+                          (resolution) =>
+                              resolution.resolution != null &&
+                              resolution.resolution!.isNotEmpty,
                         )
-                      : resolutions.isNotEmpty
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ...resolutions.map(
-                              (resolution) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(14),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    onChooseQuality.call(
-                                      context,
-                                      resolution.resolution ?? '720p',
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 16,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: Colors.grey.shade300,
+                        .toList();
+                    return state.getResolutions.isLoading
+                        ? CoursatyAppLoader()
+                        : state.getResolutions.isFailed
+                        ? Center(
+                            child: TryAgainWidget(
+                              onPress: () {
+                                BlocProvider.of<CoursesBloc>(context).add(
+                                  GetVideoResolutionsEvent(videoId: videoId),
+                                );
+                              },
+                            ),
+                          )
+                        : resolutions.isNotEmpty
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ...resolutions.map(
+                                (resolution) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(14),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      onChooseQuality.call(
+                                        context,
+                                        resolution.resolution ?? '720p',
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 16,
                                       ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.video_settings,
-                                          color: context.colorScheme.onSurface,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: Colors.grey.shade300,
                                         ),
-                                        const SizedBox(width: 12),
-
-                                        Expanded(
-                                          child: Text(
-                                            resolution.resolution ?? '',
-                                            style: GoogleFonts.cairo(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w600,
-                                              color:
-                                                  context.colorScheme.onSurface,
-                                            ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.video_settings,
+                                            color:
+                                                context.colorScheme.onSurface,
                                           ),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        if (resolution.sizeBytes != null) ...[
-                                          Text(
-                                            HelperFunctions.getSizeInMegabytes(
-                                              resolution.sizeBytes!,
-                                            ),
-                                            style: GoogleFonts.cairo(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurface,
+                                          const SizedBox(width: 12),
+
+                                          Expanded(
+                                            child: Text(
+                                              resolution.resolution ?? '',
+                                              style: GoogleFonts.cairo(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w600,
+                                                color: context
+                                                    .colorScheme
+                                                    .onSurface,
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(width: 5),
+                                          if (resolution.sizeBytes != null) ...[
+                                            Text(
+                                              HelperFunctions.getSizeInMegabytes(
+                                                resolution.sizeBytes!,
+                                              ),
+                                              style: GoogleFonts.cairo(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 5),
+                                          ],
                                         ],
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
+                            ],
+                          )
+                        : Center(
+                            child: Text(
+                              "لايوجد دقات متاحة ل${toDownload ? "تحميل" : "تشغيل"} الفيديو الرجاء الانتظار لبعض الوقت",
+                              style: GoogleFonts.cairo(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
-                          ],
-                        )
-                      : Center(
-                          child: Text(
-                            "لايوجد دقات متاحة ل${toDownload ? "تحميل" : "تشغيل"} الفيديو الرجاء الانتظار لبعض الوقت",
-                            style: GoogleFonts.cairo(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        );
-                },
-              ),
-            ],
+                          );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       );

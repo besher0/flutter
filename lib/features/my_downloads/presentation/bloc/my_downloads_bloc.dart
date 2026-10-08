@@ -67,18 +67,37 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     SaveReferenceOfDownloadedFile event,
     Emitter<MyDownloadsState> emit,
   ) {
-    Map<String, String> urlToFileReferences = Map.of(state.urlToFileReferences);
-    // if (!state.courses.any((item) => item.id == event.courseId)) {
-    //   return;
-    // }
-    urlToFileReferences[event.fileUrl] = event.localFilePath;
-    emit(state.copyWith(urlToFileReferences: urlToFileReferences));
+    final nextState = state.withDownloadedFile(
+        fileUrl: event.fileUrl,
+        localFilePath: event.localFilePath,
+        courseId: event.courseId,
+        lectureId: event.lectureId,
+        courseDetailsModel: event.courseDetailsModel,
+        lectureDetailsModel: event.lectureDetailsModel,
+    );
+    debugPrint(
+      '[Downloads] saved reference '
+      'courseId=${event.courseId} '
+      'lectureId=${event.lectureDetailsModel?.lecture?.id} '
+      'courses count=${nextState.courseIdToCourseDetailsReferences.length} '
+      'lectures count=${nextState.lectureIdToLectureDetailsReferences.length} '
+      'references count=${nextState.urlToFileReferences.length}',
+    );
+    assert(
+      event.courseDetailsModel?.course?.id == event.courseId,
+      '[Downloads] course metadata does not match courseId',
+    );
+    assert(
+      event.lectureDetailsModel?.lecture?.id == event.lectureId,
+      '[Downloads] lecture metadata does not match lectureId',
+    );
+    emit(nextState);
   }
 
-  void _onDeleteEveryThingRelatedToCourse(
+  Future<void> _onDeleteEveryThingRelatedToCourse(
     DeleteEveryThingRelatedToCourse event,
     Emitter<MyDownloadsState> emit,
-  ) {
+  ) async {
     // List<CourseModel> courses = List.of(state.courses);
     // CourseModel? course = courses.firstWhereOrNull(
     //   (item) => item.id == event.courseId,
@@ -94,43 +113,40 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     );
     final Map<String, String> filePaths = Map.of(state.urlToFileReferences);
     List<String> lecturesIds = [];
-    List<Lecture> lectures = [];
-    coursesDetails[event.courseId]?.lectures?.forEach((item) {
+    for (final item in coursesDetails[event.courseId]?.lectures ?? const []) {
       lecturesIds.add(item.id!);
-      lecturesDetails[item.id!]?.videos?.forEach((item) {
+      for (final item in lecturesDetails[item.id!]?.videos ?? const []) {
         final videoKey = item.id!;
         final url = filePaths[videoKey];
         if (url != null) {
-          _deleteFileFromLocal(path: url, videoId: videoKey);
+          await _deleteFileFromLocal(path: url, videoId: videoKey);
         }
         filePaths.remove(videoKey);
-      });
-      lecturesDetails[item.id!]?.files?.forEach((item) {
+      }
+      for (final item in lecturesDetails[item.id!]?.files ?? const []) {
         final url = filePaths[item.fileUrl!];
         if (url != null) {
-          _deleteFileFromLocal(path: url);
+          await _deleteFileFromLocal(path: url);
         }
         filePaths.remove(item.fileUrl!);
-      });
-      lecturesDetails[item.id!]?.questions?.forEach((item) {
+      }
+      for (final item in lecturesDetails[item.id!]?.questions ?? const []) {
         final url = filePaths[item.imageUrl ?? ''];
         if (url != null) {
-          _deleteFileFromLocal(path: url);
+          await _deleteFileFromLocal(path: url);
           filePaths.remove(item.imageUrl ?? '');
         }
-      });
-    });
+      }
+    }
     lecturesDetails.removeWhere((k, v) => lecturesIds.contains(k));
     coursesDetails.removeWhere((k, v) => k == event.courseId);
     // courses.removeWhere((item) => item.id == event.courseId);
-    emit(
-      state.copyWith(
-        // courses: courses,
-        courseIdToCourseDetailsReferences: coursesDetails,
-        urlToFileReferences: filePaths,
-        lectureIdToLectureDetailsReferences: lecturesDetails,
-      ),
+    final nextState = state.copyWith(
+      courseIdToCourseDetailsReferences: coursesDetails,
+      urlToFileReferences: filePaths,
+      lectureIdToLectureDetailsReferences: lecturesDetails,
     );
+    emit(_pruneEmptyMetadata(nextState));
   }
 
   void _onSaveCourseDetailsInLocalEvent(
@@ -163,30 +179,33 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     emit(state.copyWith(lectureIdToLectureDetailsReferences: lecturesDetails));
   }
 
-  void _deleteFileFromLocal({required String path, String? videoId}) {
+  Future<void> _deleteFileFromLocal({
+    required String path,
+    String? videoId,
+  }) async {
     try {
       if (path.startsWith('secure-hls://') && videoId != null) {
-        _encryptedHlsDownloadService.deleteVideo(videoId);
+        await _encryptedHlsDownloadService.deleteVideo(videoId);
       } else {
-        File(path).delete();
+        await File(path).delete();
       }
     } catch (e) {
       debugPrint(e.toString());
     }
   }
 
-  FutureOr<void> _onDeleteReferenceOfDownloadedFile(
+  Future<void> _onDeleteReferenceOfDownloadedFile(
     DeleteReferenceOfDownloadedFile event,
     Emitter<MyDownloadsState> emit,
-  ) {
+  ) async {
     Map<String, String> urlToFileReferences = Map.of(state.urlToFileReferences);
     final filePath = urlToFileReferences[event.fileUrl];
     if (filePath != null) {
       try {
         if (filePath.startsWith('secure-hls://')) {
-          _encryptedHlsDownloadService.deleteVideo(event.fileUrl);
+          await _encryptedHlsDownloadService.deleteVideo(event.fileUrl);
         } else {
-          File(filePath).delete();
+          await File(filePath).delete();
         }
       } catch (e) {
         debugPrint(e.toString());
@@ -194,7 +213,54 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     }
     urlToFileReferences.remove(event.fileUrl);
     _prefsRepository.removeQuality(event.fileUrl);
-    emit(state.copyWith(urlToFileReferences: urlToFileReferences));
+    final nextState = _pruneEmptyMetadata(
+      state.copyWith(urlToFileReferences: urlToFileReferences),
+    );
+    debugPrint(
+      '[Downloads] deleted reference=${event.fileUrl} '
+      'courses count=${nextState.courseIdToCourseDetailsReferences.length} '
+      'lectures count=${nextState.lectureIdToLectureDetailsReferences.length} '
+      'references count=${nextState.urlToFileReferences.length}',
+    );
+    emit(nextState);
+  }
+
+  MyDownloadsState _pruneEmptyMetadata(MyDownloadsState source) {
+    final lectures = Map<String, LectureDetailsModel>.of(
+      source.lectureIdToLectureDetailsReferences,
+    );
+    final courses = Map<String, CourseDetailsModel>.of(
+      source.courseIdToCourseDetailsReferences,
+    );
+    final references = source.urlToFileReferences;
+
+    bool lectureHasDownloads(LectureDetailsModel lecture) {
+      final hasFile = lecture.files?.any(
+            (file) => file.fileUrl != null && references[file.fileUrl] != null,
+          ) ??
+          false;
+      final hasVideo = lecture.videos?.any(
+            (video) => video.id != null && references[video.id] != null,
+          ) ??
+          false;
+      final hasQuestion = lecture.questions?.any(
+            (question) =>
+                question.imageUrl != null &&
+                references[question.imageUrl] != null,
+          ) ??
+          false;
+      return hasFile || hasVideo || hasQuestion;
+    }
+
+    lectures.removeWhere((_, lecture) => !lectureHasDownloads(lecture));
+    courses.removeWhere(
+      (_, course) =>
+          !(course.lectures ?? []).any((lecture) => lectures.containsKey(lecture.id)),
+    );
+    return source.copyWith(
+      courseIdToCourseDetailsReferences: courses,
+      lectureIdToLectureDetailsReferences: lectures,
+    );
   }
 
   FutureOr<void> _onDeleteCoursesWhichAreExpired(

@@ -38,6 +38,39 @@ class MyDownloadsState {
     );
   }
 
+  MyDownloadsState withDownloadedFile({
+    required String fileUrl,
+    required String localFilePath,
+    required String courseId,
+    String? lectureId,
+    CourseDetailsModel? courseDetailsModel,
+    LectureDetailsModel? lectureDetailsModel,
+  }) {
+    final courses = Map<String, CourseDetailsModel>.of(
+      courseIdToCourseDetailsReferences,
+    );
+    if (courseDetailsModel?.course?.id == courseId) {
+      courses[courseId] = courseDetailsModel!;
+    }
+
+    final lectures = Map<String, LectureDetailsModel>.of(
+      lectureIdToLectureDetailsReferences,
+    );
+    if (lectureDetailsModel?.lecture?.id != null &&
+        lectureDetailsModel!.lecture!.id == lectureId) {
+      lectures[lectureDetailsModel.lecture!.id!] = lectureDetailsModel;
+    }
+
+    return copyWith(
+      urlToFileReferences: {
+        ...urlToFileReferences,
+        fileUrl: localFilePath,
+      },
+      courseIdToCourseDetailsReferences: courses,
+      lectureIdToLectureDetailsReferences: lectures,
+    );
+  }
+
   factory MyDownloadsState.fromJson(Map<String, dynamic> data) =>
       _$MyDownloadsStateFromJson(data);
 

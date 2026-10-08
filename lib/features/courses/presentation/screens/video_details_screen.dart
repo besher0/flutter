@@ -3,6 +3,8 @@ import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions
 import 'package:coursaty_student_and_teacher/core/security/secure_student_content.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
 import 'package:coursaty_student_and_teacher/features/course_content_management/presentation/widgets/percent_indicator.dart';
+import 'package:coursaty_student_and_teacher/features/courses/data/model/course_details_model.dart'
+    show CourseDetailsModel;
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/courses_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/downloading_media/downloading_media_bloc.dart';
@@ -31,6 +33,8 @@ class VideoDetailsScreen extends StatefulWidget {
     required this.fromNetwork,
     this.quality,
     this.isFree = false,
+    this.courseDetailsModel,
+    this.lectureDetailsModel,
   });
 
   final Video video;
@@ -39,6 +43,8 @@ class VideoDetailsScreen extends StatefulWidget {
   final bool fromNetwork;
   final String? quality;
   final bool isFree;
+  final CourseDetailsModel? courseDetailsModel;
+  final LectureDetailsModel? lectureDetailsModel;
 
   @override
   State<VideoDetailsScreen> createState() => _VideoDetailsScreenState();
@@ -88,7 +94,8 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
         onBackTap: () {
           context.pop();
         },
-        action: !widget.fromNetwork ||
+        action:
+            !widget.fromNetwork ||
                 GetIt.I<PrefsRepository>().isGuest ||
                 GetIt.I<PrefsRepository>().token == null
             ? null
@@ -160,6 +167,10 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
                                         fileType: 'video',
                                         fileName: widget.video.videoName,
                                         courseId: widget.courseId,
+                                        courseDetailsModel:
+                                            widget.courseDetailsModel,
+                                        lectureDetailsModel:
+                                            widget.lectureDetailsModel,
                                         lectureId: widget.video.lectureId,
                                       ),
                                     );

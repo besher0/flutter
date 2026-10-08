@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/subscribe_to_course.dart';
@@ -5,6 +7,7 @@ import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
 import 'package:coursaty_student_and_teacher/core/security/secure_student_content.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
+import 'package:coursaty_student_and_teacher/features/courses/data/model/course_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/courses_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/screens/pdf_viewer_for_decrypted_files_page.dart';
@@ -31,6 +34,7 @@ import '../../../my_downloads/presentation/bloc/my_downloads_state.dart';
 import '../widgets/content_item.dart';
 import '../widgets/image_header.dart';
 import 'mcq_questions_screen.dart';
+import 'lecture_file_access.dart';
 
 class LectureDetailsScreen extends StatefulWidget {
   const LectureDetailsScreen({
@@ -62,6 +66,9 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
         courseId: widget.courseId,
       ),
     );
+    BlocProvider.of<CoursesBloc>(
+      context,
+    ).add(GetCourseDetailsEvent(courseId: widget.courseId));
   }
 
   void _fetchActiveCourses() {
@@ -269,6 +276,8 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
                         _fetchData();
                         _fetchActiveCourses();
                       },
+                      courseDetailsModel: state.courseDetailsModel,
+                      lectureDetailsModel: state.lectureDetailsModel,
                       files: files,
                       isCourseFree: widget.isCourseFree,
                     ),
@@ -280,6 +289,8 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
                       },
                       videos: videos,
                       isCourseFree: widget.isCourseFree,
+                      courseDetailsModel: state.courseDetailsModel,
+                      lectureDetailsModel: state.lectureDetailsModel,
                     ),
                     _McqTab(
                       courseId: widget.courseId,
@@ -288,6 +299,8 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
                         _fetchActiveCourses();
                       },
                       isCourseFree: widget.isCourseFree,
+                      courseDetailsModel: state.courseDetailsModel,
+                      lectureDetailsModel: state.lectureDetailsModel,
                       questions: state.lectureDetailsModel?.questions ?? [],
                     ),
                   ],
@@ -307,12 +320,16 @@ class _FilesTab extends StatelessWidget {
     required this.courseId,
     required this.isCourseFree,
     required this.refresh,
+    this.courseDetailsModel,
+    this.lectureDetailsModel,
   });
 
   final List<FileElement> files;
   final String courseId;
   final bool isCourseFree;
   final void Function() refresh;
+  final CourseDetailsModel? courseDetailsModel;
+  final LectureDetailsModel? lectureDetailsModel;
 
   @override
   Widget build(BuildContext context) {
@@ -352,17 +369,25 @@ class _FilesTab extends StatelessWidget {
                               const SizedBox(height: 10),
                           itemBuilder: (_, i) {
                             final url = files[i].fileUrl;
-                            final isFree =
-                                isCourseFree || (files[i].isFree ?? false);
-                            bool isLocked =
-                                url == null ||
-                                (!isFree &&
-                                    !state.activeCourses.any(
-                                      (item) => item.id == courseId,
-                                    ));
+                            final prefs = GetIt.I<PrefsRepository>();
+                            final isGuest =
+                                prefs.isGuest || prefs.token == null;
+                            final isLocked = isLectureFileLocked(
+                              file: files[i],
+                              courseId: courseId,
+                              isCourseFree: isCourseFree,
+                              isGuest: isGuest,
+                              activeCourseIds: state.activeCourses
+                                  .map((item) => item.id)
+                                  .whereType<String>(),
+                            );
                             final filePath =
                                 myDownloadState.urlToFileReferences[url];
-                            bool fileExist = !isLocked && filePath != null;
+                            final bool fileExist =
+                                !isLocked &&
+                                filePath != null &&
+                                (filePath.startsWith('secure-hls://') ||
+                                    File(filePath).existsSync());
                             return ContentItem(
                               itemColor: isLocked ? AppColors.greyDark : null,
                               isExist: fileExist,
@@ -383,16 +408,31 @@ class _FilesTab extends StatelessWidget {
                                       filePath: filePath,
                                     ),
                                   );
+                                } else if (canOpenLectureFileAsGuest(
+                                  file: files[i],
+                                  isCourseFree: isCourseFree,
+                                  isGuest: isGuest,
+                                )) {
+                                  context.pushPage(
+                                    LectureViewer(
+                                      lecture: files[i],
+                                      filePath: url!,
+                                      fromNetwork: true,
+                                    ),
+                                  );
                                 } else {
                                   BlocProvider.of<DownloadingMediaBloc>(
                                     context,
                                   ).add(
                                     DownloadFileEvent(
-                                      fileUrl: url,
+                                      fileUrl: url!,
                                       fileType: 'file',
                                       downloadUrl: url,
                                       fileName: files[i].fileName,
                                       courseId: courseId,
+                                      lectureId: lectureDetailsModel?.lecture?.id,
+                                      courseDetailsModel: courseDetailsModel,
+                                      lectureDetailsModel: lectureDetailsModel,
                                     ),
                                   );
                                 }
@@ -419,7 +459,7 @@ class _FilesTab extends StatelessWidget {
                                     height: 25,
                                   ),
                                 },
-                                if (!fileExist) ...{
+                                if (!fileExist && !isGuest) ...{
                                   downloadState.downloadingStatus[url] == true
                                       ? Row(
                                           spacing: 5,
@@ -455,7 +495,7 @@ class _FilesTab extends StatelessWidget {
                                                     >(context)
                                                     .add(
                                                       CancelDownloadEvent(
-                                                        fileUrl: url,
+                                                        fileUrl: url!,
                                                         fileType: 'file',
                                                         fileName:
                                                             files[i].fileName,
@@ -504,12 +544,16 @@ class _VideosTab extends StatelessWidget {
     required this.courseId,
     required this.isCourseFree,
     required this.refresh,
+    this.courseDetailsModel,
+    this.lectureDetailsModel,
   });
 
   final String courseId;
   final List<Video> videos;
   final bool isCourseFree;
   final void Function() refresh;
+  final CourseDetailsModel? courseDetailsModel;
+  final LectureDetailsModel? lectureDetailsModel;
 
   @override
   Widget build(BuildContext context) {
@@ -559,6 +603,7 @@ class _VideosTab extends StatelessWidget {
                             print(myDownloadState.urlToFileReferences);
                             bool isLocked =
                                 url == null ||
+                                videos[i].locked == true ||
                                 (isGuest
                                     ? !(videos[i].isFree ?? false)
                                     : (!isFree &&
@@ -594,6 +639,8 @@ class _VideosTab extends StatelessWidget {
                                       courseId: courseId,
                                       fromNetwork: false,
                                       isFree: videos[i].isFree ?? false,
+                                      courseDetailsModel: courseDetailsModel,
+                                      lectureDetailsModel: lectureDetailsModel,
                                       teacher: BlocProvider.of<CoursesBloc>(
                                         context,
                                         listen: false,
@@ -614,6 +661,10 @@ class _VideosTab extends StatelessWidget {
                                           quality: quality,
                                           fromNetwork: !videoExist,
                                           isFree: videos[i].isFree ?? false,
+                                          courseDetailsModel:
+                                              courseDetailsModel,
+                                          lectureDetailsModel:
+                                              lectureDetailsModel,
                                           teacher: BlocProvider.of<CoursesBloc>(
                                             context,
                                             listen: false,
@@ -703,25 +754,28 @@ class _VideosTab extends StatelessWidget {
                                               context,
                                               videoId: videos[i].id!,
                                               toDownload: true,
-                                              onChooseQuality:
-                                                  (context, quality) {
-                                                    BlocProvider.of<
-                                                          DownloadingMediaBloc
-                                                        >(context)
-                                                        .add(
-                                                          DownloadFileEvent(
-                                                            fileUrl: url,
-                                                            downloadUrl: url,
-                                                            quality: quality,
-                                                            fileType: 'video',
-                                                            fileName: videos[i]
-                                                                .videoName,
-                                                            courseId: courseId,
-                                                            lectureId: videos[i]
-                                                                .lectureId,
-                                                          ),
-                                                        );
-                                                  },
+                                              onChooseQuality: (context, quality) {
+                                                BlocProvider.of<
+                                                      DownloadingMediaBloc
+                                                    >(context)
+                                                    .add(
+                                                      DownloadFileEvent(
+                                                        fileUrl: url,
+                                                        downloadUrl: url,
+                                                        quality: quality,
+                                                        fileType: 'video',
+                                                        fileName:
+                                                            videos[i].videoName,
+                                                        courseId: courseId,
+                                                        lectureId:
+                                                            videos[i].lectureId,
+                                                        courseDetailsModel:
+                                                            courseDetailsModel,
+                                                        lectureDetailsModel:
+                                                            lectureDetailsModel,
+                                                      ),
+                                                    );
+                                              },
                                             );
                                           },
                                           child: SvgPicture.asset(
@@ -759,12 +813,16 @@ class _McqTab extends StatelessWidget {
     required this.courseId,
     required this.isCourseFree,
     required this.refresh,
+    this.courseDetailsModel,
+    this.lectureDetailsModel,
   });
 
   final String courseId;
   final List<QuestionModel> questions;
   final bool isCourseFree;
   final void Function() refresh;
+  final CourseDetailsModel? courseDetailsModel;
+  final LectureDetailsModel? lectureDetailsModel;
 
   void _download(BuildContext context) {
     questions.forEach((item) {
@@ -776,6 +834,8 @@ class _McqTab extends StatelessWidget {
             fileType: "image",
             downloadUrl: url,
             courseId: courseId,
+            courseDetailsModel: courseDetailsModel,
+            lectureDetailsModel: lectureDetailsModel,
           ),
         );
       }

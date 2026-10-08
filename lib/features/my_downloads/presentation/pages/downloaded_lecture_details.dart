@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
 import 'package:coursaty_student_and_teacher/core/security/secure_student_content.dart';
@@ -227,13 +229,13 @@ class _FilesTab extends StatelessWidget {
       bloc: GetIt.I<MyDownloadsBloc>(),
       builder: (context, state) {
         List<FileElement> downloaded = List.of(files);
-        final existUrls = context
-            .read<MyDownloadsBloc>()
-            .state
-            .urlToFileReferences;
+        final existUrls = state.urlToFileReferences;
         downloaded.removeWhere((item) {
           final url = item.fileUrl!;
-          return existUrls[url] == null;
+          final path = existUrls[url];
+          return path == null ||
+              path.startsWith('secure-hls://') ||
+              !File(path).existsSync();
         });
         return ListView.separated(
           padding: const EdgeInsets.all(16),
@@ -284,10 +286,7 @@ class _VideosTab extends StatelessWidget {
       bloc: GetIt.I<MyDownloadsBloc>(),
       builder: (context, state) {
         List<Video> downloaded = List.of(videos);
-        final existUrls = context
-            .read<MyDownloadsBloc>()
-            .state
-            .urlToFileReferences;
+        final existUrls = state.urlToFileReferences;
         downloaded.removeWhere((item) {
           final url = item.id!;
           return existUrls[url] == null;

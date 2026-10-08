@@ -11,6 +11,8 @@ class DownloadFileEvent extends DownloadingMediaEvent {
   final String? fileName;
   final String courseId;
   final String? lectureId;
+  final CourseDetailsModel? courseDetailsModel;
+  final LectureDetailsModel? lectureDetailsModel;
 
   DownloadFileEvent({
     required this.fileUrl,
@@ -20,6 +22,8 @@ class DownloadFileEvent extends DownloadingMediaEvent {
     required this.downloadUrl,
     this.quality,
     this.lectureId,
+    this.courseDetailsModel,
+    this.lectureDetailsModel,
   });
 }
 

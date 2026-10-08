@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
+import 'package:coursaty_student_and_teacher/features/courses/data/model/course_details_model.dart';
+import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/encrypted_hls_download_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
@@ -95,6 +97,9 @@ class DownloadingMediaBloc
     String? quality,
     required String filePath,
     required String fileType,
+    required CourseDetailsModel? courseDetailsModel,
+    required LectureDetailsModel? lectureDetailsModel,
+    required Emitter<DownloadingMediaState> emit,
   }) async {
     Map<String, bool> downloadingStatuses;
     final tempPath = '$filePath.temp'; // use temp file for download
@@ -160,6 +165,9 @@ class DownloadingMediaBloc
               fileUrl: fileKey,
               localFilePath: filePath,
               courseId: courseId,
+              lectureId: lectureDetailsModel?.lecture?.id,
+              courseDetailsModel: courseDetailsModel,
+              lectureDetailsModel: lectureDetailsModel,
             ),
           );
           if (quality != null) {
@@ -178,18 +186,19 @@ class DownloadingMediaBloc
         },
         cancelOnError: true,
         onError: (e) {
-          _handleError(fileKey, fileType, e);
+          _handleError(fileKey, fileType, e, emit);
         },
       );
     } catch (e, stackTrace) {
-      _handleError(fileKey, fileType, e, stackTrace);
+      _handleError(fileKey, fileType, e, emit, stackTrace);
     }
   }
 
   void _handleError(
     String fileKey,
     String fileType,
-    dynamic e, [
+    dynamic e,
+    Emitter<DownloadingMediaState> emitter, [
     StackTrace? stackTrace,
   ]) {
     Map<String, bool> downloadingStatuses;
@@ -199,7 +208,7 @@ class DownloadingMediaBloc
     );
     downloadingStatuses.remove(fileKey);
     downloadingProgress.remove(fileKey);
-    emit(
+    emitter(
       state.copyWith(
         downloadingStatus: downloadingStatuses,
         downloadingProcesses: downloadingProgress,
@@ -228,6 +237,16 @@ class DownloadingMediaBloc
   ) async {
     if (_prefsRepository.isGuest || _prefsRepository.token == null) {
       showMessage('سجّل الدخول لتحميل الفيديو');
+      return;
+    }
+    if ((event.fileType == 'video' || event.fileType == 'file') &&
+        (event.courseDetailsModel?.course?.id != event.courseId ||
+            event.lectureDetailsModel?.lecture?.id != event.lectureId)) {
+      debugPrint(
+        '[Downloads] blocked download without matching metadata '
+        'courseId=${event.courseId} lectureId=${event.lectureId}',
+      );
+      showMessage('انتظر حتى تكتمل بيانات المحاضرة ثم أعد المحاولة');
       return;
     }
     final url = event.fileUrl;
@@ -272,7 +291,14 @@ class DownloadingMediaBloc
             fileUrl: url,
             localFilePath: 'secure-hls://$url',
             courseId: event.courseId,
+            lectureId: event.lectureId,
+            courseDetailsModel: event.courseDetailsModel,
+            lectureDetailsModel: event.lectureDetailsModel,
           ),
+        );
+        debugPrint(
+          '[Downloads] secure reference queued '
+          'courseId=${event.courseId} lectureId=${event.lectureId}',
         );
         if (event.quality != null) {
           _prefsRepository.setQuality(url, event.quality!);
@@ -285,7 +311,7 @@ class DownloadingMediaBloc
           ),
         );
       } catch (e, stackTrace) {
-        _handleError(url, event.fileType, e, stackTrace);
+        _handleError(url, event.fileType, e, emit, stackTrace);
       } finally {
         _cancelTokens.remove(url);
       }
@@ -312,6 +338,9 @@ class DownloadingMediaBloc
           courseId: event.courseId,
           fileUrl: url,
           localFilePath: filePath,
+          lectureId: event.lectureId,
+          courseDetailsModel: event.courseDetailsModel,
+          lectureDetailsModel: event.lectureDetailsModel,
         ),
       );
       downloadingProgress.remove(url);
@@ -366,6 +395,9 @@ class DownloadingMediaBloc
       fileType: event.fileType,
       courseId: event.courseId,
       quality: event.quality,
+      courseDetailsModel: event.courseDetailsModel,
+      lectureDetailsModel: event.lectureDetailsModel,
+      emit: emit,
     );
   }
 

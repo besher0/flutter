@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/security/secure_student_content.dart';
 import 'package:flutter/material.dart';
@@ -66,8 +68,34 @@ class _LectureViewerState extends State<LectureViewer> {
   }
 
   Widget _buildPDFView() {
-    return widget.fromNetwork
-        ? PdfViewer.uri(Uri.parse(widget.filePath))
-        : PdfViewer.file(widget.filePath, params: PdfViewerParams());
+    if (widget.fromNetwork) {
+      return PdfViewer.uri(Uri.parse(widget.filePath));
+    }
+    return FutureBuilder<int>(
+      future: _localFileSize(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return CoursatyAppLoader();
+        }
+        final size = snapshot.data ?? 0;
+        final exists = snapshot.hasData && size > 0;
+        debugPrint(
+          '[Downloads] opening local file '
+          'path=${widget.filePath} exists=$exists size=$size type=pdf',
+        );
+        if (!exists) {
+          return const Center(child: Text('الملف المحلي غير متوفر'));
+        }
+        return PdfViewer.file(widget.filePath, params: PdfViewerParams());
+      },
+    );
+  }
+
+  Future<int> _localFileSize() async {
+    final file = File(widget.filePath);
+    if (!await file.exists()) {
+      return 0;
+    }
+    return file.length();
   }
 }
