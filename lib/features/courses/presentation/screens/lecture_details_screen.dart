@@ -1,6 +1,5 @@
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/paid_content_dialog.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/subscribe_to_course.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
@@ -552,15 +551,20 @@ class _VideosTab extends StatelessWidget {
                             final url = videos[i].id;
                             final canDownload =
                                 videos[i].offlineDownloadEnabled ?? true;
+                            final prefs = GetIt.I<PrefsRepository>();
+                            final isGuest =
+                                prefs.isGuest || prefs.token == null;
                             final isFree =
                                 isCourseFree || (videos[i].isFree ?? false);
                             print(myDownloadState.urlToFileReferences);
                             bool isLocked =
                                 url == null ||
-                                (!isFree &&
-                                    !state.activeCourses.any(
-                                      (item) => item.id == courseId,
-                                    ));
+                                (isGuest
+                                    ? !(videos[i].isFree ?? false)
+                                    : (!isFree &&
+                                          !state.activeCourses.any(
+                                            (item) => item.id == courseId,
+                                          )));
                             bool videoExist =
                                 !isLocked &&
                                 myDownloadState.urlToFileReferences[url] !=
@@ -589,6 +593,7 @@ class _VideosTab extends StatelessWidget {
                                       video: videos[i],
                                       courseId: courseId,
                                       fromNetwork: false,
+                                      isFree: videos[i].isFree ?? false,
                                       teacher: BlocProvider.of<CoursesBloc>(
                                         context,
                                         listen: false,
@@ -608,6 +613,7 @@ class _VideosTab extends StatelessWidget {
                                           courseId: courseId,
                                           quality: quality,
                                           fromNetwork: !videoExist,
+                                          isFree: videos[i].isFree ?? false,
                                           teacher: BlocProvider.of<CoursesBloc>(
                                             context,
                                             listen: false,
@@ -640,7 +646,7 @@ class _VideosTab extends StatelessWidget {
                                     height: 25,
                                   ),
                                 },
-                                if (!videoExist && canDownload) ...{
+                                if (!isGuest && !videoExist && canDownload) ...{
                                   downloadState.downloadingStatus[url] == true
                                       ? Row(
                                           spacing: 5,
@@ -704,8 +710,8 @@ class _VideosTab extends StatelessWidget {
                                                         >(context)
                                                         .add(
                                                           DownloadFileEvent(
-                                                            fileUrl: url!,
-                                                            downloadUrl: url!,
+                                                            fileUrl: url,
+                                                            downloadUrl: url,
                                                             quality: quality,
                                                             fileType: 'video',
                                                             fileName: videos[i]

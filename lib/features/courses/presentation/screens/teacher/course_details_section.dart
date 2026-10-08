@@ -407,12 +407,12 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
                   : "رفع صورة للكورس",
               choosedFile: chooseFile,
             ),
-          CoursatyTextField(
-            label: 'رابط التلغرام (اختياري)',
-            hint: 'https://t.me/...',
-            controller: courseTelegram,
-          ),
-          10.verticalSpace,
+          // CoursatyTextField(
+          //   label: 'رابط التلغرام (اختياري)',
+          //   hint: 'https://t.me/...',
+          //   controller: courseTelegram,
+          // ),
+          // 10.verticalSpace,
           CoursatyTextField(
             label: 'رابط مجموعة النقاش (اختياري)',
             hint: 'https://t.me/...',

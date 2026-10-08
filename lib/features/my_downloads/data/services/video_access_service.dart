@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/url_routes.dart';
@@ -30,6 +31,7 @@ class VideoAccessService {
     required String videoId,
     required String preferredResolution,
   }) async {
+    await _ensureRegistered(stage: 'playback-session');
     final body = <String, dynamic>{
       'deviceId': DeviceInfoService.getSecureVideoDeviceId(),
       'preferredResolution': preferredResolution,
@@ -37,13 +39,47 @@ class VideoAccessService {
     final integrity = await _buildIntegrityBody(videoId: videoId);
     body.addAll(integrity);
 
-    final response = await _client.postUri(
-      _uri(EndPoints.createPlaybackSession(videoId: videoId)),
-      data: body,
-      options: _options(),
-    );
-    _recordTrustedTime(response);
-    return PlaybackSessionResponse.fromJson(response.data);
+    try {
+      final response = await _client.postUri(
+        _uri(EndPoints.createPlaybackSession(videoId: videoId)),
+        data: body,
+        options: _options(),
+      );
+      _recordTrustedTime(response);
+      _log('playback session success videoId=$videoId');
+      return PlaybackSessionResponse.fromJson(response.data);
+    } catch (error, stackTrace) {
+      _log(
+        'playback session failure videoId=$videoId errorType=${error.runtimeType}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  Future<PlaybackSessionResponse> createGuestPlaybackSession({
+    required String videoId,
+  }) async {
+    _log('guest playback session started videoId=$videoId');
+    try {
+      final response = await _client.postUri(
+        _uri(EndPoints.createGuestPlaybackSession(videoId: videoId)),
+        options: _guestOptions(),
+      );
+      _recordTrustedTime(response);
+      _log('guest playback session succeeded videoId=$videoId');
+      return PlaybackSessionResponse.fromJson(response.data);
+    } catch (error, stackTrace) {
+      final status = error is DioException ? error.response?.statusCode : null;
+      _log(
+        'guest playback session failed videoId=$videoId status=$status '
+        'errorType=${error.runtimeType}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   Future<PlaybackSessionResponse> refreshPlaybackSession({
@@ -51,21 +87,33 @@ class VideoAccessService {
     required String playbackSessionId,
     required String preferredResolution,
   }) async {
-    final response = await _client.postUri(
-      _uri(
-        EndPoints.refreshPlaybackSession(
-          videoId: videoId,
-          sessionId: playbackSessionId,
+    await _ensureRegistered(stage: 'playback-session-refresh');
+    try {
+      final response = await _client.postUri(
+        _uri(
+          EndPoints.refreshPlaybackSession(
+            videoId: videoId,
+            sessionId: playbackSessionId,
+          ),
         ),
-      ),
-      data: {
-        'deviceId': DeviceInfoService.getSecureVideoDeviceId(),
-        'preferredResolution': preferredResolution,
-      },
-      options: _options(),
-    );
-    _recordTrustedTime(response);
-    return PlaybackSessionResponse.fromJson(response.data);
+        data: {
+          'deviceId': DeviceInfoService.getSecureVideoDeviceId(),
+          'preferredResolution': preferredResolution,
+        },
+        options: _options(),
+      );
+      _recordTrustedTime(response);
+      _log('playback session refresh success videoId=$videoId');
+      return PlaybackSessionResponse.fromJson(response.data);
+    } catch (error, stackTrace) {
+      _log(
+        'playback session refresh failure videoId=$videoId '
+        'errorType=${error.runtimeType}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   Future<String> resolvePlayableHlsUrl({
@@ -82,11 +130,6 @@ class VideoAccessService {
     required String videoId,
   }) async {
     if (!Platform.isAndroid) return const {};
-    try {
-      await _videoDeviceKeyService.ensureAndRegister();
-    } catch (error) {
-      if (kDebugMode) debugPrint('Video key registration skipped: $error');
-    }
 
     try {
       await _playIntegrityService.prepare();
@@ -99,6 +142,7 @@ class VideoAccessService {
       final challengeId = data['challengeId'] as String;
       final challenge = data['challenge'] as String;
       final challengeTimestamp = (data['challengeTimestamp'] as num).toInt();
+      _log('playback challenge success videoId=$videoId');
       final requestHash = _buildPlaybackRequestHash(
         videoId: videoId,
         deviceId: DeviceInfoService.getSecureVideoDeviceId(),
@@ -108,12 +152,18 @@ class VideoAccessService {
       final integrityToken = await _playIntegrityService.requestToken(
         requestHash: requestHash,
       );
+      _log('integrity available videoId=$videoId');
       return {
         'challengeId': challengeId,
         'challengeTimestamp': challengeTimestamp,
         'integrityToken': integrityToken,
       };
-    } catch (error) {
+    } catch (error, stackTrace) {
+      _log(
+        'integrity unavailable videoId=$videoId errorType=${error.runtimeType}',
+        error: error,
+        stackTrace: stackTrace,
+      );
       if (kDebugMode) debugPrint('Play Integrity audit flow skipped: $error');
       return const {};
     }
@@ -141,37 +191,61 @@ class VideoAccessService {
     required String videoId,
     required String preferredResolution,
   }) async {
-    final response = await _client.postUri(
-      _uri(EndPoints.createDownloadSession(videoId: videoId)),
-      data: {
-        'deviceId': DeviceInfoService.getSecureVideoDeviceId(),
-        'preferredResolution': preferredResolution,
-      },
-      options: _options(),
-    );
-    _recordTrustedTime(response);
-    return DownloadSessionResponse.fromJson(response.data);
+    _ensureAuthenticatedForDownload();
+    await _ensureRegistered(stage: 'download-session');
+    try {
+      final response = await _client.postUri(
+        _uri(EndPoints.createDownloadSession(videoId: videoId)),
+        data: {
+          'deviceId': DeviceInfoService.getSecureVideoDeviceId(),
+          'preferredResolution': preferredResolution,
+        },
+        options: _options(),
+      );
+      _recordTrustedTime(response);
+      _log('download session success videoId=$videoId');
+      return DownloadSessionResponse.fromJson(response.data);
+    } catch (error, stackTrace) {
+      _log(
+        'download session failure videoId=$videoId errorType=${error.runtimeType}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   Future<OfflineLicense> renewOfflineLicense({
     required String videoId,
     required String preferredResolution,
   }) async {
-    final response = await _client.postUri(
-      _uri(EndPoints.renewOfflineLicense(videoId: videoId)),
-      data: {
-        'deviceId': DeviceInfoService.getSecureVideoDeviceId(),
-        'preferredResolution': preferredResolution,
-      },
-      options: _options(),
-    );
-    _recordTrustedTime(response);
-    final data = response.data is Map<String, dynamic>
-        ? response.data as Map<String, dynamic>
-        : <String, dynamic>{};
-    return OfflineLicense.fromJson(
-      (data['offlineLicense'] ?? data) as Map<String, dynamic>,
-    );
+    _ensureAuthenticatedForDownload();
+    await _ensureRegistered(stage: 'offline-license-renew');
+    try {
+      final response = await _client.postUri(
+        _uri(EndPoints.renewOfflineLicense(videoId: videoId)),
+        data: {
+          'deviceId': DeviceInfoService.getSecureVideoDeviceId(),
+          'preferredResolution': preferredResolution,
+        },
+        options: _options(),
+      );
+      _recordTrustedTime(response);
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
+      _log('offline license success videoId=$videoId');
+      return OfflineLicense.fromJson(
+        (data['offlineLicense'] ?? data) as Map<String, dynamic>,
+      );
+    } catch (error, stackTrace) {
+      _log(
+        'offline license failure videoId=$videoId errorType=${error.runtimeType}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   Future<List<OfflinePublicKey>> getOfflineLicensePublicKeys() async {
@@ -208,6 +282,36 @@ class VideoAccessService {
     );
   }
 
+  Future<void> _ensureRegistered({required String stage}) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _videoDeviceKeyService.ensureAndRegister();
+    } catch (error, stackTrace) {
+      _log(
+        'device registration failed stage=$stage '
+        'deviceIdPrefix=${_safeDeviceIdPrefix()} errorType=${error.runtimeType}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  String _safeDeviceIdPrefix() {
+    final deviceId = DeviceInfoService.getSecureVideoDeviceId();
+    if (deviceId.length <= 10) return deviceId;
+    return deviceId.substring(0, 10);
+  }
+
+  void _log(String message, {Object? error, StackTrace? stackTrace}) {
+    developer.log(
+      '[VideoSecurity] $message',
+      name: 'VideoAccessService',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+
   Options _options() {
     final headers = <String, dynamic>{
       HttpHeaders.acceptHeader: 'application/json',
@@ -220,6 +324,25 @@ class VideoAccessService {
       headers[HttpHeaders.authorizationHeader] = 'Bearer $token';
     }
     return Options(headers: headers, responseType: ResponseType.json);
+  }
+
+  Options _guestOptions() {
+    return Options(
+      headers: {
+        HttpHeaders.acceptHeader: 'application/json',
+        HttpHeaders.contentTypeHeader: 'application/json',
+        'User-Agent':
+            'device OS:${Platform.isAndroid ? 'Android' : 'IOS'} , application version: 1.0.0',
+      },
+      responseType: ResponseType.json,
+    );
+  }
+
+  void _ensureAuthenticatedForDownload() {
+    if (_prefs.isGuest || _prefs.token == null) {
+      _log('guest download rejected');
+      throw StateError('Guest users cannot download videos');
+    }
   }
 
   void _recordTrustedTime(Response response) {

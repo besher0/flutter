@@ -32,11 +32,38 @@ class ResolutionModel {
       return ResolutionModel(resolution: json);
     }
     final map = json as Map<String, dynamic>;
+    final rawSize = map['sizeBytes'] ??
+        map['fileSizeBytes'] ??
+        map['fileSize'] ??
+        map['size'] ??
+        map['sizeMb'] ??
+        map['sizeMB'];
+    final sizeBytes = _parseSizeBytes(rawSize);
     return ResolutionModel(
-      resolution: map["resolution"],
-      path: map["path"],
-      sizeBytes: (map["sizeBytes"] as num?)?.toInt(),
+      resolution: map["resolution"]?.toString(),
+      path: map["path"]?.toString(),
+      sizeBytes: sizeBytes,
     );
+  }
+
+  static int? _parseSizeBytes(dynamic value) {
+    if (value is num) return value.toInt();
+    if (value is! String) return null;
+    final normalized = value.trim().toLowerCase();
+    final number = double.tryParse(
+      normalized.replaceAll(RegExp(r'[^0-9.]'), ''),
+    );
+    if (number == null) return null;
+    if (normalized.contains('gb')) {
+      return (number * 1024 * 1024 * 1024).round();
+    }
+    if (normalized.contains('mb')) {
+      return (number * 1024 * 1024).round();
+    }
+    if (normalized.contains('kb')) {
+      return (number * 1024).round();
+    }
+    return number.toInt();
   }
 
   Map<String, dynamic> toJson() => {

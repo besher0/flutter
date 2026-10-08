@@ -226,6 +226,10 @@ class DownloadingMediaBloc
     DownloadFileEvent event,
     Emitter<DownloadingMediaState> emit,
   ) async {
+    if (_prefsRepository.isGuest || _prefsRepository.token == null) {
+      showMessage('سجّل الدخول لتحميل الفيديو');
+      return;
+    }
     final url = event.fileUrl;
     Map<String, bool> downloadingStatuses = Map.of(state.downloadingStatus);
     Map<String, double> downloadingProgress = Map.of(

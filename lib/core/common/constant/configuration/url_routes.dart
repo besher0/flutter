@@ -175,6 +175,10 @@ abstract class EndPoints {
     return 'videos/$videoId/playback-session'.noScope;
   }
 
+  static String createGuestPlaybackSession({required String videoId}) {
+    return 'videos/$videoId/guest-playback-session'.noScope;
+  }
+
   static String createPlaybackChallenge({required String videoId}) {
     return 'videos/$videoId/playback-challenge'.noScope;
   }

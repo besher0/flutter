@@ -111,7 +111,7 @@ Future<String?> showVideoQualityDialog(
                                         const SizedBox(width: 5),
                                         if (resolution.sizeBytes != null) ...[
                                           Text(
-                                            HelperFunctions.getSizeFromBytes(
+                                            HelperFunctions.getSizeInMegabytes(
                                               resolution.sizeBytes!,
                                             ),
                                             style: GoogleFonts.cairo(

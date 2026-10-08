@@ -15,6 +15,7 @@ import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_model.dart';
 import 'package:flutter/material.dart';
 import 'package:better_player_plus/better_player_plus.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -63,6 +64,20 @@ class MyVideoWidgetBetterPlayer extends StatefulWidget {
       _MyVideoWidgetBetterPlayerState();
 }
 
+String _playbackErrorMessage(Object error) {
+  if (error is DioException) {
+    switch (error.response?.statusCode) {
+      case 403:
+        return 'هذا الفيديو غير مجاني. سجّل الدخول أو اشترك لمشاهدته';
+      case 404:
+        return 'الفيديو غير موجود أو غير متاح';
+      case 400:
+        return 'تعذر تشغيل الفيديو حالياً';
+    }
+  }
+  return 'تعذر تشغيل الفيديو';
+}
+
 class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
   late BetterPlayerDataSource betterPlayerDataSource;
   late BetterPlayerController betterPlayerController;
@@ -109,10 +124,10 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       setState(() {
         initialized = true;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
-        _initializationError = 'تعذر تشغيل الفيديو';
+        _initializationError = _playbackErrorMessage(error);
       });
     }
   }
@@ -125,10 +140,17 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       );
       return _PlaybackSource(_offlineSession!.playlistUri.toString());
     }
-    final session = await _videoAccessService.createPlaybackSession(
-      videoId: widget.videoId,
-      preferredResolution: widget.preferredResolution,
-    );
+    final isGuest =
+        GetIt.I<PrefsRepository>().isGuest ||
+        GetIt.I<PrefsRepository>().token == null;
+    final session = isGuest
+        ? await _videoAccessService.createGuestPlaybackSession(
+            videoId: widget.videoId,
+          )
+        : await _videoAccessService.createPlaybackSession(
+            videoId: widget.videoId,
+            preferredResolution: widget.preferredResolution,
+          );
     _onlineSession = session;
     if (session.playbackHeaders.isNotEmpty) {
       return _PlaybackSource(session.playbackUrl, session.playbackHeaders);
@@ -162,7 +184,14 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       final speed =
           betterPlayerController.videoPlayerController?.value.speed ?? 1.0;
       final previousSession = _onlineSession;
-      final session = previousSession?.accessToken == null
+      final isGuest =
+          GetIt.I<PrefsRepository>().isGuest ||
+          GetIt.I<PrefsRepository>().token == null;
+      final session = isGuest
+          ? await _videoAccessService.createGuestPlaybackSession(
+              videoId: widget.videoId,
+            )
+          : previousSession?.accessToken == null
           ? await _videoAccessService.createPlaybackSession(
               videoId: widget.videoId,
               preferredResolution: widget.preferredResolution,
@@ -192,9 +221,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       if (wasPlaying) {
         betterPlayerController.play();
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        showMessage('تعذر تجديد جلسة تشغيل الفيديو');
+        showMessage(_playbackErrorMessage(error));
       }
     } finally {
       _refreshingPlaybackSession = false;

@@ -8,14 +8,17 @@ import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/downloading_media/downloading_media_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_state.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/you_are_guest_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get_it/get_it.dart';
 import '../../../../app/widgets/my_video_widget_better_player.dart';
 import '../../../../app/widgets/title_app_bar.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/storage/prefs_repository.dart';
 import '../../../../core/utils/extensions/int.dart';
 import '../../../teachers/data/model/teacher_model.dart';
 
@@ -27,6 +30,7 @@ class VideoDetailsScreen extends StatefulWidget {
     this.teacher,
     required this.fromNetwork,
     this.quality,
+    this.isFree = false,
   });
 
   final Video video;
@@ -34,6 +38,7 @@ class VideoDetailsScreen extends StatefulWidget {
   final Teacher? teacher;
   final bool fromNetwork;
   final String? quality;
+  final bool isFree;
 
   @override
   State<VideoDetailsScreen> createState() => _VideoDetailsScreenState();
@@ -49,6 +54,15 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
   void initState() {
     super.initState();
     _captureLease = StudentContentProtection.claim();
+    final prefs = GetIt.I<PrefsRepository>();
+    if ((prefs.isGuest || prefs.token == null) && !widget.isFree) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showGuestContentDialog(context);
+        context.pop();
+      });
+      return;
+    }
     if (!widget.fromNetwork) {
       myDownloadsState = BlocProvider.of<MyDownloadsBloc>(context).state;
       filePath = myDownloadsState.urlToFileReferences[widget.video.id];
@@ -74,7 +88,9 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
         onBackTap: () {
           context.pop();
         },
-        action: !widget.fromNetwork
+        action: !widget.fromNetwork ||
+                GetIt.I<PrefsRepository>().isGuest ||
+                GetIt.I<PrefsRepository>().token == null
             ? null
             : BlocBuilder<MyDownloadsBloc, MyDownloadsState>(
                 builder: (context, state) {
@@ -195,7 +211,11 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
 
   void getLikesIfThereIsInternet(BuildContext context) async {
     bool lostConnection = await HelperFunctions.lostInternetConnection();
-    if (!lostConnection && context.mounted) {
+    final prefs = GetIt.I<PrefsRepository>();
+    if (!lostConnection &&
+        context.mounted &&
+        !prefs.isGuest &&
+        prefs.token != null) {
       BlocProvider.of<CoursesBloc>(
         context,
       ).add(GetVideoInteractionsEvent(widget.video.id!));

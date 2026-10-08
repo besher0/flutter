@@ -37,6 +37,7 @@ class MainActivity : FlutterActivity() {
                         ensureVideoDeviceKey()
                         result.success(null)
                     }
+                    "hasVideoDeviceKey" -> result.success(hasVideoDeviceKey())
                     "getVideoDevicePublicKey" -> result.success(getVideoDevicePublicKey())
                     "signVideoPayload" -> {
                         val payload = call.argument<String>("payload")
@@ -123,6 +124,11 @@ class MainActivity : FlutterActivity() {
 
         generator.initialize(builder.build())
         generator.generateKeyPair()
+    }
+
+    private fun hasVideoDeviceKey(): Boolean {
+        val keyStore = KeyStore.getInstance(keyStoreType).apply { load(null) }
+        return keyStore.containsAlias(keyAlias)
     }
 
     private fun getVideoDevicePublicKey(): String {

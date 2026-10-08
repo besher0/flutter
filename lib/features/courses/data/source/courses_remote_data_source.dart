@@ -146,16 +146,45 @@ class CoursesRemoteDataSource {
       requestPrams: RequestConfig(
         endpoint: EndPoints.getVideoResolutions(id: videoId),
         response: ResponseValue(
-          fromJson: (data) => resolutionModelFromJson(
-            data["playlistResolutions"] ??
-                data["availableResolutions"] ??
-                data["mp4Resolutions"] ??
-                const [],
-          ),
+          fromJson: (data) => _parseVideoResolutions(data),
         ),
       ),
     );
     return getVideoResolutions();
+  }
+
+  List<ResolutionModel> _parseVideoResolutions(Map<String, dynamic> data) {
+    final playlist = resolutionModelFromJson(
+      (data['playlistResolutions'] as List?)?.cast<dynamic>() ?? const [],
+    );
+    final mp4 = resolutionModelFromJson(
+      (data['mp4Resolutions'] as List?)?.cast<dynamic>() ?? const [],
+    );
+    final mp4Sizes = <String, int>{
+      for (final resolution in mp4)
+        if (resolution.resolution != null && resolution.sizeBytes != null)
+          resolution.resolution!: resolution.sizeBytes!,
+    };
+
+    final resolutions = playlist.isNotEmpty
+        ? playlist
+        : (mp4.isNotEmpty
+              ? mp4
+              : resolutionModelFromJson(
+                  (data['availableResolutions'] as List?)
+                          ?.cast<dynamic>() ??
+                      const [],
+                ));
+
+    return resolutions
+        .map(
+          (resolution) => resolution.sizeBytes == null
+              ? resolution.copyWith(
+                  sizeBytes: mp4Sizes[resolution.resolution],
+                )
+              : resolution,
+        )
+        .toList();
   }
 
   Future<CourseStatisticsModel> getCourseStatistics(

@@ -30,7 +30,13 @@ class HelperFunctions {
     } else {
       result = '$bytes بايت';
     }
+
     return result;
+  }
+
+  static String getSizeInMegabytes(int bytes) {
+    final megabytes = bytes / (1024 * 1024);
+    return '${megabytes.toStringAsFixed(megabytes >= 100 ? 0 : 1)} MB';
   }
 
   static Future<void> openCallApp(String phoneNumber) async {
@@ -92,12 +98,35 @@ class HelperFunctions {
   }
 
   static Future<bool> urlLauncher(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      return await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      throw Exception('Unable to launch url');
+    final normalizedUrl = url.trim();
+    if (normalizedUrl.isEmpty) {
+      showMessage('الرابط غير متاح حالياً');
+      return false;
     }
+
+    final uri = _externalUri(normalizedUrl);
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        showMessage('تعذر فتح الرابط');
+      }
+      return launched;
+    } on PlatformException {
+      showMessage('تعذر فتح الرابط');
+      return false;
+    }
+  }
+
+  static Uri _externalUri(String value) {
+    if (value.startsWith('@')) {
+      return Uri.parse('https://t.me/${value.substring(1)}');
+    }
+    final parsed = Uri.tryParse(value);
+    if (parsed != null && parsed.hasScheme) return parsed;
+    return Uri.parse('https://$value');
   }
 
   static void navigateToPage(BuildContext context, Widget page) {

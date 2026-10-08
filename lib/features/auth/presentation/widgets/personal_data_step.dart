@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -39,24 +38,24 @@ class PersonalDataStep extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         CoursatyTextField(
-          label: 'ط§ظ„ط§ط³ظ…',
-          hint: 'ط§ظ„ط§ط³ظ…',
+          label: 'الاسم',
+          hint: 'الاسم',
           controller: nameController,
           textInputAction: TextInputAction.next,
           validator: isActiveStep ? requiredValidator : null,
         ),
         const SizedBox(height: 16),
         CoursatyTextField(
-          label: 'ط§ظ„ظƒظ†ظٹط©',
-          hint: 'ط§ظ„ظƒظ†ظٹط©',
+          label: 'الكنية',
+          hint: 'الكنية',
           controller: lastNameController,
           textInputAction: TextInputAction.next,
           validator: isActiveStep ? requiredValidator : null,
         ),
         const SizedBox(height: 16),
         CoursatyTextField(
-          label: 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ',
-          hint: 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ',
+          label: 'رقم الهاتف',
+          hint: 'رقم الهاتف',
           controller: phoneController,
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.next,
@@ -68,33 +67,31 @@ class PersonalDataStep extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         CoursatyDropdown<String>(
-          label: 'ط§ظ„ط¬ظ†ط³',
-          hint: 'ط§ظ„ط¬ظ†ط³',
+          label: 'الجنس',
+          hint: 'الجنس',
           value: gender,
           onChanged: onGenderChanged,
           validator: isActiveStep
-              ? (v) => v == null || v.isEmpty
-                    ? 'ظ‡ط°ط§ ط§ظ„ط­ظ‚ظ„ ظ…ط·ظ„ظˆط¨'
-                    : null
+              ? (v) => v == null || v.isEmpty ? 'هذا الحقل مطلوب' : null
               : null,
           items: const [
-            DropdownMenuItem(value: 'MALE', child: Text('ط°ظƒط±')),
-            DropdownMenuItem(value: 'FEMALE', child: Text('ط£ظ†ط«ظ‰')),
+            DropdownMenuItem(value: 'MALE', child: Text('ذكر')),
+            DropdownMenuItem(value: 'FEMALE', child: Text('أنثى')),
           ],
         ),
         if (isForTeacher) ...{
           const SizedBox(height: 16),
           CoursatyTextField(
-            label: 'ط§ظ„ظˆطµظپ',
-            hint: 'ط§ظ„ظˆطµظپ',
+            label: 'الوصف',
+            hint: 'الوصف',
             controller: description,
             textInputAction: TextInputAction.next,
             validator: isActiveStep ? requiredValidator : null,
           ),
           10.verticalSpace,
           CoursatyTextField(
-            label: 'ط±ط§ط¨ط· طµظپط­ط© ط§ظ„ط§ظ†ط³طھط؛ط±ط§ظ… (ط§ط®طھظٹط§ط±ظٹ)',
-            hint: 'ط±ط§ط¨ط· طµظپط­ط© ط§ظ„ط§ظ†ط³طھط؛ط±ط§ظ… (ط§ط®طھظٹط§ط±ظٹ)',
+            label: 'رابط صفحة الإنستغرام (اختياري)',
+            hint: 'رابط صفحة الإنستغرام (اختياري)',
             controller: teacherInstagram,
           ),
         },
