@@ -16,6 +16,7 @@ class DeviceInfoService {
   static bool isRealDevice = false;
   static bool screenLockEnabled = false;
   static bool isRealDeviceEmulatorDetector = false;
+  static bool _platformInfoInitialized = false;
   static const String _deviceIdPrefsKey = 'coursaty_installation_device_id_v2';
   static String? _installationDeviceId;
   DeviceInfoService();
@@ -28,6 +29,7 @@ class DeviceInfoService {
     } else if (kIsIOS) {
       iosDeviceInfo = await deviceInfoPlugin.iosInfo;
     }
+    _platformInfoInitialized = true;
     await _initInstallationDeviceId();
     isRealDevice = isPhysicalDevice();
   }
@@ -106,9 +108,9 @@ class DeviceInfoService {
   }
 
   static String getDeviceId() {
-    if (kIsIOS) {
+    if (kIsIOS && _platformInfoInitialized) {
       return iosDeviceInfo.identifierForVendor!;
-    } else if (kIsAndroid) {
+    } else if (kIsAndroid && _platformInfoInitialized) {
       return '${androidDeviceInfo.id}_${androidDeviceInfo.model}';
     }
     return 'AAAA-BBBB-99CC-36EE';

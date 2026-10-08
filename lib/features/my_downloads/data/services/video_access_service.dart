@@ -31,13 +31,18 @@ class VideoAccessService {
     required String videoId,
     required String preferredResolution,
   }) async {
-    await _ensureRegistered(stage: 'playback-session');
+    final isTeacher = _prefs.isTeacher;
+    if (!isTeacher) {
+      await _ensureRegistered(stage: 'playback-session');
+    }
     final body = <String, dynamic>{
       'deviceId': DeviceInfoService.getSecureVideoDeviceId(),
       'preferredResolution': preferredResolution,
     };
-    final integrity = await _buildIntegrityBody(videoId: videoId);
-    body.addAll(integrity);
+    if (!isTeacher) {
+      final integrity = await _buildIntegrityBody(videoId: videoId);
+      body.addAll(integrity);
+    }
 
     try {
       final response = await _client.postUri(
@@ -82,12 +87,29 @@ class VideoAccessService {
     }
   }
 
+  Future<PlaybackSessionResponse> createTeacherPlaybackSession({
+    required String videoId,
+    required String preferredResolution,
+  }) {
+    if (!_prefs.isTeacher) {
+      throw StateError('Only teachers can create a teacher playback session');
+    }
+    return createPlaybackSession(
+      videoId: videoId,
+      preferredResolution: preferredResolution,
+    );
+  }
+
+  Future<void> replaceVideoDevice() => _videoDeviceKeyService.replaceDevice();
+
   Future<PlaybackSessionResponse> refreshPlaybackSession({
     required String videoId,
     required String playbackSessionId,
     required String preferredResolution,
   }) async {
-    await _ensureRegistered(stage: 'playback-session-refresh');
+    if (!_prefs.isTeacher) {
+      await _ensureRegistered(stage: 'playback-session-refresh');
+    }
     try {
       final response = await _client.postUri(
         _uri(

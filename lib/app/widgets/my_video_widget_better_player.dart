@@ -11,6 +11,7 @@ import 'package:coursaty_student_and_teacher/features/home/presentation/bloc/hom
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/secure_video_models.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/secure_offline_playback_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_access_service.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_device_key_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_model.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +69,9 @@ String _playbackErrorMessage(Object error) {
   if (error is DioException) {
     switch (error.response?.statusCode) {
       case 403:
+        if (GetIt.I<PrefsRepository>().isTeacher) {
+          return 'لا تملك صلاحية تشغيل فيديو هذا الكورس';
+        }
         return 'هذا الفيديو غير مجاني. سجّل الدخول أو اشترك لمشاهدته';
       case 404:
         return 'الفيديو غير موجود أو غير متاح';
@@ -90,6 +94,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
   bool _hasRefreshedForCurrentError = false;
   bool initialized = false;
   String? _initializationError;
+  bool _replacementAttempted = false;
 
   Future<void> init() async {
     if (initialized) return;
@@ -140,17 +145,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       );
       return _PlaybackSource(_offlineSession!.playlistUri.toString());
     }
-    final isGuest =
-        GetIt.I<PrefsRepository>().isGuest ||
-        GetIt.I<PrefsRepository>().token == null;
-    final session = isGuest
-        ? await _videoAccessService.createGuestPlaybackSession(
-            videoId: widget.videoId,
-          )
-        : await _videoAccessService.createPlaybackSession(
-            videoId: widget.videoId,
-            preferredResolution: widget.preferredResolution,
-          );
+    final session = await _createOnlineSessionWithReplacement();
     _onlineSession = session;
     if (session.playbackHeaders.isNotEmpty) {
       return _PlaybackSource(session.playbackUrl, session.playbackHeaders);
@@ -160,6 +155,68 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       preferredResolution: widget.preferredResolution,
     );
     return _PlaybackSource(playbackUrl);
+  }
+
+  Future<PlaybackSessionResponse> _createOnlineSession({
+    PlaybackSessionResponse? previousSession,
+  }) async {
+    final prefs = GetIt.I<PrefsRepository>();
+    if (prefs.isGuest) {
+      return _videoAccessService.createGuestPlaybackSession(
+        videoId: widget.videoId,
+      );
+    }
+    if (prefs.isTeacher) {
+      return _videoAccessService.createTeacherPlaybackSession(
+        videoId: widget.videoId,
+        preferredResolution: widget.preferredResolution,
+      );
+    }
+    if (!prefs.isStudent) {
+      throw StateError('Unknown authenticated user role');
+    }
+    if (previousSession == null || previousSession.accessToken == null) {
+      return _videoAccessService.createPlaybackSession(
+        videoId: widget.videoId,
+        preferredResolution: widget.preferredResolution,
+      );
+    }
+    return _videoAccessService.refreshPlaybackSession(
+      videoId: widget.videoId,
+      playbackSessionId: previousSession.playbackSessionId,
+      preferredResolution: widget.preferredResolution,
+    );
+  }
+
+  Future<PlaybackSessionResponse> _createOnlineSessionWithReplacement() async {
+    try {
+      return await _createOnlineSession();
+    } on DeviceReplacementRequiredException {
+      if (_replacementAttempted || !mounted) rethrow;
+      _replacementAttempted = true;
+      final replace = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('استبدال الجهاز'),
+          content: const Text(
+            'هذا الحساب مرتبط بجهاز آخر.\nهل تريد استخدام هذا الجهاز بدلاً منه؟',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('استخدام هذا الجهاز'),
+            ),
+          ],
+        ),
+      );
+      if (replace != true) rethrow;
+      await _videoAccessService.replaceVideoDevice();
+      return _createOnlineSession();
+    }
   }
 
   Future<void> _onBetterPlayerEvent(BetterPlayerEvent event) async {
@@ -184,23 +241,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       final speed =
           betterPlayerController.videoPlayerController?.value.speed ?? 1.0;
       final previousSession = _onlineSession;
-      final isGuest =
-          GetIt.I<PrefsRepository>().isGuest ||
-          GetIt.I<PrefsRepository>().token == null;
-      final session = isGuest
-          ? await _videoAccessService.createGuestPlaybackSession(
-              videoId: widget.videoId,
-            )
-          : previousSession?.accessToken == null
-          ? await _videoAccessService.createPlaybackSession(
-              videoId: widget.videoId,
-              preferredResolution: widget.preferredResolution,
-            )
-          : await _videoAccessService.refreshPlaybackSession(
-              videoId: widget.videoId,
-              playbackSessionId: previousSession!.playbackSessionId,
-              preferredResolution: widget.preferredResolution,
-            );
+      final session = await _createOnlineSession(
+        previousSession: previousSession,
+      );
       _onlineSession = session;
       final playbackUrl = session.playbackHeaders.isNotEmpty
           ? session.playbackUrl

@@ -70,17 +70,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void markUserAsGuest() {
-    GetIt.I<PrefsRepository>().setIsGuest(true);
+  Future<void> markUserAsGuest() {
+    return GetIt.I<PrefsRepository>().setIsGuest(true);
   }
 
-  void makeOnBoardingSeen() {
-    GetIt.I<PrefsRepository>().setOnBoardingSeen(true);
+  Future<void> makeOnBoardingSeen() {
+    return GetIt.I<PrefsRepository>().setOnBoardingSeen(true);
   }
 
-  void _guestSuccess() {
-    makeOnBoardingSeen();
-    markUserAsGuest();
+  Future<void> _guestSuccess() async {
+    await makeOnBoardingSeen();
+    await markUserAsGuest();
     context.go(GRouter.config.applicationRoutes.home);
   }
 

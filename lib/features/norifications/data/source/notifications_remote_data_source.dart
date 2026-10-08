@@ -12,10 +12,14 @@ import 'package:injectable/injectable.dart';
 @injectable
 class NotificationsRemoteDataSource {
   Future<List<Notification>> getNotifications() async {
+    final prefs = GetIt.I<PrefsRepository>();
+    if (prefs.isGuest || prefs.token == null) {
+      throw StateError('Guest users cannot load notifications');
+    }
     final GetClient<List<Notification>> getNotifications = GetClient(
       serverName: ServerName.master,
       requestPrams: RequestConfig(
-        endpoint: GetIt.I<PrefsRepository>().isStudent
+        endpoint: prefs.isStudent
             ? EndPoints.getNotificationsEP
             : EndPoints.getTeacherNotifications,
         queryParameters: {"activeOnly": false.toString()},

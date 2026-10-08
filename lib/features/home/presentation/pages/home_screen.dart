@@ -42,7 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
 
     if (_prefsRepository.isStudent) {
-      if (SubscriptionFeatureFlags.showLegacySubscriptionMethods) {
+      final isAuthenticatedStudent =
+          !_prefsRepository.isGuest && _prefsRepository.token != null;
+      if (isAuthenticatedStudent &&
+          SubscriptionFeatureFlags.showLegacySubscriptionMethods) {
         BlocProvider.of<SalesPointsBloc>(context).add(GetSalesPointsEvent());
       }
       BlocProvider.of<HomeBloc>(context).add(GetMyActiveCourses());
@@ -66,10 +69,11 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
       ).add(GetTeacherCourses(getActive: false, reset: true));
     }
-    // update fcm token
-    BlocProvider.of<AuthBloc>(
-      context,
-    ).add(UpdateProfileEvent(params: UpdateProfileParams()));
+    if (!_prefsRepository.isGuest && _prefsRepository.token != null) {
+      BlocProvider.of<AuthBloc>(
+        context,
+      ).add(UpdateProfileEvent(params: UpdateProfileParams()));
+    }
   }
 
   void _closeApp() {

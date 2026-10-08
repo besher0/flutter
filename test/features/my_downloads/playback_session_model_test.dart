@@ -4,7 +4,10 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/secure_video_models.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_access_service.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_device_key_service.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
+import 'package:coursaty_student_and_teacher/core/storage/prefs_repository_impl.dart';
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/prefs_key.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -71,6 +74,125 @@ void main() {
       expect(adapter.requestCount, 1);
     },
   );
+
+  test(
+    'student playback registers through the secure playback endpoint',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final adapter = _RecordingAdapter();
+      final service = VideoAccessService(
+        Dio()..httpClientAdapter = adapter,
+        _FakePrefs(isGuest: false, isStudent: true, token: 'student-token'),
+        await SharedPreferences.getInstance(),
+      );
+
+      await service.createPlaybackSession(
+        videoId: 'video-1',
+        preferredResolution: '720p',
+      );
+
+      expect(
+        adapter.request?.path,
+        endsWith('/videos/video-1/playback-session'),
+      );
+      expect(
+        adapter.request?.data,
+        containsPair('preferredResolution', '720p'),
+      );
+    },
+  );
+
+  test(
+    'teacher playback sends a stable device id without device registration',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final adapter = _RecordingAdapter();
+      final service = VideoAccessService(
+        Dio()..httpClientAdapter = adapter,
+        _FakePrefs(isGuest: false, isTeacher: true, token: 'teacher-token'),
+        await SharedPreferences.getInstance(),
+      );
+
+      await service.createTeacherPlaybackSession(
+        videoId: 'video-1',
+        preferredResolution: '720p',
+      );
+
+      expect(
+        adapter.request?.path,
+        endsWith('/videos/video-1/playback-session'),
+      );
+      expect(
+        adapter.request?.data,
+        containsPair('deviceId', 'AAAA-BBBB-99CC-36EE'),
+      );
+      expect(adapter.request?.path, isNot(contains('playback-challenge')));
+    },
+  );
+
+  test('teacher refresh sends the same stable device id', () async {
+    SharedPreferences.setMockInitialValues({});
+    final adapter = _RecordingAdapter();
+    final service = VideoAccessService(
+      Dio()..httpClientAdapter = adapter,
+      _FakePrefs(isGuest: false, isTeacher: true, token: 'teacher-token'),
+      await SharedPreferences.getInstance(),
+    );
+
+    await service.refreshPlaybackSession(
+      videoId: 'video-1',
+      playbackSessionId: 'session-1',
+      preferredResolution: '720p',
+    );
+
+    expect(
+      adapter.request?.path,
+      endsWith('/videos/video-1/playback-session/session-1/refresh'),
+    );
+    expect(
+      adapter.request?.data,
+      containsPair('deviceId', 'AAAA-BBBB-99CC-36EE'),
+    );
+  });
+
+  test('replacement error is represented by a typed replacement state', () {
+    final error = DioException(
+      requestOptions: RequestOptions(),
+      response: Response(
+        requestOptions: RequestOptions(),
+        statusCode: 409,
+        data: {'errorCode': 'VIDEO_DEVICE_LIMIT_EXCEEDED_REPLACEMENT_REQUIRED'},
+      ),
+    );
+
+    expect(DeviceReplacementRequiredException.matches(error), isTrue);
+    expect(const DeviceReplacementRequiredException(), isA<Exception>());
+  });
+
+  test('logout preserves the installation device id', () async {
+    const key = 'coursaty_installation_device_id_v2';
+    SharedPreferences.setMockInitialValues({
+      key: 'installation-1',
+      'auth-token': 'token',
+    });
+    final prefs = PrefsRepositoryImpl(await SharedPreferences.getInstance());
+
+    await prefs.clearUser();
+
+    expect(
+      (await SharedPreferences.getInstance()).getString(key),
+      'installation-1',
+    );
+  });
+
+  test('guest remains in the student-facing app role', () async {
+    SharedPreferences.setMockInitialValues({PrefsKey.isGuest: true});
+    final prefs = PrefsRepositoryImpl(await SharedPreferences.getInstance());
+
+    expect(prefs.isGuest, isTrue);
+    expect(prefs.isStudent, isTrue);
+    expect(prefs.isTeacher, isFalse);
+  });
 }
 
 class _RecordingAdapter implements HttpClientAdapter {
@@ -107,15 +229,25 @@ class _RecordingAdapter implements HttpClientAdapter {
 }
 
 class _FakePrefs implements PrefsRepository {
-  _FakePrefs({required this.isGuest});
+  _FakePrefs({
+    required this.isGuest,
+    this.isStudent = false,
+    this.isTeacher = false,
+    this.token,
+  });
 
   @override
   final bool isGuest;
 
   @override
-  String? get token => null;
+  final bool isStudent;
+
+  @override
+  final bool isTeacher;
+
+  @override
+  final String? token;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
 }
-d

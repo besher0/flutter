@@ -175,6 +175,8 @@ abstract class EndPoints {
     return 'videos/$videoId/playback-session'.noScope;
   }
 
+  static String get replaceVideoDeviceKey => 'devices/video-key/replace'.noScope;
+
   static String createGuestPlaybackSession({required String videoId}) {
     return 'videos/$videoId/guest-playback-session'.noScope;
   }

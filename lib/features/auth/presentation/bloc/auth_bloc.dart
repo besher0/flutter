@@ -94,6 +94,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   void _saveUser(AuthModel data, String name) {
     prefs.setToken(data.accessToken!);
+    prefs.setIsGuest(false);
     prefs.setUserId(data.user!.id!);
     _saveName(data.user!.phone!);
     prefs.setUserType(data.user!.userableType!);

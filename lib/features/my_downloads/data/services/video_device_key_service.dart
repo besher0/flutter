@@ -66,9 +66,39 @@ class VideoDeviceKeyService {
         error: error,
         stackTrace: stackTrace,
       );
+      if (DeviceReplacementRequiredException.matches(error)) {
+        throw const DeviceReplacementRequiredException();
+      }
       if (error is VideoDeviceRegistrationException) rethrow;
       throw VideoDeviceRegistrationException.from(error);
     }
+  }
+
+  Future<void> replaceDevice() async {
+    final deviceId = DeviceInfoService.getSecureVideoDeviceId();
+    await _channel.invokeMethod<void>('ensureVideoDeviceKey');
+    final publicKey = await _channel.invokeMethod<String>(
+      'getVideoDevicePublicKey',
+    );
+    if (publicKey == null || publicKey.isEmpty) {
+      throw const VideoDeviceRegistrationException(
+        'Android Keystore returned an empty video public key',
+      );
+    }
+    await _client.postUri(
+      _uri(EndPoints.replaceVideoDeviceKey),
+      data: {
+        'deviceId': deviceId,
+        'publicKey': publicKey,
+        'algorithm': 'ECDSA_P256_SHA256',
+      },
+      options: Options(
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      ),
+    );
   }
 
   Future<String> sign(String payload) async {
@@ -125,6 +155,7 @@ class VideoDeviceRegistrationException implements Exception {
             : 'Video device registration failed with HTTP $statusCode',
       );
     }
+
     if (error is PlatformException) {
       return VideoDeviceRegistrationException(
         'Video device registration failed: ${error.code}',
@@ -139,4 +170,18 @@ class VideoDeviceRegistrationException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class DeviceReplacementRequiredException implements Exception {
+  const DeviceReplacementRequiredException();
+
+  static bool matches(Object error) {
+    return error is DioException &&
+        error.response?.data is Map<String, dynamic> &&
+        (error.response!.data as Map<String, dynamic>)['errorCode'] ==
+            'VIDEO_DEVICE_LIMIT_EXCEEDED_REPLACEMENT_REQUIRED';
+  }
+
+  @override
+  String toString() => 'Video device replacement is required';
 }

@@ -115,12 +115,12 @@ class _CreateGuestScreenState extends State<CreateGuestScreen> {
     super.dispose();
   }
 
-  void makeOnBoardingSeen() {
-    prefs.setOnBoardingSeen(true);
+  Future<void> makeOnBoardingSeen() {
+    return prefs.setOnBoardingSeen(true);
   }
 
-  void markUserAsGuest() {
-    GetIt.I<PrefsRepository>().setIsGuest(true);
+  Future<void> markUserAsGuest() {
+    return GetIt.I<PrefsRepository>().setIsGuest(true);
   }
 
   Future<void> _guestSuccess(BuildContext context) async {
@@ -128,8 +128,8 @@ class _CreateGuestScreenState extends State<CreateGuestScreen> {
       await signOut(context, clearUser: false);
     }
 
-    makeOnBoardingSeen();
-    markUserAsGuest();
+    await makeOnBoardingSeen();
+    await markUserAsGuest();
 
     if (!widget.forEdit) {
       if (context.mounted) {

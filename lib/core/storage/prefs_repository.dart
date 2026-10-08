@@ -33,6 +33,8 @@ abstract class PrefsRepository {
 
   bool get isStudent;
 
+  bool get isTeacher;
+
   bool get isGuest;
 
   bool? get isSimulator;

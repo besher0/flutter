@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
 
-import '../../features/auth/domain/use_case/sign_up_use_case.dart';
 import '../common/constant/configuration/prefs_key.dart';
 
 class PrefsRepositoryImpl extends PrefsRepository {
@@ -20,7 +19,17 @@ class PrefsRepositoryImpl extends PrefsRepository {
 
   @override
   Future<bool> clearUser() async {
-    return await _preferences.clear();
+    const installationDeviceIdKey = 'coursaty_installation_device_id_v2';
+    final installationDeviceId = _preferences.getString(
+      installationDeviceIdKey,
+    );
+    final cleared = await _preferences.clear();
+    if (installationDeviceId == null) return cleared;
+    final restored = await _preferences.setString(
+      installationDeviceIdKey,
+      installationDeviceId,
+    );
+    return cleared && restored;
   }
 
   @override
@@ -121,7 +130,11 @@ class PrefsRepositoryImpl extends PrefsRepository {
 
   @override
   bool get isStudent =>
-      _preferences.getString(PrefsKey.userType) == "STUDENT" || isGuest;
+      isGuest || _preferences.getString(PrefsKey.userType) == "STUDENT";
+
+  @override
+  bool get isTeacher =>
+      !isGuest && _preferences.getString(PrefsKey.userType) == "TEACHER";
 
   @override
   Future<bool> setUserType(String userType) =>

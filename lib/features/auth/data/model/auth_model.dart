@@ -104,4 +104,6 @@ class User {
   bool get isActive => status?.toLowerCase() == "active";
 
   bool get isStudent => userableType?.toLowerCase() == "STUDENT";
+
+  bool get isTeacher => userableType?.toLowerCase() == "TEACHER";
 }

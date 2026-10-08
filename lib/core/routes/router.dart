@@ -67,7 +67,12 @@ class GRouter {
                   _config.applicationRoutes.pointOfSaleDetails)) {
         return _config.applicationRoutes.home;
       }
-      return null;
+      final prefs = GetIt.I<PrefsRepository>();
+      if ((!prefs.isGuest && prefs.token != null) ||
+          !_requiresAuthentication(state.matchedLocation)) {
+        return null;
+      }
+      return _config.applicationRoutes.login;
     },
     routes: <RouteBase>[
       /// Splash
@@ -359,5 +364,27 @@ class GRouter {
     required GoRouterState state,
   }) {
     return MaterialPage<T>(child: child, key: state.pageKey);
+  }
+
+  static bool _requiresAuthentication(String location) {
+    const protectedRoutes = [
+      '/notifications',
+      '/addNotification',
+      '/downloads',
+      '/edit_profile',
+      '/change_password',
+      '/change_university',
+      '/select_subject',
+      '/add_course',
+      '/points_of_sale',
+      '/point_of_sale_details',
+      '/teacher_course_details',
+      '/lecture_details_for_teacher',
+      '/downloaded_course_details',
+      '/downloaded_lecture_details',
+    ];
+    return protectedRoutes.any(
+      (route) => location == route || location.startsWith('$route/'),
+    );
   }
 }
