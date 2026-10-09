@@ -44,7 +44,6 @@ abstract final class AppAssets {
   static const String iconFileText = '$assetsIcons/file_text.svg';
   static const String iconDownload = '$assetsIcons/download.svg';
   static const String iconStar = '$assetsIcons/rate.svg';
-  static const String telegramSvg = '$assetsIcons/telegram.svg';
 
   /// Splash screen logo (Figma: image 10, node 67:3384).
   static const String logo = '$assetsImages/logo.png';

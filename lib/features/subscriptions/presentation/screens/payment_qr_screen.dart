@@ -361,14 +361,16 @@ class _CourseSummary extends StatelessWidget {
                     fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'المبلغ المطلوب: ${info.finalPrice} ل.س',
-                  style: GoogleFonts.cairo(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w700,
+                if (info.isPriceVisible) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'المبلغ المطلوب: ${info.finalPrice} ل.س',
+                    style: GoogleFonts.cairo(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

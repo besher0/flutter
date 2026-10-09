@@ -23,9 +23,16 @@ class UpsertCourseParams {
   final String subjectId;
   final String categoryId;
   final int price;
-  final double courseDiscountPercentage;
+
+  /// Final price after discount (equal to [price] when there is no discount).
+  /// The backend's `courseDiscountPercentage` input is a legacy alias for this
+  /// same final price, so a percentage must never be sent.
+  final int discountedPrice;
   // final double duration;
   final bool isFree;
+
+  /// Whether students see the price (base, discount and final).
+  final bool isPriceVisible;
   final DateTime? expiresAt;
   final String? introVideoUrl;
   final String? discussionGroupUrl;
@@ -43,9 +50,10 @@ class UpsertCourseParams {
     required this.subjectId,
     required this.categoryId,
     required this.price,
-    required this.courseDiscountPercentage,
+    required this.discountedPrice,
     // required this.duration,
     required this.isFree,
+    this.isPriceVisible = true,
     this.expiresAt,
     this.introVideoUrl,
     this.discussionGroupUrl,
@@ -71,9 +79,10 @@ class UpsertCourseParams {
     // if (departmentId != null) "departmentId": departmentId,
     "categoryId": categoryId,
     "price": price,
-    "courseDiscountPercentage": courseDiscountPercentage,
+    "discountedPrice": discountedPrice,
     // "duration": duration,
     "isFree": isFree,
+    "isPriceVisible": isPriceVisible,
     if (expiresAt != null) "expiresAt": expiresAt!.toIso8601String(),
     if (introVideoUrl != null) "introVideoUrl": introVideoUrl,
     if (courseId != null || telegramUrl != null) "telegramUrl": telegramUrl,

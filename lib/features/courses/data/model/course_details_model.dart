@@ -77,6 +77,10 @@ class Course {
   final String? paymentQrUrl;
   final String? telegramUrl;
 
+  /// Whether base/discounted prices may be shown. Display only; missing
+  /// (older backends, cached downloads) means visible.
+  final bool isPriceVisible;
+
   Course({
     this.id,
     this.imageUrl,
@@ -87,6 +91,7 @@ class Course {
     this.locked,
     this.paymentQrUrl,
     this.telegramUrl,
+    this.isPriceVisible = true,
   });
 
   Course copyWith({
@@ -100,6 +105,7 @@ class Course {
     bool? locked,
     String? paymentQrUrl,
     String? telegramUrl,
+    bool? isPriceVisible,
   }) => Course(
     id: id ?? this.id,
     imageUrl: imageUrl ?? this.imageUrl,
@@ -110,6 +116,7 @@ class Course {
     locked: locked ?? this.locked,
     paymentQrUrl: paymentQrUrl ?? this.paymentQrUrl,
     telegramUrl: telegramUrl ?? this.telegramUrl,
+    isPriceVisible: isPriceVisible ?? this.isPriceVisible,
   );
 
   factory Course.fromJson(Map<String, dynamic> json) => Course(
@@ -122,6 +129,9 @@ class Course {
     locked: json["locked"],
     paymentQrUrl: json["paymentQrUrl"],
     telegramUrl: json["telegramUrl"] as String?,
+    isPriceVisible: json["isPriceVisible"] is bool
+        ? json["isPriceVisible"] as bool
+        : true,
   );
 
   Map<String, dynamic> toJson() => {
@@ -134,6 +144,7 @@ class Course {
     "locked": locked,
     "paymentQrUrl": paymentQrUrl,
     "telegramUrl": telegramUrl,
+    "isPriceVisible": isPriceVisible,
   };
 }
 
@@ -142,6 +153,9 @@ class Details {
   final String? description;
   final String? introVideoUrl;
   final String? discussionGroupUrl;
+
+  /// Course Telegram link. The backend sends it under `details`.
+  final String? telegramUrl;
   final String? instagramUrl;
   final int? studentsCount;
   final int? duration;
@@ -168,6 +182,7 @@ class Details {
     this.questionsCount,
     this.introVideoUrl,
     this.discussionGroupUrl,
+    this.telegramUrl,
     this.expiresAt,
     this.isExpired,
   });
@@ -177,6 +192,7 @@ class Details {
     String? description,
     String? introVideoUrl,
     String? discussionGroupUrl,
+    String? telegramUrl,
     String? instagramUrl,
     int? duration,
     int? studentsCount,
@@ -190,6 +206,7 @@ class Details {
     bool? isExpired,
   }) => Details(
     discussionGroupUrl: discussionGroupUrl ?? this.discussionGroupUrl,
+    telegramUrl: telegramUrl ?? this.telegramUrl,
     teacher: teacher ?? this.teacher,
     introVideoUrl: introVideoUrl ?? this.introVideoUrl,
     description: description ?? this.description,
@@ -224,11 +241,13 @@ class Details {
     questionsCount: json["questionsCount"],
     introVideoUrl: json["introVideoUrl"],
     discussionGroupUrl: json["discussionGroupUrl"],
+    telegramUrl: json["telegramUrl"] as String?,
   );
 
   Map<String, dynamic> toJson() => {
     "teacher": teacher?.toJson(),
     "discussionGroupUrl": discussionGroupUrl,
+    "telegramUrl": telegramUrl,
     "description": description,
     "introVideoUrl": introVideoUrl,
     "studentsCount": studentsCount,
