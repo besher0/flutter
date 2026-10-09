@@ -14,6 +14,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
 import '../app/blocs/sensitive_connectivity/sensitive_connectivity_bloc.dart';
+import '../core/di/di_container.dart';
 
 class ServiceProvider extends StatelessWidget {
   final Widget child;
@@ -22,22 +23,30 @@ class ServiceProvider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider.value(value: SensitiveConnectivityBloc()),
-        BlocProvider.value(value: GetIt.I<AuthBloc>()),
-        BlocProvider.value(value: GetIt.I<HomeBloc>()),
-        BlocProvider.value(value: GetIt.I<TeachersBloc>()),
-        BlocProvider.value(value: GetIt.I<CoursesBloc>()),
-        BlocProvider.value(value: GetIt.I<AppBloc>()),
-        BlocProvider.value(value: GetIt.I<CourseContentManagementBloc>()),
-        BlocProvider.value(value: GetIt.I<DownloadingMediaBloc>()),
-        BlocProvider.value(value: GetIt.I<MyDownloadsBloc>()),
-        BlocProvider.value(value: GetIt.I<NotificationsBloc>()),
-        BlocProvider.value(value: GetIt.I<SalesPointsBloc>()),
-        BlocProvider.value(value: GetIt.I<SubscriptionBloc>()),
-      ],
-      child: child,
+    return BlocProvider.value(
+      value: SensitiveConnectivityBloc(),
+      // Rebuilt after resetDependencies() so `context` and `GetIt` always
+      // resolve to the same bloc instances.
+      child: ValueListenableBuilder<int>(
+        valueListenable: dependenciesGeneration,
+        builder: (context, _, child) => MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: GetIt.I<AuthBloc>()),
+            BlocProvider.value(value: GetIt.I<HomeBloc>()),
+            BlocProvider.value(value: GetIt.I<TeachersBloc>()),
+            BlocProvider.value(value: GetIt.I<CoursesBloc>()),
+            BlocProvider.value(value: GetIt.I<AppBloc>()),
+            BlocProvider.value(value: GetIt.I<CourseContentManagementBloc>()),
+            BlocProvider.value(value: GetIt.I<DownloadingMediaBloc>()),
+            BlocProvider.value(value: GetIt.I<MyDownloadsBloc>()),
+            BlocProvider.value(value: GetIt.I<NotificationsBloc>()),
+            BlocProvider.value(value: GetIt.I<SalesPointsBloc>()),
+            BlocProvider.value(value: GetIt.I<SubscriptionBloc>()),
+          ],
+          child: child!,
+        ),
+        child: child,
+      ),
     );
   }
 }

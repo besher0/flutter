@@ -84,8 +84,7 @@ class YouAreGuestDialog extends StatelessWidget {
   Future<void> goToLogin(BuildContext context) async {
     await GetIt.I<PrefsRepository>().clearUser();
     clearAllBlocs();
-    await GetIt.I.reset();
-    await configureDependencies();
+    await resetDependencies();
     GetIt.I<PrefsRepository>().setOnBoardingSeen(true);
     if (context.mounted) {
       context.go(GRouter.config.applicationRoutes.login);
