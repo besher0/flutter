@@ -224,7 +224,16 @@ abstract class EndPoints {
 }
 
 abstract class MasterUrlRoutes {
-  static String get baseUrl => _baseUrlDev;
+  /// Every backend route lives under /v2. The unversioned paths are retired,
+  /// so app builds from before /v2 get an "update the app" answer.
+  static const String apiVersionPath = 'v2';
+
+  /// Backend path for an [endpoint] such as `auth/login`.
+  static String apiPath(String endpoint) =>
+      '/$apiVersionPath/${endpoint.replaceFirst(RegExp(r'^/+'), '')}';
+
+  /// Base URL of the versioned API, for string-built URLs.
+  static String get baseUrl => '$_baseUrlDev$apiVersionPath/';
 
   static String get baseUrlWithHttp => _baseUrlDevWithHttp;
 

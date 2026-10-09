@@ -38,7 +38,7 @@ class DeleteClient<T> extends BaseApi<T> {
       final Uri uri = Uri(
         host: baseUri.host,
         scheme: baseUri.scheme,
-        path: _endpoint,
+        path: apiPathFor(serverName, _endpoint),
         port: MasterUrlRoutes.port,
         queryParameters: _queryParameters,
       );

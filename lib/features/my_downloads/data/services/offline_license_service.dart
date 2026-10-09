@@ -78,7 +78,7 @@ class OfflineLicenseService {
         reason: OfflineLicenseInvalidReason.videoMismatch,
       );
     }
-    if (payload.deviceId != DeviceInfoService.getSecureVideoDeviceId()) {
+    if (!DeviceInfoService.isThisDevice(payload.deviceId)) {
       return const OfflineLicenseValidationResult.invalid(
         'Offline license device mismatch',
         reason: OfflineLicenseInvalidReason.deviceMismatch,

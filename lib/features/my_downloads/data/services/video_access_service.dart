@@ -416,7 +416,7 @@ class VideoAccessService {
     return Uri(
       host: baseUri.host,
       scheme: baseUri.scheme,
-      path: endpoint,
+      path: MasterUrlRoutes.apiPath(endpoint),
       port: MasterUrlRoutes.port,
     );
   }

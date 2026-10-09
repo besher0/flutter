@@ -7,6 +7,7 @@ import 'package:injectable/injectable.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../api/device_header_interceptor.dart';
 import '../api/log_interceptor.dart';
 import '../storage/prefs_repository.dart';
 import '../storage/prefs_repository_impl.dart';
@@ -64,7 +65,7 @@ abstract class AppModule {
 
   @singleton
   Dio dio(BaseOptions option, Logger logger) {
-    final dio = Dio(option);
+    final dio = Dio(option)..interceptors.add(DeviceHeaderInterceptor());
     if (kDebugMode) dio.interceptors.add(LoggerInterceptor());
     return dio;
   }

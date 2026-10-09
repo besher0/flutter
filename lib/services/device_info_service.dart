@@ -49,7 +49,16 @@ class DeviceInfoService {
   /// reset only by a factory reset) or an iOS Keychain entry (kept across
   /// reinstalls). Sent hashed; falls back to the installation id.
   static String getLoginDeviceId() =>
-      _loginDeviceId ?? getSecureVideoDeviceId();
+      _loginDeviceId ?? getInstallationDeviceId();
+
+  /// Random id of this app installation (lost when the app is reinstalled).
+  static String getInstallationDeviceId() =>
+      _installationDeviceId ?? getDeviceId();
+
+  /// Whether [deviceId] names this phone: its login device id, or the
+  /// installation id that video licenses used before the two were unified.
+  static bool isThisDevice(String deviceId) =>
+      deviceId == getLoginDeviceId() || deviceId == getInstallationDeviceId();
 
   static Future<void> _initLoginDeviceId() async {
     try {
@@ -172,7 +181,8 @@ class DeviceInfoService {
     return 'AAAA-BBBB-99CC-36EE';
   }
 
-  static String getSecureVideoDeviceId() {
-    return _installationDeviceId ?? getDeviceId();
-  }
+  /// The video device is the login device: the account is bound to one
+  /// phone, so a reinstall (new installation id, new Keystore key) is
+  /// recognised as the same phone instead of needing a device replacement.
+  static String getSecureVideoDeviceId() => getLoginDeviceId();
 }

@@ -36,8 +36,8 @@ void main() {
       );
 
       expect(adapter.paths, [
-        '/videos/$_videoId/playback-challenge',
-        '/videos/$_videoId/playback-session',
+        '/v2/videos/$_videoId/playback-challenge',
+        '/v2/videos/$_videoId/playback-session',
       ]);
       expect(keys.registrations, 1);
       expect(keys.signedPayloads.single, [
@@ -108,7 +108,7 @@ void main() {
         preferredResolution: '720p',
       );
 
-      expect(adapter.paths, ['/videos/$_videoId/playback-session']);
+      expect(adapter.paths, ['/v2/videos/$_videoId/playback-session']);
     });
   });
 
@@ -175,7 +175,7 @@ void main() {
 
       await keys.replaceDevice();
 
-      expect(adapter.paths, ['/devices/video-key/replace']);
+      expect(adapter.paths, ['/v2/devices/video-key/replace']);
       expect(adapter.headers.last[HttpHeaders.authorizationHeader], 'Bearer student-token');
       expect(adapter.bodies.last, {
         'deviceId': _deviceId,
@@ -258,7 +258,7 @@ void main() {
         preferredResolution: '480p',
       );
 
-      expect(adapter.paths, ['/videos/$_videoId/playback-session']);
+      expect(adapter.paths, ['/v2/videos/$_videoId/playback-session']);
       expect(keys.registrations, 0);
       expect(adapter.bodies.last, {'deviceId': _deviceId, 'preferredResolution': '480p'});
     });

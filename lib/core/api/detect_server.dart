@@ -14,6 +14,16 @@ Uri getBaseUriForSpecificServer(ServerName serverName) {
   }
 }
 
+/// Request path on [serverName]; backend routes are versioned (/v2).
+String apiPathFor(ServerName serverName, String endpoint) {
+  switch (serverName) {
+    case ServerName.master:
+      return MasterUrlRoutes.apiPath(endpoint);
+    case ServerName.bunny:
+      return endpoint;
+  }
+}
+
 String? getServerToken(ServerName serverName) {
   final PrefsRepository prefsRepository = GetIt.I<PrefsRepository>();
   switch (serverName) {
