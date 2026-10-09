@@ -45,18 +45,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final PrefsRepository prefsRepository = GetIt.I<PrefsRepository>();
 
   String? _validateRequired(String? value) {
-    if ((value ?? '').trim().isEmpty) return 'ظ‡ط°ط§ ط§ظ„ط­ظ‚ظ„ ظ…ط·ظ„ظˆط¨';
+    if ((value ?? '').trim().isEmpty) return 'هذا الحقل مطلوب';
     return null;
   }
 
   String? _validatePhone(String? value) {
     final phone = (value ?? '').trim();
-    if (phone.isEmpty) return 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ ظ…ط·ظ„ظˆط¨';
+    if (phone.isEmpty) return 'رقم الهاتف مطلوب';
     if (!RegExp(r'^\d+$').hasMatch(phone)) {
-      return 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ ظٹط¬ط¨ ط£ظ† ظٹط­طھظˆظٹ ط£ط±ظ‚ط§ظ… ظپظ‚ط·';
+      return 'رقم الهاتف يجب أن يحتوي أرقام فقط';
     }
     if (phone.length != 10)
-      return 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ ظٹط¬ط¨ ط£ظ† ظٹظƒظˆظ† 10 ط£ط±ظ‚ط§ظ…';
+      return 'رقم الهاتف يجب أن يكون 10 أرقام';
     return null;
   }
 
@@ -126,24 +126,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
                 CoursatyTextField(
-                  label: 'ط§ظ„ط§ط³ظ…',
-                  hint: 'ط§ظ„ط§ط³ظ…',
+                  label: 'الاسم',
+                  hint: 'الاسم',
                   controller: nameController,
                   textInputAction: TextInputAction.next,
                   validator: _validateRequired,
                 ),
                 const SizedBox(height: 16),
                 CoursatyTextField(
-                  label: 'ط§ظ„ظƒظ†ظٹط©',
-                  hint: 'ط§ظ„ظƒظ†ظٹط©',
+                  label: 'الكنية',
+                  hint: 'الكنية',
                   controller: lastNameController,
                   textInputAction: TextInputAction.next,
                   validator: _validateRequired,
                 ),
                 const SizedBox(height: 16),
                 CoursatyTextField(
-                  label: 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ',
-                  hint: 'ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ',
+                  label: 'رقم الهاتف',
+                  hint: 'رقم الهاتف',
                   readOnly: true,
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
@@ -156,32 +156,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 CoursatyDropdown<String>(
-                  label: 'ط§ظ„ط¬ظ†ط³',
-                  hint: 'ط§ظ„ط¬ظ†ط³',
+                  label: 'الجنس',
+                  hint: 'الجنس',
                   value: gender,
                   onChanged: (v) => setState(() => gender = v!),
                   validator: (v) => v == null || v.isEmpty
-                      ? 'ظ‡ط°ط§ ط§ظ„ط­ظ‚ظ„ ظ…ط·ظ„ظˆط¨'
+                      ? 'هذا الحقل مطلوب'
                       : null,
                   items: const [
-                    DropdownMenuItem(value: 'MALE', child: Text('ط°ظƒط±')),
-                    DropdownMenuItem(value: 'FEMALE', child: Text('ط£ظ†ط«ظ‰')),
+                    DropdownMenuItem(value: 'MALE', child: Text('ذكر')),
+                    DropdownMenuItem(value: 'FEMALE', child: Text('أنثى')),
                   ],
                 ),
                 const SizedBox(height: 16),
                 if (!widget.isForTeacher) ...{
                   CoursatyTextField(
-                    label: 'ط§ظ„ط±ظ‚ظ… ط§ظ„ط¬ط§ظ…ط¹ظٹ',
-                    hint: 'ط§ظ„ط±ظ‚ظ… ط§ظ„ط¬ط§ظ…ط¹ظٹ',
+                    label: 'الرقم الجامعي',
+                    hint: 'الرقم الجامعي',
                     controller: universityNumber,
                     readOnly: true,
                     textInputAction: TextInputAction.next,
                     validator: (text) {
                       if (text == null) {
-                        return "ط§ظ„ط±ظ‚ظ… ط§ظ„ط¬ط§ظ…ط¹ظٹ ظ…ط·ظ„ظˆط¨";
+                        return "الرقم الجامعي مطلوب";
                       }
                       if (int.tryParse(text) == null) {
-                        return "ط§ظ„ط±ظ‚ظ… ط§ظ„ط¬ط§ظ…ط¹ظٹ ط§ظ„ظ…ط¯ط®ظ„ ط؛ظٹط± طµط§ظ„ط­";
+                        return "الرقم الجامعي المدخل غير صالح";
                       }
                       return null;
                     },
@@ -190,7 +190,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 },
                 if (widget.isForTeacher) ...{
                   CustomChooseFileButton(
-                    title: "طھط؛ظٹظٹط± طµظˆط±ط© ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ",
+                    title: "تغيير صورة الملف الشخصي",
                     usedForImage: true,
                     usedForFile: false,
                     choosedFile: chooseFile,
@@ -207,15 +207,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               children: [
                                 CoursatyTextField(
                                   label:
-                                      'ط±ط§ط¨ط· طµظپط­ط© ط§ظ„ط§ظ†ط³طھط؛ط±ط§ظ… (ط§ط®طھظٹط§ط±ظٹ)',
+                                      'رابط صفحة الانستغرام (اختياري)',
                                   hint:
-                                      'ط±ط§ط¨ط· طµظپط­ط© ط§ظ„ط§ظ†ط³طھط؛ط±ط§ظ… (ط§ط®طھظٹط§ط±ظٹ)',
+                                      'رابط صفحة الانستغرام (اختياري)',
                                   controller: instagram,
                                 ),
                                 CoursatyTextField(
                                   validator: _validateRequired,
-                                  label: 'ظˆطµظپ ط§ظ„ظ…ط¯ط±ط³',
-                                  hint: 'ظˆطµظپظٹ ط§ظ„ط´ط®طµظٹ',
+                                  label: 'وصف المدرس',
+                                  hint: 'وصفي الشخصي',
                                   controller: description,
                                 ),
                               ],
@@ -237,7 +237,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     return state.updateProfileStatus.isLoading
                         ? CoursatyAppLoader()
                         : CoursatyPrimaryButton(
-                            label: 'ط­ظپط¸',
+                            label: 'حفظ',
                             onPressed: () {
                               if (_formKey.currentState!.validate()) {
                                 BlocProvider.of<AuthBloc>(context).add(
