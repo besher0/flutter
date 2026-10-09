@@ -17,6 +17,7 @@ class CoursePaymentInfo {
     this.isFree,
     this.isExpired,
     this.expiresAt,
+    this.isPriceVisible = true,
   });
 
   final String id;
@@ -28,6 +29,9 @@ class CoursePaymentInfo {
   final bool? isFree;
   final bool? isExpired;
   final DateTime? expiresAt;
+
+  /// Display only: the amount is still required for the payment flow.
+  final bool isPriceVisible;
 
   num get finalPrice => discountedPrice ?? basePrice ?? 0;
   bool get hasPaymentQr => paymentQrUrl?.trim().isNotEmpty == true;
@@ -65,6 +69,9 @@ class CoursePaymentInfo {
       isFree: raw['isFree'] is bool ? raw['isFree'] as bool : null,
       isExpired: isExpired,
       expiresAt: expiresAt,
+      isPriceVisible: raw['isPriceVisible'] is bool
+          ? raw['isPriceVisible'] as bool
+          : true,
     );
   }
 

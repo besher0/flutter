@@ -217,11 +217,15 @@ class SubscriptionPrice {
   final int? afterDiscount;
   final bool? hasDiscount;
 
+  /// Missing (older backends) means visible.
+  final bool isPriceVisible;
+
   SubscriptionPrice({
     this.beforeDiscount,
     this.discountPercentage,
     this.afterDiscount,
     this.hasDiscount,
+    this.isPriceVisible = true,
   });
 
   SubscriptionPrice copyWith({
@@ -229,11 +233,13 @@ class SubscriptionPrice {
     int? discountPercentage,
     int? afterDiscount,
     bool? hasDiscount,
+    bool? isPriceVisible,
   }) => SubscriptionPrice(
     beforeDiscount: beforeDiscount ?? this.beforeDiscount,
     discountPercentage: discountPercentage ?? this.discountPercentage,
     afterDiscount: afterDiscount ?? this.afterDiscount,
     hasDiscount: hasDiscount ?? this.hasDiscount,
+    isPriceVisible: isPriceVisible ?? this.isPriceVisible,
   );
 
   factory SubscriptionPrice.fromJson(Map<String, dynamic> json) =>
@@ -242,6 +248,9 @@ class SubscriptionPrice {
         discountPercentage: json["discountPercentage"]?.toInt(),
         afterDiscount: json["afterDiscount"],
         hasDiscount: json["hasDiscount"],
+        isPriceVisible: json["isPriceVisible"] is bool
+            ? json["isPriceVisible"] as bool
+            : true,
       );
 
   Map<String, dynamic> toJson() => {
@@ -249,6 +258,7 @@ class SubscriptionPrice {
     "discountPercentage": discountPercentage,
     "afterDiscount": afterDiscount,
     "hasDiscount": hasDiscount,
+    "isPriceVisible": isPriceVisible,
   };
 }
 

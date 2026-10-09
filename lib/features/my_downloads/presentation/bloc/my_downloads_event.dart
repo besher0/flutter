@@ -59,3 +59,11 @@ class DeleteCoursesWhichAreInActive extends MyDownloadsEvent {
 }
 
 class DeleteCoursesWhichAreExpired extends MyDownloadsEvent {}
+
+/// Binds the downloads to the signed-in account. Dispatched after login and
+/// at start-up; a different account removes the previous account's content.
+class SyncDownloadsOwner extends MyDownloadsEvent {
+  final String userId;
+
+  SyncDownloadsOwner(this.userId);
+}

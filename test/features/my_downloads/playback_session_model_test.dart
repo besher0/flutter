@@ -60,7 +60,9 @@ void main() {
         adapter.request?.path,
         endsWith('/videos/video-1/guest-playback-session'),
       );
-      expect(adapter.request?.headers.containsKey('Authorization'), isFalse);
+      // Guest calls override Authorization with null so a stale default on the
+      // shared Dio cannot leak; Dio's IO adapter does not send null headers.
+      expect(adapter.request?.headers['Authorization'], isNull);
       expect(session.playbackHeaders, {
         'X-Coursaty-Playback-Session': 'edge-token',
       });

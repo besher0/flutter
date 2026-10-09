@@ -102,53 +102,56 @@ class _DownloadedCourseDetailsState extends State<DownloadedCourseDetails>
                           ),
                         ),
                       ),
-                      10.horizontalSpace,
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.course.course?.discountedPrice != null &&
-                              widget.course.course?.basePrice !=
-                                  widget.course.course?.discountedPrice) ...{
+                      // Hidden entirely when the course price is not visible.
+                      if (widget.course.course?.isPriceVisible ?? true) ...[
+                        10.horizontalSpace,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.course.course?.discountedPrice != null &&
+                                widget.course.course?.basePrice !=
+                                    widget.course.course?.discountedPrice) ...{
+                              Text(
+                                '${widget.course.course?.discountedPrice ?? ''} / ',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.red,
+                                ),
+                              ),
+                              Text(
+                                (widget.course.course?.basePrice ?? '')
+                                    .toString(),
+                                style: GoogleFonts.cairo(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.greyDark,
+                                  decoration: TextDecoration.lineThrough,
+                                  decorationColor: AppColors.greyDark,
+                                ),
+                              ),
+                            } else
+                              Text(
+                                (widget.course.course?.basePrice ?? '')
+                                    .toString(),
+                                style: GoogleFonts.cairo(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.red,
+                                ),
+                              ),
+                            5.horizontalSpace,
                             Text(
-                              '${widget.course.course?.discountedPrice ?? ''} / ',
+                              "ل.س",
                               style: GoogleFonts.cairo(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.red,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
-                            Text(
-                              (widget.course.course?.basePrice ?? '')
-                                  .toString(),
-                              style: GoogleFonts.cairo(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.greyDark,
-                                decoration: TextDecoration.lineThrough,
-                                decorationColor: AppColors.greyDark,
-                              ),
-                            ),
-                          } else
-                            Text(
-                              (widget.course.course?.basePrice ?? '')
-                                  .toString(),
-                              style: GoogleFonts.cairo(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.red,
-                              ),
-                            ),
-                          5.horizontalSpace,
-                          Text(
-                            "ل.س",
-                            style: GoogleFonts.cairo(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -199,6 +202,10 @@ class _DetailsTab extends StatelessWidget {
 
   final Details details;
   final Course course;
+
+  /// The backend sends the course Telegram link under `details`; `course`
+  /// is kept as a fallback for older cached downloads.
+  String? get _telegramUrl => details.telegramUrl ?? course.telegramUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -323,7 +330,7 @@ class _DetailsTab extends StatelessWidget {
             height: 1.8,
           ),
         ),
-        if (course.telegramUrl?.trim().isNotEmpty == true ||
+        if (_telegramUrl?.trim().isNotEmpty == true ||
             details.discussionGroupUrl?.trim().isNotEmpty == true ||
             details.introVideoUrl != null) ...{
           15.verticalSpace,
@@ -346,12 +353,12 @@ class _DetailsTab extends StatelessWidget {
               ),
               15.verticalSpace,
             },
-            if (course.telegramUrl?.trim().isNotEmpty == true) ...{
+            if (_telegramUrl?.trim().isNotEmpty == true) ...{
               MediaItem(
                 assetUrl: AppAssets.telegram,
                 color: Color(0xff1DA0E0),
                 onTap: () {
-                  HelperFunctions.urlLauncher(course.telegramUrl!.trim());
+                  HelperFunctions.urlLauncher(_telegramUrl!.trim());
                 },
                 title: "قناة التلغرام",
               ),

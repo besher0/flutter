@@ -13,7 +13,13 @@ class MyDownloadsState {
   final Map<String, CourseDetailsModel> courseIdToCourseDetailsReferences;
   final Map<String, LectureDetailsModel> lectureIdToLectureDetailsReferences;
 
+  /// Account that owns these downloads. Offline licenses and segment keys are
+  /// bound to that account, so another account on this installation cannot
+  /// use (or see) them.
+  final String? ownerUserId;
+
   MyDownloadsState({
+    this.ownerUserId,
     this.courses = const [],
     this.urlToFileReferences = const {},
     this.courseIdToCourseDetailsReferences = const {},
@@ -25,8 +31,10 @@ class MyDownloadsState {
     final Map<String, String>? urlToFileReferences,
     final Map<String, CourseDetailsModel>? courseIdToCourseDetailsReferences,
     final Map<String, LectureDetailsModel>? lectureIdToLectureDetailsReferences,
+    final String? ownerUserId,
   }) {
     return MyDownloadsState(
+      ownerUserId: ownerUserId ?? this.ownerUserId,
       courses: courses ?? this.courses,
       urlToFileReferences: urlToFileReferences ?? this.urlToFileReferences,
       courseIdToCourseDetailsReferences:

@@ -23,7 +23,11 @@ class UpsertVideoParams {
   final String videoName;
   final String? description;
   final bool isFree;
-  String videoUrl;
+
+  /// Stable Bunny play URL (contains the Bunny GUID). Only set when a new file
+  /// was uploaded; metadata-only edits leave it null so the backend keeps the
+  /// current video, its GUID and contentVersion (offline downloads stay valid).
+  String? videoUrl;
   final String? sortOrder;
   final String? videoSize;
   final int? duration;
@@ -33,7 +37,7 @@ class UpsertVideoParams {
     this.description,
     this.videoId,
     required this.videoName,
-    required this.videoUrl,
+    this.videoUrl,
     required this.isFree,
     this.sortOrder,
     this.videoSize,
@@ -41,16 +45,12 @@ class UpsertVideoParams {
   });
 
   Map<String, dynamic> data() {
-    final parts = videoUrl.split('play_');
-    String videoFixedUrl = parts.isNotEmpty
-        ? "${videoUrl.split('play_')[0]}play_"
-        : videoUrl;
+    final url = videoUrl?.trim();
     return {
       'videoName': videoName,
       if (description != null) 'description': description,
       'isFree': isFree,
-      'preferredResolution': "480p",
-      'videoUrl': videoFixedUrl,
+      if (url != null && url.isNotEmpty) 'videoUrl': url,
       'lectureId': lectureId,
       if (duration != null) 'duration': duration,
       if (sortOrder != null) "sortOrder": int.parse(sortOrder!),

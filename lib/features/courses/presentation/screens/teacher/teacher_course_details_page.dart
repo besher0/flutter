@@ -356,10 +356,11 @@ class _RevenueTab extends StatelessWidget {
                       'تاريخ إنتهاء الكورس',
                       stats.course!.expiresAt!.dmy,
                     ),
-                  _RevenueRow(
-                    'سعر الاشتراك',
-                    '${stats.subscriptionPrice?.afterDiscount ?? 0}ل.س ',
-                  ),
+                  if (stats.subscriptionPrice?.isPriceVisible ?? true)
+                    _RevenueRow(
+                      'سعر الاشتراك',
+                      '${stats.subscriptionPrice?.afterDiscount ?? 0}ل.س ',
+                    ),
                   _RevenueRow(
                     'عدد المشتركين',
                     '${stats.subscriptions?.count ?? 0}',

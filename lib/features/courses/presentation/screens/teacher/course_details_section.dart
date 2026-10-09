@@ -63,6 +63,7 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
 
   late final ValueNotifier<XFile?> chooseFile;
   late final ValueNotifier<bool> isFreeNotifier;
+  late final ValueNotifier<bool> isPriceVisibleNotifier;
 
   bool isFieldsInitialized = false;
   DateTime? expiredDate;
@@ -73,6 +74,7 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
     super.initState();
     chooseFile = ValueNotifier(null);
     isFreeNotifier = ValueNotifier(false);
+    isPriceVisibleNotifier = ValueNotifier(true);
     courseName = TextEditingController();
     courseDescription = TextEditingController();
     courseTelegram = TextEditingController();
@@ -103,6 +105,7 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
     courseInstagram.dispose();
     price.dispose();
     chooseFile.dispose();
+    isPriceVisibleNotifier.dispose();
     super.dispose();
   }
 
@@ -398,6 +401,14 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
             enabled: widget.courseDetailsModel == null,
           ),
           10.verticalSpace,
+          // Editable on create and edit: only controls what students see.
+          IsFreeCourseTile(
+            isFreeNotifier: isPriceVisibleNotifier,
+            title: 'إظهار سعر الكورس',
+            description:
+                'عند إلغاء هذا الخيار يُخفى سعر الكورس وسعر الخصم والسعر النهائي عن الطلاب',
+          ),
+          10.verticalSpace,
           if (widget.courseDetailsModel?.course?.imageUrl == null)
             CustomChooseFileButton(
               usedForImage: true,
@@ -407,12 +418,12 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
                   : "رفع صورة للكورس",
               choosedFile: chooseFile,
             ),
-          // CoursatyTextField(
-          //   label: 'رابط التلغرام (اختياري)',
-          //   hint: 'https://t.me/...',
-          //   controller: courseTelegram,
-          // ),
-          // 10.verticalSpace,
+          CoursatyTextField(
+            label: 'رابط التلغرام (اختياري)',
+            hint: 'https://t.me/...',
+            controller: courseTelegram,
+          ),
+          10.verticalSpace,
           CoursatyTextField(
             label: 'رابط مجموعة النقاش (اختياري)',
             hint: 'https://t.me/...',
@@ -546,8 +557,9 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
                                         ?.subjectId ??
                                     'f1501fa6-6b10-48d8-84d5-e7f2006a7363',
                                 categoryId: categoryController.text,
-                                price: int.parse(price.text),
-                                courseDiscountPercentage: percent,
+                                price: priceBefore,
+                                discountedPrice: priceAfter,
+                                isPriceVisible: isPriceVisibleNotifier.value,
                                 // duration: double.parse(duration.text),
                                 isFree: isFreeNotifier.value,
                                 expiresAt: expiredDate,
@@ -612,7 +624,9 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
         categoryController.text = data.details?.categoryId ?? '';
         courseName.text = data.course?.name ?? '';
         courseDescription.text = data.details?.description ?? '';
-        courseTelegram.text = data.course?.telegramUrl ?? '';
+        // The backend returns the course Telegram link under `details`.
+        courseTelegram.text =
+            data.details?.telegramUrl ?? data.course?.telegramUrl ?? '';
         courseDiscussionGroup.text = data.details?.discussionGroupUrl ?? '';
         courseYoutube.text = data.details?.introVideoUrl ?? '';
         // universityController.text = data.details?.universityId ?? '';
@@ -628,6 +642,7 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
         priceAfterDiscount.text = (data.course?.discountedPrice ?? '')
             .toString();
         isFreeNotifier.value = data.course?.isFree ?? false;
+        isPriceVisibleNotifier.value = data.course?.isPriceVisible ?? true;
         expiredDate = data.details?.expiresAt;
         expiredController.text = expiredDate?.dmy ?? '';
       });

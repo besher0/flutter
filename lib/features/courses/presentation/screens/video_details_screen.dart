@@ -94,9 +94,11 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
         onBackTap: () {
           context.pop();
         },
+        // Offline downloads are a student entitlement; teachers stream only.
         action:
             !widget.fromNetwork ||
                 GetIt.I<PrefsRepository>().isGuest ||
+                GetIt.I<PrefsRepository>().isTeacher ||
                 GetIt.I<PrefsRepository>().token == null
             ? null
             : BlocBuilder<MyDownloadsBloc, MyDownloadsState>(

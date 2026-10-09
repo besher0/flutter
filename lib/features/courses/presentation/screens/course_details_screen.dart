@@ -139,73 +139,78 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
                                 ),
                               ),
                             ),
-                            10.horizontalSpace,
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (state
-                                            .courseDetailsModel
-                                            ?.course
-                                            ?.discountedPrice !=
-                                        null &&
-                                    state
-                                            .courseDetailsModel
-                                            ?.course
-                                            ?.basePrice !=
-                                        state
-                                            .courseDetailsModel
-                                            ?.course
-                                            ?.discountedPrice) ...{
+                            // Hidden entirely (base, discount, final) when the
+                            // course price is not visible to students.
+                            if (state.courseDetailsModel?.course?.isPriceVisible ??
+                                true) ...[
+                              10.horizontalSpace,
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (state
+                                              .courseDetailsModel
+                                              ?.course
+                                              ?.discountedPrice !=
+                                          null &&
+                                      state
+                                              .courseDetailsModel
+                                              ?.course
+                                              ?.basePrice !=
+                                          state
+                                              .courseDetailsModel
+                                              ?.course
+                                              ?.discountedPrice) ...{
+                                    Text(
+                                      '${state.courseDetailsModel?.course?.discountedPrice ?? ''} / ',
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.red,
+                                      ),
+                                    ),
+                                    Text(
+                                      (state
+                                                  .courseDetailsModel
+                                                  ?.course
+                                                  ?.basePrice ??
+                                              '')
+                                          .toString(),
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.greyDark,
+                                        decoration: TextDecoration.lineThrough,
+                                        decorationColor: AppColors.greyDark,
+                                      ),
+                                    ),
+                                  } else
+                                    Text(
+                                      (state
+                                                  .courseDetailsModel
+                                                  ?.course
+                                                  ?.basePrice ??
+                                              '')
+                                          .toString(),
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.red,
+                                      ),
+                                    ),
+                                  5.horizontalSpace,
                                   Text(
-                                    '${state.courseDetailsModel?.course?.discountedPrice ?? ''} / ',
+                                    "ل.س",
                                     style: GoogleFonts.cairo(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.red,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
                                     ),
                                   ),
-                                  Text(
-                                    (state
-                                                .courseDetailsModel
-                                                ?.course
-                                                ?.basePrice ??
-                                            '')
-                                        .toString(),
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.greyDark,
-                                      decoration: TextDecoration.lineThrough,
-                                      decorationColor: AppColors.greyDark,
-                                    ),
-                                  ),
-                                } else
-                                  Text(
-                                    (state
-                                                .courseDetailsModel
-                                                ?.course
-                                                ?.basePrice ??
-                                            '')
-                                        .toString(),
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.red,
-                                    ),
-                                  ),
-                                5.horizontalSpace,
-                                Text(
-                                  "ل.س",
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -363,6 +368,10 @@ class _DetailsTab extends StatelessWidget {
   final Details details;
   final Course course;
 
+  /// The backend sends the course Telegram link under `details`; `course`
+  /// is kept as a fallback for older cached downloads.
+  String? get _telegramUrl => details.telegramUrl ?? course.telegramUrl;
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -487,7 +496,7 @@ class _DetailsTab extends StatelessWidget {
             height: 1.8,
           ),
         ),
-        if (course.telegramUrl?.trim().isNotEmpty == true ||
+        if (_telegramUrl?.trim().isNotEmpty == true ||
             details.discussionGroupUrl?.trim().isNotEmpty == true ||
             details.introVideoUrl != null) ...{
           15.verticalSpace,
@@ -510,12 +519,12 @@ class _DetailsTab extends StatelessWidget {
               ),
               15.verticalSpace,
             },
-            if (course.telegramUrl?.trim().isNotEmpty == true) ...{
+            if (_telegramUrl?.trim().isNotEmpty == true) ...{
               MediaItem(
                 assetUrl: AppAssets.telegram,
                 color: Color(0xff1DA0E0),
                 onTap: () {
-                  HelperFunctions.urlLauncher(course.telegramUrl!.trim());
+                  HelperFunctions.urlLauncher(_telegramUrl!.trim());
                 },
                 title: "قناة التلغرام",
               ),

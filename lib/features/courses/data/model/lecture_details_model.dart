@@ -260,7 +260,9 @@ class Video {
     videoUrl: json["videoUrl"],
     videoSize: json["size"],
     description: json["description"],
-    durationSeconds: int.tryParse(json["durationSeconds"].toString()),
+    // Backend field is `duration` (seconds); `durationSeconds` is the
+    // pre-rename name still present in locally cached lecture JSON.
+    durationSeconds: _parseSeconds(json["duration"] ?? json["durationSeconds"]),
     viewsCount: json["viewsCount"],
     isFree: json["isFree"],
     offlineDownloadEnabled: json["offlineDownloadEnabled"],
@@ -290,6 +292,12 @@ class Video {
         : List<dynamic>.from(segments!.map((x) => x.toJson())),
     "locked": locked,
   };
+}
+
+int? _parseSeconds(dynamic value) {
+  if (value is num) return value.toInt();
+  if (value == null) return null;
+  return int.tryParse(value.toString());
 }
 
 List<Segment> segmentsModelFromJson(List<dynamic> data) =>

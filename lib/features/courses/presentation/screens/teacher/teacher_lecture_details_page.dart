@@ -327,7 +327,7 @@ class _VideosTab extends StatelessWidget {
                           AddVideoScreen(
                             lectureId: lectureId,
                             courseId: courseId,
-                            videoUrl: "${videos[i].videoUrl}$quality.mp4",
+                            preferredResolution: quality,
                             video: videos[i],
                             isForEdit: true,
                           ),
@@ -357,7 +357,7 @@ class _VideosTab extends StatelessWidget {
                           AddVideoScreen(
                             lectureId: lectureId,
                             courseId: courseId,
-                            videoUrl: "${videos[i].videoUrl}$quality.mp4",
+                            preferredResolution: quality,
                             video: videos[i],
                             isForEdit: true,
                           ),

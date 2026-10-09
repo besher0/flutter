@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/course_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/video_security_errors.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/encrypted_hls_download_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:flutter/cupertino.dart';
@@ -224,11 +225,14 @@ class DownloadingMediaBloc
       'Download failed: type=${e.runtimeType}, message=${_redactLogMessage(message)}',
       stackTrace: stackTrace,
     );
-    if (e is DioException &&
-        e.message == "The request was manually cancelled by the user.") {
+    if (e is DioException && CancelToken.isCancel(e)) {
       return;
     }
-    showMessage("حدثت مشكلة أثناء التحميل");
+    showMessage(
+      fileType == 'video'
+          ? videoDownloadErrorMessage(e as Object)
+          : "حدثت مشكلة أثناء التحميل",
+    );
   }
 
   Future<void> _onDownloadFileEvent(
@@ -237,6 +241,10 @@ class DownloadingMediaBloc
   ) async {
     if (_prefsRepository.isGuest || _prefsRepository.token == null) {
       showMessage('سجّل الدخول لتحميل الفيديو');
+      return;
+    }
+    if (event.fileType == 'video' && _prefsRepository.isTeacher) {
+      showMessage('تحميل الفيديوهات متاح لحسابات الطلاب فقط');
       return;
     }
     if ((event.fileType == 'video' || event.fileType == 'file') &&
