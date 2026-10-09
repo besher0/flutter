@@ -34,6 +34,7 @@ import '../../core/routes/router.dart';
 import '../../core/storage/prefs_repository.dart';
 import '../../core/theme/app_colors.dart';
 import 'chip_widget.dart';
+import 'video_zoom.dart';
 
 class MyVideoWidgetBetterPlayer extends StatefulWidget {
   const MyVideoWidgetBetterPlayer({
@@ -96,6 +97,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
   bool initialized = false;
   String? _initializationError;
   bool _replacementAttempted = false;
+  final VideoZoomController _zoomController = VideoZoomController();
 
   Future<void> init() async {
     // didChangeDependencies fires again on rotation/theme changes; a second
@@ -129,6 +131,14 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
           fit: BoxFit.contain,
           autoPlay: false,
           looping: false,
+          // Pinch-to-zoom: the overlay sits between the video and the
+          // controls, so only the picture is magnified.
+          overlay: VideoZoomController.isSupported
+              ? VideoZoomOverlay(zoomController: _zoomController)
+              : null,
+          routePageBuilder: VideoZoomController.isSupported
+              ? _buildFullScreenPage
+              : null,
         ),
         betterPlayerDataSource: betterPlayerDataSource,
       );
@@ -348,6 +358,41 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     await _renewPlayback(proactive: false);
   }
 
+  Widget _zoomable(Widget player) {
+    if (!VideoZoomController.isSupported) return player;
+    return VideoZoomGestureLayer(controller: _zoomController, child: player);
+  }
+
+  /// Same page as better_player's default full-screen route, plus pinch zoom.
+  /// The gesture layer is sized to the video box so zoom coordinates match the
+  /// overlay drawn inside the player.
+  Widget _buildFullScreenPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    BetterPlayerControllerProvider controllerProvider,
+  ) {
+    var aspectRatio =
+        betterPlayerController.videoPlayerController?.value.aspectRatio ??
+        16 / 9;
+    if (aspectRatio.isNaN || aspectRatio.isInfinite || aspectRatio <= 0) {
+      aspectRatio = 16 / 9;
+    }
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) => Scaffold(
+        resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.black,
+        body: Center(
+          child: AspectRatio(
+            aspectRatio: aspectRatio,
+            child: _zoomable(controllerProvider),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -356,6 +401,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
 
   @override
   void dispose() {
+    _zoomController.dispose();
     _renewalTimer?.cancel();
     if (initialized) {
       betterPlayerController.removeEventsListener(_onBetterPlayerEvent);
@@ -394,7 +440,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
                         betterPlayerController.getAspectRatio() ?? 16 / 9,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: BetterPlayer(controller: betterPlayerController),
+                      child: _zoomable(
+                        BetterPlayer(controller: betterPlayerController),
+                      ),
                     ),
                   ),
                 ),
