@@ -29,6 +29,12 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     on<SaveCourseDetailsInLocalEvent>(_onSaveCourseDetailsInLocalEvent);
     on<SaveLectureDetailsInLocalEvent>(_onSaveLectureDetailsInLocalEvent);
     on<DeleteCoursesWhichAreExpired>(_onDeleteCoursesWhichAreExpired);
+    on<SyncDownloadsOwner>(_onSyncDownloadsOwner);
+
+    final userId = _prefsRepository.userId;
+    if (!_prefsRepository.isGuest && userId != null && userId.isNotEmpty) {
+      add(SyncDownloadsOwner(userId));
+    }
   }
 
   final PrefsRepository _prefsRepository;
@@ -261,6 +267,29 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
       courseIdToCourseDetailsReferences: courses,
       lectureIdToLectureDetailsReferences: lectures,
     );
+  }
+
+  /// Downloads belong to one account: the offline license is checked against
+  /// the account id and segment keys are stored per account. When another
+  /// account signs in on this installation, the previous account's downloads
+  /// are unusable and would leak its course list, so they are removed.
+  /// Signing back in with the same account keeps them.
+  Future<void> _onSyncDownloadsOwner(
+    SyncDownloadsOwner event,
+    Emitter<MyDownloadsState> emit,
+  ) async {
+    final owner = state.ownerUserId;
+    if (owner == event.userId) return;
+    if (owner == null) {
+      // State saved before ownership existed: adopt it for the current user.
+      emit(state.copyWith(ownerUserId: event.userId));
+      return;
+    }
+    for (final entry in state.urlToFileReferences.entries) {
+      await _deleteFileFromLocal(path: entry.value, videoId: entry.key);
+    }
+    debugPrint('[Downloads] cleared downloads of a previous account');
+    emit(MyDownloadsState(ownerUserId: event.userId));
   }
 
   FutureOr<void> _onDeleteCoursesWhichAreExpired(

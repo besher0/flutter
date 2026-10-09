@@ -1,15 +1,23 @@
 import 'dart:developer' as developer;
+import 'dart:io';
 
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/url_routes.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/video_security_errors.dart';
 import 'package:coursaty_student_and_teacher/services/device_info_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/api/detect_server.dart';
 
+/// Android Keystore backed device key (EC P-256, non-exportable).
+///
+/// The native side lives in `MainActivity.kt` on channel
+/// `coursaty/video_security`. iOS has no equivalent bridge yet, so on iOS the
+/// key flow is reported as unsupported instead of silently skipped.
 class VideoDeviceKeyService {
-  VideoDeviceKeyService(this._client, this._prefs);
+  VideoDeviceKeyService(this._client, this._prefs, {bool? isSupported})
+    : isSupported = isSupported ?? Platform.isAndroid;
 
   static const MethodChannel _channel = MethodChannel(
     'coursaty/video_security',
@@ -18,46 +26,27 @@ class VideoDeviceKeyService {
   final Dio _client;
   final PrefsRepository _prefs;
 
+  /// Whether this platform has the native Keystore key bridge.
+  final bool isSupported;
+
   Future<void> ensureAndRegister() async {
+    if (!isSupported) return;
     final deviceId = DeviceInfoService.getSecureVideoDeviceId();
     final deviceIdPrefix = _safeDeviceIdPrefix(deviceId);
 
     try {
-      final keyExistsBefore =
-          await _channel.invokeMethod<bool>('hasVideoDeviceKey') ?? false;
-      _log(
-        'registration started '
-        'deviceIdPrefix=$deviceIdPrefix keyExists=$keyExistsBefore',
-      );
-      await _channel.invokeMethod<void>('ensureVideoDeviceKey');
-      final publicKey = await _channel.invokeMethod<String>(
-        'getVideoDevicePublicKey',
-      );
-      if (publicKey == null || publicKey.isEmpty) {
-        throw const VideoDeviceRegistrationException(
-          'Android Keystore returned an empty video public key',
-        );
-      }
-
+      final publicKey = await _readPublicKey();
+      _log('registration started deviceIdPrefix=$deviceIdPrefix');
       await _client.postUri(
-        _uri('devices/video-key'),
+        _uri(EndPoints.registerVideoDeviceKey),
         data: {
           'deviceId': deviceId,
           'publicKey': publicKey,
           'algorithm': 'ECDSA_P256_SHA256',
         },
-        options: Options(
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            if (_prefs.token != null) 'Authorization': 'Bearer ${_prefs.token}',
-          },
-        ),
+        options: _authOptions(),
       );
-      _log(
-        'registration succeeded '
-        'deviceIdPrefix=$deviceIdPrefix keyExists=true',
-      );
+      _log('registration succeeded deviceIdPrefix=$deviceIdPrefix');
     } catch (error, stackTrace) {
       _log(
         'device registration failed '
@@ -66,25 +55,23 @@ class VideoDeviceKeyService {
         error: error,
         stackTrace: stackTrace,
       );
-      if (DeviceReplacementRequiredException.matches(error)) {
-        throw const DeviceReplacementRequiredException();
+      final replacement = DeviceReplacementRequiredException.fromError(error);
+      if (replacement != null) throw replacement;
+      if (error is VideoDeviceRegistrationException ||
+          error is VideoDeviceSecurityUnsupportedException) {
+        rethrow;
       }
-      if (error is VideoDeviceRegistrationException) rethrow;
+      if (error is DioException) rethrow;
       throw VideoDeviceRegistrationException.from(error);
     }
   }
 
+  /// Explicit, user-confirmed replacement. The account is taken from the JWT;
+  /// no user or student id is ever sent.
   Future<void> replaceDevice() async {
+    if (!isSupported) throw const VideoDeviceSecurityUnsupportedException();
     final deviceId = DeviceInfoService.getSecureVideoDeviceId();
-    await _channel.invokeMethod<void>('ensureVideoDeviceKey');
-    final publicKey = await _channel.invokeMethod<String>(
-      'getVideoDevicePublicKey',
-    );
-    if (publicKey == null || publicKey.isEmpty) {
-      throw const VideoDeviceRegistrationException(
-        'Android Keystore returned an empty video public key',
-      );
-    }
+    final publicKey = await _readPublicKey();
     await _client.postUri(
       _uri(EndPoints.replaceVideoDeviceKey),
       data: {
@@ -92,19 +79,21 @@ class VideoDeviceKeyService {
         'publicKey': publicKey,
         'algorithm': 'ECDSA_P256_SHA256',
       },
-      options: Options(
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      ),
+      options: _authOptions(),
     );
   }
 
+  /// Signs [payload] (UTF-8) with SHA256withECDSA. Returns base64url DER.
   Future<String> sign(String payload) async {
-    final signature = await _channel.invokeMethod<String>('signVideoPayload', {
-      'payload': payload,
-    });
+    if (!isSupported) throw const VideoDeviceSecurityUnsupportedException();
+    final String? signature;
+    try {
+      signature = await _channel.invokeMethod<String>('signVideoPayload', {
+        'payload': payload,
+      });
+    } on MissingPluginException {
+      throw const VideoDeviceSecurityUnsupportedException();
+    }
     if (signature == null || signature.isEmpty) {
       throw PlatformException(
         code: 'empty_video_signature',
@@ -115,7 +104,37 @@ class VideoDeviceKeyService {
   }
 
   Future<void> deleteKey() async {
+    if (!isSupported) return;
     await _channel.invokeMethod<void>('deleteVideoDeviceKey');
+  }
+
+  Future<String> _readPublicKey() async {
+    final String? publicKey;
+    try {
+      await _channel.invokeMethod<void>('ensureVideoDeviceKey');
+      publicKey = await _channel.invokeMethod<String>(
+        'getVideoDevicePublicKey',
+      );
+    } on MissingPluginException {
+      throw const VideoDeviceSecurityUnsupportedException();
+    }
+    if (publicKey == null || publicKey.isEmpty) {
+      throw const VideoDeviceRegistrationException(
+        'Android Keystore returned an empty video public key',
+      );
+    }
+    return publicKey;
+  }
+
+  Options _authOptions() {
+    final token = _prefs.token;
+    return Options(
+      headers: {
+        HttpHeaders.acceptHeader: 'application/json',
+        HttpHeaders.contentTypeHeader: 'application/json',
+        if (token != null) HttpHeaders.authorizationHeader: 'Bearer $token',
+      },
+    );
   }
 
   Uri _uri(String endpoint) {
@@ -147,15 +166,6 @@ class VideoDeviceRegistrationException implements Exception {
   const VideoDeviceRegistrationException(this.message);
 
   factory VideoDeviceRegistrationException.from(Object error) {
-    if (error is DioException) {
-      final statusCode = error.response?.statusCode;
-      return VideoDeviceRegistrationException(
-        statusCode == null
-            ? 'Video device registration failed'
-            : 'Video device registration failed with HTTP $statusCode',
-      );
-    }
-
     if (error is PlatformException) {
       return VideoDeviceRegistrationException(
         'Video device registration failed: ${error.code}',
@@ -172,15 +182,35 @@ class VideoDeviceRegistrationException implements Exception {
   String toString() => message;
 }
 
-class DeviceReplacementRequiredException implements Exception {
-  const DeviceReplacementRequiredException();
+enum DeviceReplacementReason {
+  /// Another installation already holds the account's device slot.
+  deviceLimit,
 
-  static bool matches(Object error) {
-    return error is DioException &&
-        error.response?.data is Map<String, dynamic> &&
-        (error.response!.data as Map<String, dynamic>)['errorCode'] ==
-            'VIDEO_DEVICE_LIMIT_EXCEEDED_REPLACEMENT_REQUIRED';
+  /// This installation id is bound to a different key (Keystore was reset).
+  keyMismatch,
+}
+
+class DeviceReplacementRequiredException implements Exception {
+  const DeviceReplacementRequiredException([
+    this.reason = DeviceReplacementReason.deviceLimit,
+  ]);
+
+  final DeviceReplacementReason reason;
+
+  static DeviceReplacementRequiredException? fromError(Object error) {
+    if (error is DeviceReplacementRequiredException) return error;
+    switch (videoErrorCodeOf(error)) {
+      case VideoErrorCodes.deviceLimitReplacementRequired:
+        return const DeviceReplacementRequiredException();
+      case VideoErrorCodes.deviceKeyMismatchReplacementRequired:
+        return const DeviceReplacementRequiredException(
+          DeviceReplacementReason.keyMismatch,
+        );
+    }
+    return null;
   }
+
+  static bool matches(Object error) => fromError(error) != null;
 
   @override
   String toString() => 'Video device replacement is required';

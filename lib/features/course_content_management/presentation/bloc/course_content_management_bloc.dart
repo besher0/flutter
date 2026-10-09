@@ -254,6 +254,8 @@ class CourseContentManagementBloc
       progresses[path] = 0;
       emit(state.copyWith(uploadingProgress: progresses));
     }
+    // Shared across uploads; a previous success must not mark this one done.
+    uploadCompleted.value = false;
     if (tuscInitResponse[path] == null) {
       var response;
       try {
@@ -387,10 +389,26 @@ class CourseContentManagementBloc
       );
     }
     if (success) {
-      if (state.currentlyUploadingFile != null) {
-        event.params.videoUrl =
-            uploadingVideos[state.currentlyUploadingFile!.path]!
-                .streamFallbackUrl!;
+      final uploadingFile = state.currentlyUploadingFile;
+      if (uploadingFile != null) {
+        // The stable play URL carries the Bunny GUID. The signed MP4 fallback
+        // URL is often null right after upload (MP4 fallback is disabled
+        // library-wide) and expires anyway, so it must not be persisted.
+        final uploaded = uploadingVideos[uploadingFile.path];
+        final stableUrl = uploaded?.videoUrl ?? uploaded?.streamPlayUrl;
+        if (stableUrl == null || stableUrl.isEmpty) {
+          Map<String, double> progresses = Map.of(state.uploadingProgress);
+          progresses.remove(uploadingFile.path);
+          emit(
+            state.copyWith(
+              errorMessage: "تعذر إكمال رفع الفيديو، أعد المحاولة",
+              upsertLecture: Status.failure,
+              uploadingProgress: progresses,
+            ),
+          );
+          return;
+        }
+        event.params.videoUrl = stableUrl;
       }
       final response = await upsertVideoUsecase(event.params);
       response.fold(
@@ -404,7 +422,9 @@ class CourseContentManagementBloc
         },
         (r) {
           Map<String, double> progresses = Map.of(state.uploadingProgress);
-          progresses.remove(state.currentlyUploadingFile!.path);
+          // Metadata-only edits have no file in flight.
+          final uploadedPath = state.currentlyUploadingFile?.path;
+          if (uploadedPath != null) progresses.remove(uploadedPath);
           upsertVideoParams = null;
           emit(
             state.copyWith(

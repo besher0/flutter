@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/paid_content_dialog.dart';
@@ -9,6 +11,7 @@ import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/
 import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/video_segement_item.dart';
 import 'package:coursaty_student_and_teacher/features/home/presentation/bloc/home_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/secure_video_models.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/video_security_errors.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/secure_offline_playback_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_access_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_device_key_service.dart';
@@ -66,23 +69,19 @@ class MyVideoWidgetBetterPlayer extends StatefulWidget {
 }
 
 String _playbackErrorMessage(Object error) {
-  if (error is DioException) {
-    switch (error.response?.statusCode) {
-      case 403:
-        if (GetIt.I<PrefsRepository>().isTeacher) {
-          return 'لا تملك صلاحية تشغيل فيديو هذا الكورس';
-        }
-        return 'هذا الفيديو غير مجاني. سجّل الدخول أو اشترك لمشاهدته';
-      case 404:
-        return 'الفيديو غير موجود أو غير متاح';
-      case 400:
-        return 'تعذر تشغيل الفيديو حالياً';
-    }
-  }
-  return 'تعذر تشغيل الفيديو';
+  if (error is OfflinePlaybackException) return error.message;
+  return videoPlaybackErrorMessage(
+    error,
+    isTeacher: GetIt.I<PrefsRepository>().isTeacher,
+  );
 }
 
 class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
+  /// Renew this long before the server-side session expiry.
+  static const _renewalLead = Duration(seconds: 60);
+  static const _minRenewalDelay = Duration(seconds: 30);
+  static const _maxRenewalDelay = Duration(minutes: 30);
+
   late BetterPlayerDataSource betterPlayerDataSource;
   late BetterPlayerController betterPlayerController;
   final VideoAccessService _videoAccessService = GetIt.I<VideoAccessService>();
@@ -90,17 +89,25 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       GetIt.I<SecureOfflinePlaybackService>();
   SecureOfflinePlaybackSession? _offlineSession;
   PlaybackSessionResponse? _onlineSession;
-  bool _refreshingPlaybackSession = false;
+  Timer? _renewalTimer;
+  bool _renewingPlaybackSession = false;
   bool _hasRefreshedForCurrentError = false;
+  bool _initStarted = false;
   bool initialized = false;
   String? _initializationError;
   bool _replacementAttempted = false;
 
   Future<void> init() async {
-    if (initialized) return;
+    // didChangeDependencies fires again on rotation/theme changes; a second
+    // concurrent init would open a second session and controller.
+    if (_initStarted) return;
+    _initStarted = true;
     try {
       final source = await _resolveSource();
-      if (!mounted) return;
+      if (!mounted) {
+        await _offlineSession?.close();
+        return;
+      }
       betterPlayerDataSource = BetterPlayerDataSource(
         BetterPlayerDataSourceType.network,
         source.url,
@@ -129,6 +136,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       setState(() {
         initialized = true;
       });
+      _scheduleRenewal();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -147,21 +155,25 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     }
     final session = await _createOnlineSessionWithReplacement();
     _onlineSession = session;
-    if (session.playbackHeaders.isNotEmpty) {
-      return _PlaybackSource(session.playbackUrl, session.playbackHeaders);
-    }
+    return _sourceFor(session);
+  }
+
+  /// Honors the quality the user picked by selecting that HLS variant. The
+  /// master playlist is read with the session headers, so this works through
+  /// the gateway as well as for legacy signed URLs.
+  Future<_PlaybackSource> _sourceFor(PlaybackSessionResponse session) async {
     final playbackUrl = await _videoAccessService.resolvePlayableHlsUrl(
       playbackUrl: session.playbackUrl,
       preferredResolution: widget.preferredResolution,
+      headers: session.playbackHeaders,
     );
-    return _PlaybackSource(playbackUrl);
+    return _PlaybackSource(playbackUrl, session.playbackHeaders);
   }
 
-  Future<PlaybackSessionResponse> _createOnlineSession({
-    PlaybackSessionResponse? previousSession,
-  }) async {
+  /// Flow selection is role based and ordered: guest, teacher, student.
+  Future<PlaybackSessionResponse> _createOnlineSession() {
     final prefs = GetIt.I<PrefsRepository>();
-    if (prefs.isGuest) {
+    if (prefs.isGuest || prefs.token == null) {
       return _videoAccessService.createGuestPlaybackSession(
         videoId: widget.videoId,
       );
@@ -175,47 +187,148 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     if (!prefs.isStudent) {
       throw StateError('Unknown authenticated user role');
     }
-    if (previousSession == null || previousSession.accessToken == null) {
-      return _videoAccessService.createPlaybackSession(
-        videoId: widget.videoId,
-        preferredResolution: widget.preferredResolution,
-      );
-    }
-    return _videoAccessService.refreshPlaybackSession(
+    return _videoAccessService.createPlaybackSession(
       videoId: widget.videoId,
-      playbackSessionId: previousSession.playbackSessionId,
       preferredResolution: widget.preferredResolution,
     );
+  }
+
+  /// Renewal is not registration: it refreshes the current gateway session
+  /// and only starts a new one (full secure flow) if the server no longer
+  /// accepts the old session, e.g. it expired while paused.
+  Future<PlaybackSessionResponse> _renewOnlineSession() async {
+    final prefs = GetIt.I<PrefsRepository>();
+    final previous = _onlineSession;
+    final canRefresh =
+        previous != null &&
+        previous.playbackHeaders.isNotEmpty &&
+        !prefs.isGuest &&
+        prefs.token != null;
+    if (canRefresh) {
+      try {
+        return await _videoAccessService.refreshPlaybackSession(
+          videoId: widget.videoId,
+          playbackSessionId: previous.playbackSessionId,
+          preferredResolution: widget.preferredResolution,
+        );
+      } on DioException catch (error) {
+        final status = error.response?.statusCode;
+        if (status != 403 && status != 404) rethrow;
+      }
+    }
+    return _createOnlineSession();
   }
 
   Future<PlaybackSessionResponse> _createOnlineSessionWithReplacement() async {
     try {
       return await _createOnlineSession();
-    } on DeviceReplacementRequiredException {
+    } on DeviceReplacementRequiredException catch (required) {
+      // At most one confirmation and one retry per player instance, so a
+      // failing server can never trap the user in a dialog loop.
       if (_replacementAttempted || !mounted) rethrow;
       _replacementAttempted = true;
-      final replace = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('استبدال الجهاز'),
-          content: const Text(
-            'هذا الحساب مرتبط بجهاز آخر.\nهل تريد استخدام هذا الجهاز بدلاً منه؟',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('استخدام هذا الجهاز'),
-            ),
-          ],
-        ),
-      );
-      if (replace != true) rethrow;
+      final replace = await _confirmDeviceReplacement(required.reason);
+      // Cancelling leaves the currently authorized device untouched.
+      if (replace != true || !mounted) rethrow;
       await _videoAccessService.replaceVideoDevice();
       return _createOnlineSession();
+    }
+  }
+
+  Future<bool?> _confirmDeviceReplacement(DeviceReplacementReason reason) {
+    final content = reason == DeviceReplacementReason.keyMismatch
+        ? 'تغيّر مفتاح الأمان لهذا الجهاز.\nهل تريد إعادة ربط هذا الجهاز بحسابك؟'
+        : 'هذا الحساب مرتبط بجهاز آخر.\nهل تريد استخدام هذا الجهاز بدلاً منه؟\n'
+              'سيتوقف تشغيل الفيديوهات على الجهاز الآخر.';
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('استبدال الجهاز'),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('استخدام هذا الجهاز'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _scheduleRenewal() {
+    _renewalTimer?.cancel();
+    final session = _onlineSession;
+    if (!mounted || session == null || widget.filePath != null) return;
+    var delay =
+        session.expiresAt.toUtc().difference(_videoAccessService.serverNow) -
+        _renewalLead;
+    if (delay < _minRenewalDelay) delay = _minRenewalDelay;
+    if (delay > _maxRenewalDelay) delay = _maxRenewalDelay;
+    _renewalTimer = Timer(delay, () => _renewPlayback(proactive: true));
+  }
+
+  /// Swaps in a renewed session at the current position. Proactive renewal
+  /// runs before expiry; reactive renewal runs after a media request failed.
+  Future<void> _renewPlayback({required bool proactive}) async {
+    if (_renewingPlaybackSession ||
+        !mounted ||
+        !initialized ||
+        widget.filePath != null) {
+      return;
+    }
+    _renewingPlaybackSession = true;
+    try {
+      final controller = betterPlayerController;
+      final wasPlaying = controller.isPlaying() ?? false;
+      final position =
+          await controller.videoPlayerController?.position ?? Duration.zero;
+      final speed = controller.videoPlayerController?.value.speed ?? 1.0;
+      final session = await _renewOnlineSession();
+      if (!mounted) return;
+      _onlineSession = session;
+      final source = await _sourceFor(session);
+      if (!mounted) return;
+      await controller.setupDataSource(
+        BetterPlayerDataSource(
+          BetterPlayerDataSourceType.network,
+          source.url,
+          videoFormat: BetterPlayerVideoFormat.hls,
+          headers: source.headers,
+        ),
+      );
+      await controller.setSpeed(speed);
+      await controller.seekTo(position);
+      if (wasPlaying) {
+        controller.play();
+      }
+      _scheduleRenewal();
+    } on DeviceReplacementRequiredException {
+      // Another device took over this account. Never re-prompt from a
+      // background renewal; reopening the video offers the replacement.
+      _renewalTimer?.cancel();
+      if (mounted) {
+        showMessage('تم ربط حسابك بجهاز آخر، لذا توقف التشغيل على هذا الجهاز');
+      }
+    } catch (error) {
+      if (!mounted) return;
+      if (proactive) {
+        // The current session is still valid for about a minute; try again
+        // shortly, and let the reactive path recover if that also fails.
+        _renewalTimer?.cancel();
+        _renewalTimer = Timer(
+          const Duration(seconds: 20),
+          () => _renewPlayback(proactive: false),
+        );
+      } else {
+        showMessage(_playbackErrorMessage(error));
+      }
+    } finally {
+      _renewingPlaybackSession = false;
     }
   }
 
@@ -227,50 +340,12 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       return;
     }
     if (widget.filePath != null ||
-        _refreshingPlaybackSession ||
+        _renewingPlaybackSession ||
         _hasRefreshedForCurrentError) {
       return;
     }
-    _refreshingPlaybackSession = true;
     _hasRefreshedForCurrentError = true;
-    try {
-      final wasPlaying = betterPlayerController.isPlaying() ?? false;
-      final position =
-          await betterPlayerController.videoPlayerController?.position ??
-          Duration.zero;
-      final speed =
-          betterPlayerController.videoPlayerController?.value.speed ?? 1.0;
-      final previousSession = _onlineSession;
-      final session = await _createOnlineSession(
-        previousSession: previousSession,
-      );
-      _onlineSession = session;
-      final playbackUrl = session.playbackHeaders.isNotEmpty
-          ? session.playbackUrl
-          : await _videoAccessService.resolvePlayableHlsUrl(
-              playbackUrl: session.playbackUrl,
-              preferredResolution: widget.preferredResolution,
-            );
-      await betterPlayerController.setupDataSource(
-        BetterPlayerDataSource(
-          BetterPlayerDataSourceType.network,
-          playbackUrl,
-          videoFormat: BetterPlayerVideoFormat.hls,
-          headers: session.playbackHeaders,
-        ),
-      );
-      await betterPlayerController.setSpeed(speed);
-      await betterPlayerController.seekTo(position);
-      if (wasPlaying) {
-        betterPlayerController.play();
-      }
-    } catch (error) {
-      if (mounted) {
-        showMessage(_playbackErrorMessage(error));
-      }
-    } finally {
-      _refreshingPlaybackSession = false;
-    }
+    await _renewPlayback(proactive: false);
   }
 
   @override
@@ -281,6 +356,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
 
   @override
   void dispose() {
+    _renewalTimer?.cancel();
     if (initialized) {
       betterPlayerController.removeEventsListener(_onBetterPlayerEvent);
       betterPlayerController.dispose();

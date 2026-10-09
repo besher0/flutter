@@ -8,7 +8,59 @@ import 'dart:typed_data';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/secure_video_models.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/encrypted_hls_download_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/offline_license_service.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_device_key_service.dart';
 import 'package:injectable/injectable.dart';
+
+/// Offline playback failure with a user-facing (Arabic) [message].
+class OfflinePlaybackException implements Exception {
+  const OfflinePlaybackException(this.message, {this.reason});
+
+  factory OfflinePlaybackException.fromReason(
+    OfflineLicenseInvalidReason? reason,
+  ) {
+    switch (reason) {
+      case OfflineLicenseInvalidReason.expired:
+        return OfflinePlaybackException(
+          'انتهت صلاحية الفيديو المحمّل. اتصل بالإنترنت لتجديدها',
+          reason: reason,
+        );
+      case OfflineLicenseInvalidReason.trustedTimeUnavailable:
+        return OfflinePlaybackException(
+          'اتصل بالإنترنت مرة واحدة للتحقق من صلاحية الفيديو المحمّل',
+          reason: reason,
+        );
+      case OfflineLicenseInvalidReason.userMismatch:
+        return OfflinePlaybackException(
+          'هذا الفيديو محمّل بحساب آخر',
+          reason: reason,
+        );
+      case OfflineLicenseInvalidReason.deviceMismatch:
+        return OfflinePlaybackException(
+          'هذا الفيديو محمّل على جهاز آخر',
+          reason: reason,
+        );
+      case OfflineLicenseInvalidReason.contentVersionMismatch:
+        return OfflinePlaybackException(
+          'تم تحديث هذا الفيديو. احذفه وأعد تحميله',
+          reason: reason,
+        );
+      case OfflineLicenseInvalidReason.unsupportedAlgorithm:
+      case OfflineLicenseInvalidReason.invalidSignature:
+      case OfflineLicenseInvalidReason.videoMismatch:
+      case null:
+        return OfflinePlaybackException(
+          'رخصة الفيديو المحمّل غير صالحة. احذفه وأعد تحميله',
+          reason: reason,
+        );
+    }
+  }
+
+  final String message;
+  final OfflineLicenseInvalidReason? reason;
+
+  @override
+  String toString() => message;
+}
 
 class SecureOfflinePlaybackSession {
   final Uri playlistUri;
@@ -35,7 +87,7 @@ class SecureOfflinePlaybackService {
     var manifest = await _downloadService.loadManifest(videoId);
     if (manifest == null ||
         manifest.status != SecureVideoDownloadStatus.completed) {
-      throw StateError('الفيديو غير محمل بالكامل');
+      throw const OfflinePlaybackException('الفيديو غير محمّل بالكامل');
     }
 
     final validation = await _licenseService.validate(
@@ -50,16 +102,25 @@ class SecureOfflinePlaybackService {
               validation.reason ==
                   OfflineLicenseInvalidReason.trustedTimeUnavailable);
       if (!canRenew) {
-        throw StateError(validation.message ?? 'رخصة الفيديو غير صالحة');
+        throw OfflinePlaybackException.fromReason(validation.reason);
       }
-      final renewed = await _licenseService.renewIfNeeded(
-        license: manifest.offlineLicense,
-        videoId: manifest.videoId,
-        contentVersion: manifest.contentVersion,
-        preferredResolution: manifest.preferredResolution,
-      );
+      final OfflineLicense? renewed;
+      try {
+        renewed = await _licenseService.renewIfNeeded(
+          license: manifest.offlineLicense,
+          videoId: manifest.videoId,
+          contentVersion: manifest.contentVersion,
+          preferredResolution: manifest.preferredResolution,
+        );
+      } on DeviceReplacementRequiredException {
+        throw const OfflinePlaybackException(
+          'تم ربط حسابك بجهاز آخر، لذا لا يمكن تجديد الفيديوهات المحمّلة هنا',
+        );
+      } catch (_) {
+        throw OfflinePlaybackException.fromReason(validation.reason);
+      }
       if (renewed == null) {
-        throw StateError(validation.message ?? 'انتهت صلاحية الفيديو');
+        throw OfflinePlaybackException.fromReason(validation.reason);
       }
       manifest = manifest.copyWith(offlineLicense: renewed);
       await _downloadService.replaceOfflineLicense(
@@ -67,12 +128,22 @@ class SecureOfflinePlaybackService {
         license: renewed,
       );
     } else if (allowRenewal) {
-      final renewed = await _licenseService.renewIfNeeded(
-        license: manifest.offlineLicense,
-        videoId: manifest.videoId,
-        contentVersion: manifest.contentVersion,
-        preferredResolution: manifest.preferredResolution,
-      );
+      OfflineLicense? renewed;
+      try {
+        renewed = await _licenseService.renewIfNeeded(
+          license: manifest.offlineLicense,
+          videoId: manifest.videoId,
+          contentVersion: manifest.contentVersion,
+          preferredResolution: manifest.preferredResolution,
+        );
+      } catch (error) {
+        // The current license is still valid; renewal is opportunistic and
+        // must not block offline playback.
+        developer.log(
+          'Opportunistic offline license renewal skipped: ${error.runtimeType}',
+          name: 'SecureOfflinePlaybackService',
+        );
+      }
       if (renewed != null && renewed != manifest.offlineLicense) {
         manifest = manifest.copyWith(offlineLicense: renewed);
         await _downloadService.replaceOfflineLicense(

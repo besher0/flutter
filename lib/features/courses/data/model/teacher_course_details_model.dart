@@ -205,7 +205,9 @@ class Details {
 
   factory Details.fromJson(Map<String, dynamic> json) => Details(
     teacher: json["teacher"] == null ? null : Teacher.fromJson(json["teacher"]),
-    durationSeconds: json["durationSeconds"],
+    durationSeconds: (json["duration"] ?? json["durationSeconds"]) is num
+        ? ((json["duration"] ?? json["durationSeconds"]) as num).toInt()
+        : null,
     description: json["description"],
     introVideoUrl: json["introVideoUrl"],
     discussionGroupUrl: json["discussionGroupUrl"],

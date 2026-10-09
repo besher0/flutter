@@ -26,6 +26,7 @@ import 'package:coursaty_student_and_teacher/features/common/data/models/upload_
 import 'package:coursaty_student_and_teacher/features/common/domain/usecases/upload_file_usecase.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:injectable/injectable.dart';
 
@@ -96,6 +97,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     prefs.setToken(data.accessToken!);
     prefs.setIsGuest(false);
     prefs.setUserId(data.user!.id!);
+    GetIt.I<MyDownloadsBloc>().add(SyncDownloadsOwner(data.user!.id!));
     _saveName(data.user!.phone!);
     prefs.setUserType(data.user!.userableType!);
     _saveName(name);

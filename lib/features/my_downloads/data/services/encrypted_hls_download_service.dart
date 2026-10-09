@@ -29,6 +29,16 @@ class EncryptedHlsDownloadService {
   ) : _secureStorage = _defaultSecureStorage;
 
   final Dio _client;
+
+  /// Bunny CDN requests must never carry app credentials. The shared [_client]
+  /// can hold a default `Authorization` header (BaseApi mutates its base
+  /// headers), so CDN fetches use a separate client with no default headers.
+  late final Dio _cdnClient = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(minutes: 2),
+    ),
+  )..httpClientAdapter = _client.httpClientAdapter;
   final VideoAccessService _videoAccessService;
   final OfflineLicenseService _offlineLicenseService;
   final FlutterSecureStorage _secureStorage;
@@ -313,7 +323,7 @@ class EncryptedHlsDownloadService {
     EncryptedSegmentMetadata segment,
     CancelToken? cancelToken,
   ) async {
-    final response = await _client.getUri<List<int>>(
+    final response = await _cdnClient.getUri<List<int>>(
       uri,
       cancelToken: cancelToken,
       options: Options(responseType: ResponseType.bytes),
@@ -367,7 +377,7 @@ class EncryptedHlsDownloadService {
   }
 
   Future<String> _readText(Uri uri, CancelToken? cancelToken) async {
-    final response = await _client.getUri<String>(
+    final response = await _cdnClient.getUri<String>(
       uri,
       cancelToken: cancelToken,
       options: Options(responseType: ResponseType.plain),

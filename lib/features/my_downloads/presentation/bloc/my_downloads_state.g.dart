@@ -9,6 +9,7 @@ part of 'my_downloads_state.dart';
 MyDownloadsState _$MyDownloadsStateFromJson(
   Map<String, dynamic> json,
 ) => MyDownloadsState(
+  ownerUserId: json['ownerUserId'] as String?,
   courses:
       (json['courses'] as List<dynamic>?)
           ?.map((e) => CourseModel.fromJson(e as Map<String, dynamic>))
@@ -46,4 +47,5 @@ Map<String, dynamic> _$MyDownloadsStateToJson(MyDownloadsState instance) =>
       'lectureIdToLectureDetailsReferences': instance
           .lectureIdToLectureDetailsReferences
           .map((k, e) => MapEntry(k, e.toJson())),
+      'ownerUserId': instance.ownerUserId,
     };

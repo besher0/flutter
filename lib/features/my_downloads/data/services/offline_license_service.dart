@@ -156,6 +156,16 @@ class OfflineLicenseService {
     return result.isValid ? renewed : null;
   }
 
+  /// Latest device time observed while validating offline licenses. Reset to
+  /// "now" whenever a server response records trusted time.
+  static const clockHighWaterKey = 'offlineClockHighWater';
+  static const _clockTolerance = Duration(minutes: 2);
+
+  /// Server time advanced by the device clock since it was recorded.
+  ///
+  /// If the device clock is earlier than any time already observed (it was
+  /// set back), offline time cannot be trusted and null is returned, which
+  /// forces one online check instead of freezing the license clock forever.
   DateTime? _trustedNow() {
     final trusted = _sharedPreferences.getString('trustedServerTime');
     final local = _sharedPreferences.getString('trustedLocalRecordedTime');
@@ -163,10 +173,22 @@ class OfflineLicenseService {
     final trustedTime = DateTime.tryParse(trusted);
     final localTime = DateTime.tryParse(local);
     if (trustedTime == null || localTime == null) return null;
-    final elapsed = DateTime.now().toUtc().difference(localTime);
-    if (elapsed.isNegative && elapsed.inMinutes.abs() > 2) {
-      return trustedTime;
+
+    final now = DateTime.now().toUtc();
+    final highWater = DateTime.tryParse(
+      _sharedPreferences.getString(clockHighWaterKey) ?? '',
+    );
+    var floor = localTime;
+    if (highWater != null && highWater.isAfter(floor)) floor = highWater;
+    if (now.isBefore(floor.subtract(_clockTolerance))) {
+      log('Device clock moved backwards; offline time is not trusted');
+      return null;
     }
+    if (highWater == null || now.isAfter(highWater)) {
+      _sharedPreferences.setString(clockHighWaterKey, now.toIso8601String());
+    }
+
+    final elapsed = now.difference(localTime);
     return trustedTime.add(elapsed.isNegative ? Duration.zero : elapsed);
   }
 

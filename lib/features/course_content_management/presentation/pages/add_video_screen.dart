@@ -31,14 +31,14 @@ class AddVideoScreen extends StatefulWidget {
     super.key,
     required this.lectureId,
     required this.courseId,
-    this.videoUrl,
+    this.preferredResolution = '720p',
     this.video,
     this.isForEdit = true,
   });
 
   final String lectureId;
   final String courseId;
-  final String? videoUrl;
+  final String preferredResolution;
   final Video? video;
   final bool isForEdit;
 
@@ -147,7 +147,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                       if (widget.video != null) ...{
                         MyVideoWidgetBetterPlayer(
                           videoName: widget.video!.videoName ?? '',
-                          videoUrl: widget.videoUrl!,
+                          preferredResolution: widget.preferredResolution,
                           isFromNetwork: true,
                           duration:
                               widget.video!.durationSeconds
@@ -349,11 +349,13 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                                   ).add(
                                     UpsertVideoEvent(
                                       UpsertVideoParams(
-                                        duration: widget.video != null
+                                        // Duration only describes a newly
+                                        // chosen file; edits without one keep
+                                        // the stored duration.
+                                        duration:
+                                            state.currentlyUploadingFile == null
                                             ? null
-                                            : int.parse(videoDuration.text),
-                                        videoUrl:
-                                            widget.video?.videoUrl ?? 'null',
+                                            : int.tryParse(videoDuration.text),
                                         videoName: name.text,
                                         lectureId: widget.lectureId,
                                         isFree: isFree.value,
