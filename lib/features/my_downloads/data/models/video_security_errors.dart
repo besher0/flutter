@@ -115,6 +115,25 @@ class SecureDownloadException implements Exception {
       'SecureDownloadException(${failure.name}${detail == null ? '' : ': $detail'})';
 }
 
+/// Warning shown when this installation is not the account's video device.
+/// Device replacement is suspended ([videoDeviceReplacementEnabled]), so the
+/// message only explains the problem and offers no action.
+String videoDeviceConflictMessage(
+  DeviceReplacementReason reason, {
+  bool download = false,
+}) {
+  final action = download ? 'تحميل' : 'تشغيل';
+  switch (reason) {
+    case DeviceReplacementReason.deviceLimit:
+      return 'هذا الحساب مرتبط بجهاز آخر، لذا لا يمكن $action الفيديوهات '
+          'على هذا الجهاز. إذا غيّرت جهازك تواصل مع الدعم.';
+    case DeviceReplacementReason.keyMismatch:
+      return 'تعذر التحقق من مفتاح الأمان لهذا الجهاز (قد يحدث بعد إعادة '
+          'تثبيت التطبيق أو مسح بياناته)، لذا لا يمكن $action الفيديوهات '
+          'عليه. تواصل مع الدعم.';
+  }
+}
+
 const _unsupportedDeviceMessage =
     'تشغيل الفيديوهات المحمية غير مدعوم على هذا الجهاز حالياً';
 
@@ -123,6 +142,8 @@ String videoPlaybackErrorMessage(Object error, {required bool isTeacher}) {
   if (error is VideoDeviceSecurityUnsupportedException) {
     return _unsupportedDeviceMessage;
   }
+  final conflict = DeviceReplacementRequiredException.fromError(error);
+  if (conflict != null) return videoDeviceConflictMessage(conflict.reason);
   switch (videoErrorCodeOf(error)) {
     case VideoErrorCodes.subscriptionRequired:
       return 'هذا الفيديو غير مجاني. اشترك في الكورس لمشاهدته';
@@ -136,10 +157,6 @@ String videoPlaybackErrorMessage(Object error, {required bool isTeacher}) {
       return 'لا تملك صلاحية تشغيل فيديو هذا الكورس';
     case VideoErrorCodes.accountInactive:
       return 'الحساب غير فعال. تواصل مع الدعم';
-    case VideoErrorCodes.deviceLimitReplacementRequired:
-      return 'هذا الحساب مرتبط بجهاز آخر';
-    case VideoErrorCodes.deviceKeyMismatchReplacementRequired:
-      return 'تغيّر مفتاح الأمان لهذا الجهاز. أعد المحاولة لتأكيد ربطه بحسابك';
     case VideoErrorCodes.deviceKeyInvalid:
     case VideoErrorCodes.deviceKeyNotRegistered:
     case VideoErrorCodes.deviceSignatureRequired:
@@ -210,17 +227,14 @@ String videoDownloadErrorMessage(Object error) {
         return 'لا يمكن تنزيل الفيديو على جهاز غير آمن';
     }
   }
-  if (error is DeviceReplacementRequiredException) {
-    return 'هذا الحساب مرتبط بجهاز آخر. شغّل الفيديو أولاً لتأكيد استخدام هذا الجهاز';
+  final conflict = DeviceReplacementRequiredException.fromError(error);
+  if (conflict != null) {
+    return videoDeviceConflictMessage(conflict.reason, download: true);
   }
   if (error is VideoDeviceRegistrationException) {
     return 'تعذر تسجيل هذا الجهاز لتحميل الفيديوهات. أعد تشغيل التطبيق ثم حاول مجدداً';
   }
   final code = videoErrorCodeOf(error);
-  if (code == VideoErrorCodes.deviceLimitReplacementRequired ||
-      code == VideoErrorCodes.deviceKeyMismatchReplacementRequired) {
-    return 'هذا الحساب مرتبط بجهاز آخر. شغّل الفيديو أولاً لتأكيد استخدام هذا الجهاز';
-  }
   if (code != null) return videoPlaybackErrorMessage(error, isTeacher: false);
   if (error is DioException) {
     switch (error.type) {

@@ -233,16 +233,37 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     try {
       return await _createOnlineSession();
     } on DeviceReplacementRequiredException catch (required) {
-      // At most one confirmation and one retry per player instance, so a
-      // failing server can never trap the user in a dialog loop.
+      // At most one dialog and one retry per player instance, so a failing
+      // server can never trap the user in a dialog loop.
       if (_replacementAttempted || !mounted) rethrow;
       _replacementAttempted = true;
+      if (!videoDeviceReplacementEnabled) {
+        // Replacement is suspended: explain the problem, change nothing.
+        await _showDeviceConflictWarning(required.reason);
+        rethrow;
+      }
       final replace = await _confirmDeviceReplacement(required.reason);
       // Cancelling leaves the currently authorized device untouched.
       if (replace != true || !mounted) rethrow;
       await _videoAccessService.replaceVideoDevice();
       return _createOnlineSession();
     }
+  }
+
+  Future<void> _showDeviceConflictWarning(DeviceReplacementReason reason) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تنبيه'),
+        content: Text(videoDeviceConflictMessage(reason)),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('حسناً'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool?> _confirmDeviceReplacement(DeviceReplacementReason reason) {
@@ -318,8 +339,8 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       }
       _scheduleRenewal();
     } on DeviceReplacementRequiredException {
-      // Another device took over this account. Never re-prompt from a
-      // background renewal; reopening the video offers the replacement.
+      // Another device took over this account. Never show a dialog from a
+      // background renewal; reopening the video explains the problem.
       _renewalTimer?.cancel();
       if (mounted) {
         showMessage('تم ربط حسابك بجهاز آخر، لذا توقف التشغيل على هذا الجهاز');

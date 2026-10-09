@@ -476,13 +476,47 @@ void main() {
       expect(videoDownloadErrorMessage(error), contains('مساحة'));
     });
 
-    test('device replacement during download points the user to playback', () {
-      expect(
-        videoDownloadErrorMessage(
-          _dioError(403, _error(VideoErrorCodes.deviceLimitReplacementRequired)),
-        ),
-        contains('جهاز آخر'),
+    test('a device conflict during download is only explained', () {
+      final message = videoDownloadErrorMessage(
+        _dioError(403, _error(VideoErrorCodes.deviceLimitReplacementRequired)),
       );
+      expect(message, contains('مرتبط بجهاز آخر'));
+      expect(message, contains('تحميل'));
+      // Replacement is suspended: no hint to confirm or switch devices.
+      expect(message, isNot(contains('شغّل الفيديو أولاً')));
+    });
+
+    test('device replacement stays suspended in the app', () {
+      expect(videoDeviceReplacementEnabled, isFalse);
+    });
+
+    test('a device conflict during playback is explained per cause', () {
+      final limit = videoPlaybackErrorMessage(
+        const DeviceReplacementRequiredException(),
+        isTeacher: false,
+      );
+      final keyChanged = videoPlaybackErrorMessage(
+        const DeviceReplacementRequiredException(
+          DeviceReplacementReason.keyMismatch,
+        ),
+        isTeacher: false,
+      );
+      final fromServer = videoPlaybackErrorMessage(
+        _dioError(
+          409,
+          _error(VideoErrorCodes.deviceKeyMismatchReplacementRequired),
+        ),
+        isTeacher: false,
+      );
+
+      expect(limit, contains('مرتبط بجهاز آخر'));
+      expect(limit, contains('تشغيل'));
+      expect(keyChanged, contains('مفتاح الأمان'));
+      expect(fromServer, keyChanged);
+      for (final message in [limit, keyChanged]) {
+        expect(message, isNot(contains('أعد المحاولة لتأكيد')));
+        expect(message, isNot(contains('بدلاً منه')));
+      }
     });
 
     test('network interruption suggests resuming', () {
