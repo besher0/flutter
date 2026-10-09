@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_device_key_service.dart';
 import 'package:dio/dio.dart';
 
 /// Stable `errorCode` values returned by the backend video security flows.
@@ -75,6 +76,43 @@ class VideoDeviceSecurityUnsupportedException implements Exception {
 
   @override
   String toString() => 'Video device security is not supported on this device';
+}
+
+/// Why a protected download stopped, for errors that do not come from the
+/// backend API itself.
+enum SecureDownloadFailure {
+  /// The backend did not return a gateway session (accessToken), e.g. an old
+  /// deployment that still hands out direct CDN links. Never fall back.
+  gatewaySessionMissing,
+
+  /// A playlist pointed outside the gateway origin. The session header must
+  /// never be sent to another host, so the download stops.
+  untrustedMediaHost,
+
+  /// The gateway refused the session (401/403) even after a fresh session.
+  gatewayAccessDenied,
+
+  /// The gateway returned something that is not a usable HLS playlist.
+  invalidPlaylist,
+
+  /// The offline license from the backend failed local verification.
+  offlineLicenseInvalid,
+
+  /// Rooted device or emulator.
+  insecureDevice,
+}
+
+class SecureDownloadException implements Exception {
+  const SecureDownloadException(this.failure, [this.detail]);
+
+  final SecureDownloadFailure failure;
+
+  /// Developer detail for logs. Never contains tokens or signed URLs.
+  final String? detail;
+
+  @override
+  String toString() =>
+      'SecureDownloadException(${failure.name}${detail == null ? '' : ': $detail'})';
 }
 
 const _unsupportedDeviceMessage =
@@ -157,13 +195,58 @@ String videoDownloadErrorMessage(Object error) {
   if (error is FileSystemException && _isOutOfSpace(error)) {
     return 'لا توجد مساحة تخزين كافية لتحميل الفيديو';
   }
+  if (error is SecureDownloadException) {
+    switch (error.failure) {
+      case SecureDownloadFailure.gatewaySessionMissing:
+      case SecureDownloadFailure.untrustedMediaHost:
+        return 'التحميل الآمن غير متاح حالياً. أعد المحاولة لاحقاً';
+      case SecureDownloadFailure.gatewayAccessDenied:
+        return 'انتهت صلاحية جلسة التحميل أو رُفضت. أعد المحاولة لاستكمال التحميل';
+      case SecureDownloadFailure.invalidPlaylist:
+        return 'ملف الفيديو غير جاهز للتحميل حالياً. أعد المحاولة لاحقاً';
+      case SecureDownloadFailure.offlineLicenseInvalid:
+        return 'تعذر التحقق من رخصة التحميل. أعد المحاولة';
+      case SecureDownloadFailure.insecureDevice:
+        return 'لا يمكن تنزيل الفيديو على جهاز غير آمن';
+    }
+  }
+  if (error is DeviceReplacementRequiredException) {
+    return 'هذا الحساب مرتبط بجهاز آخر. شغّل الفيديو أولاً لتأكيد استخدام هذا الجهاز';
+  }
+  if (error is VideoDeviceRegistrationException) {
+    return 'تعذر تسجيل هذا الجهاز لتحميل الفيديوهات. أعد تشغيل التطبيق ثم حاول مجدداً';
+  }
   final code = videoErrorCodeOf(error);
   if (code == VideoErrorCodes.deviceLimitReplacementRequired ||
       code == VideoErrorCodes.deviceKeyMismatchReplacementRequired) {
     return 'هذا الحساب مرتبط بجهاز آخر. شغّل الفيديو أولاً لتأكيد استخدام هذا الجهاز';
   }
   if (code != null) return videoPlaybackErrorMessage(error, isTeacher: false);
-  if (error is DioException && error.response == null) {
+  if (error is DioException) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'انتهت مهلة الاتصال أثناء التحميل. أعد المحاولة لاستكمال التحميل';
+      default:
+        break;
+    }
+    switch (error.response?.statusCode) {
+      case null:
+        return 'انقطع الاتصال أثناء التحميل. أعد المحاولة لاستكمال التحميل';
+      case 401:
+        return 'انتهت الجلسة، سجّل الدخول مجدداً';
+      case 403:
+        return 'لا تملك صلاحية تحميل هذا الفيديو';
+      case 429:
+        return 'محاولات كثيرة، انتظر قليلاً ثم أعد المحاولة';
+      case 502:
+      case 503:
+      case 504:
+        return 'الفيديو قيد المعالجة أو الخدمة غير متاحة مؤقتاً';
+    }
+  }
+  if (error is SocketException) {
     return 'انقطع الاتصال أثناء التحميل. أعد المحاولة لاستكمال التحميل';
   }
   return 'حدثت مشكلة أثناء التحميل';

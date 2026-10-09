@@ -6,6 +6,7 @@ import 'dart:developer' as developer;
 
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/secure_video_models.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/video_security_errors.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/offline_license_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_access_service.dart';
 import 'package:coursaty_student_and_teacher/services/check_device_root_service.dart';
@@ -25,15 +26,21 @@ class EncryptedHlsDownloadService {
     this._client,
     this._videoAccessService,
     this._offlineLicenseService,
-    this._prefs,
-  ) : _secureStorage = _defaultSecureStorage;
+    this._prefs, {
+    @ignoreParam FlutterSecureStorage? secureStorage,
+    @ignoreParam Future<Directory> Function()? storageRoot,
+    @ignoreParam Future<bool> Function()? isSecureDevice,
+  }) : _secureStorage = secureStorage ?? _defaultSecureStorage,
+       _storageRoot = storageRoot ?? getApplicationSupportDirectory,
+       _isSecureDevice = isSecureDevice ?? _defaultIsSecureDevice;
 
   final Dio _client;
 
-  /// Bunny CDN requests must never carry app credentials. The shared [_client]
-  /// can hold a default `Authorization` header (BaseApi mutates its base
-  /// headers), so CDN fetches use a separate client with no default headers.
-  late final Dio _cdnClient = Dio(
+  /// Media comes only from the video edge gateway, authorized by the download
+  /// session header. Gateway requests must never carry the app's
+  /// `Authorization` (BaseApi mutates the shared [_client]'s base headers), so
+  /// they use a separate client with no default headers.
+  late final Dio _gatewayClient = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(minutes: 2),
@@ -43,6 +50,8 @@ class EncryptedHlsDownloadService {
   final OfflineLicenseService _offlineLicenseService;
   final FlutterSecureStorage _secureStorage;
   final PrefsRepository _prefs;
+  final Future<Directory> Function() _storageRoot;
+  final Future<bool> Function() _isSecureDevice;
   final AesGcm _aesGcm = AesGcm.with256bits();
   final Random _random = Random.secure();
 
@@ -50,6 +59,12 @@ class EncryptedHlsDownloadService {
       FlutterSecureStorage(
         aOptions: AndroidOptions(encryptedSharedPreferences: true),
       );
+
+  static Future<bool> _defaultIsSecureDevice() async {
+    await CheckDeviceRootService.isDeviceRooted();
+    if (CheckDeviceRootService.isDeviceHasRoot) return false;
+    return DeviceSafetyInfo.isRealDevice;
+  }
 
   Future<DownloadedVideoManifest> download({
     required String videoId,
@@ -59,17 +74,14 @@ class EncryptedHlsDownloadService {
     required SecureVideoProgress onProgress,
     CancelToken? cancelToken,
   }) async {
-    await CheckDeviceRootService.isDeviceRooted();
-    if (CheckDeviceRootService.isDeviceHasRoot) {
-      throw StateError('لا يمكن تنزيل الفيديو على جهاز غير آمن');
-    }
-    if (!await DeviceSafetyInfo.isRealDevice) {
-      throw StateError('لا يمكن تنزيل الفيديو على جهاز غير آمن');
+    if (!await _isSecureDevice()) {
+      throw const SecureDownloadException(SecureDownloadFailure.insecureDevice);
     }
     var session = await _videoAccessService.createDownloadSession(
       videoId: videoId,
       preferredResolution: preferredResolution,
     );
+    final access = _GatewayAccess(session);
     var directory = await _videoDirectory(videoId);
     await directory.create(recursive: true);
     var existing = await loadManifest(videoId);
@@ -85,12 +97,15 @@ class EncryptedHlsDownloadService {
       contentVersion: session.contentVersion,
     );
     if (!validation.isValid) {
-      throw StateError(validation.message ?? 'رخصة التحميل غير صالحة');
+      throw SecureDownloadException(
+        SecureDownloadFailure.offlineLicenseInvalid,
+        validation.message,
+      );
     }
     await _ensureVideoKey(videoId);
 
     final selectedPlaylist = await _loadSelectedPlaylist(
-      session.downloadUrl,
+      access,
       preferredResolution,
       cancelToken,
     );
@@ -166,6 +181,7 @@ class EncryptedHlsDownloadService {
       );
       try {
         final encrypted = await _downloadAndEncryptSegment(
+          access,
           absoluteUri,
           directory,
           segment,
@@ -179,15 +195,17 @@ class EncryptedHlsDownloadService {
         );
         await _saveManifest(manifest);
         onProgress(manifest.progress);
-      } on DioException catch (error) {
-        final code = error.response?.statusCode;
-        if ((code == 401 || code == 403) &&
+      } on SecureDownloadException catch (error) {
+        // Sessions are short-lived; a long download outlives its token. Get a
+        // fresh session (new device proof) once per segment and continue.
+        if (error.failure == SecureDownloadFailure.gatewayAccessDenied &&
             !refreshedOnceForIndex.contains(segment.index)) {
           refreshedOnceForIndex.add(segment.index);
           session = await _videoAccessService.createDownloadSession(
             videoId: videoId,
             preferredResolution: preferredResolution,
           );
+          access.renew(session);
           if (session.contentVersion != manifest.contentVersion) {
             await deleteVideo(videoId);
             return download(
@@ -200,7 +218,7 @@ class EncryptedHlsDownloadService {
             );
           }
           final newPlaylist = await _loadSelectedPlaylist(
-            session.downloadUrl,
+            access,
             preferredResolution,
             cancelToken,
           );
@@ -221,6 +239,7 @@ class EncryptedHlsDownloadService {
             activeEntries[segment.index].downloadUri,
           );
           final encrypted = await _downloadAndEncryptSegment(
+            access,
             absoluteUri,
             directory,
             segment,
@@ -318,15 +337,17 @@ class EncryptedHlsDownloadService {
   }
 
   Future<EncryptedSegmentMetadata> _downloadAndEncryptSegment(
+    _GatewayAccess access,
     Uri uri,
     Directory directory,
     EncryptedSegmentMetadata segment,
     CancelToken? cancelToken,
   ) async {
-    final response = await _cdnClient.getUri<List<int>>(
+    final response = await _gatewayGet<List<int>>(
+      access,
       uri,
-      cancelToken: cancelToken,
-      options: Options(responseType: ResponseType.bytes),
+      ResponseType.bytes,
+      cancelToken,
     );
     final plainBytes = response.data ?? <int>[];
     final originalSha256 = await _sha256Hex(plainBytes);
@@ -353,12 +374,12 @@ class EncryptedHlsDownloadService {
   }
 
   Future<_SelectedPlaylist> _loadSelectedPlaylist(
-    String downloadUrl,
+    _GatewayAccess access,
     String preferredResolution,
     CancelToken? cancelToken,
   ) async {
-    final masterUri = Uri.parse(downloadUrl);
-    final masterText = await _readText(masterUri, cancelToken);
+    final masterUri = access.playlistUri;
+    final masterText = await _readPlaylist(access, masterUri, cancelToken);
     final variant = _selectVariant(masterText, masterUri, preferredResolution);
     if (variant == null) {
       final selected = _normalizeResolution(preferredResolution) ?? 'master';
@@ -368,7 +389,7 @@ class EncryptedHlsDownloadService {
       );
       return _SelectedPlaylist(masterUri, masterText, selected);
     }
-    final mediaText = await _readText(variant.uri, cancelToken);
+    final mediaText = await _readPlaylist(access, variant.uri, cancelToken);
     developer.log(
       'requestedResolution=$preferredResolution selectedResolution=${variant.resolution}',
       name: 'EncryptedHlsDownloadService',
@@ -376,13 +397,61 @@ class EncryptedHlsDownloadService {
     return _SelectedPlaylist(variant.uri, mediaText, variant.resolution);
   }
 
-  Future<String> _readText(Uri uri, CancelToken? cancelToken) async {
-    final response = await _cdnClient.getUri<String>(
+  Future<String> _readPlaylist(
+    _GatewayAccess access,
+    Uri uri,
+    CancelToken? cancelToken,
+  ) async {
+    final response = await _gatewayGet<String>(
+      access,
       uri,
-      cancelToken: cancelToken,
-      options: Options(responseType: ResponseType.plain),
+      ResponseType.plain,
+      cancelToken,
     );
-    return response.data ?? '';
+    final text = response.data ?? '';
+    final hasMedia = const LineSplitter()
+        .convert(text)
+        .any((line) => line.trim().isNotEmpty && !line.trim().startsWith('#'));
+    // trimLeft also drops a leading BOM.
+    if (!text.trimLeft().startsWith('#EXTM3U') || !hasMedia) {
+      throw SecureDownloadException(
+        SecureDownloadFailure.invalidPlaylist,
+        uri.path,
+      );
+    }
+    return text;
+  }
+
+  /// The only way media is fetched: gateway origin only, session header on
+  /// every request (master and variant playlists, segments, init and keys).
+  Future<Response<T>> _gatewayGet<T>(
+    _GatewayAccess access,
+    Uri uri,
+    ResponseType responseType,
+    CancelToken? cancelToken,
+  ) async {
+    access.ensureAllowed(uri);
+    try {
+      return await _gatewayClient.getUri<T>(
+        uri,
+        cancelToken: cancelToken,
+        options: Options(
+          responseType: responseType,
+          headers: access.headers,
+          // A redirect could carry the session header to another host.
+          followRedirects: false,
+        ),
+      );
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      if (status == 401 || status == 403) {
+        throw SecureDownloadException(
+          SecureDownloadFailure.gatewayAccessDenied,
+          'HTTP $status ${uri.path}',
+        );
+      }
+      rethrow;
+    }
   }
 
   _PlaylistVariant? _selectVariant(
@@ -541,7 +610,7 @@ class EncryptedHlsDownloadService {
       directory.uri.pathSegments.where((segment) => segment.isNotEmpty).last;
 
   Future<Directory> _videoDirectory(String videoId) async {
-    final root = await getApplicationSupportDirectory();
+    final root = await _storageRoot();
     return Directory('${root.path}/secure_videos/$videoId');
   }
 
@@ -552,6 +621,46 @@ class EncryptedHlsDownloadService {
     final file = await _manifestFile(manifest.videoId);
     await file.parent.create(recursive: true);
     await file.writeAsString(jsonEncode(manifest.toJson()), flush: true);
+  }
+}
+
+/// Where the current download may fetch from and with which header. Renewed
+/// in place when a fresh session replaces an expired one.
+class _GatewayAccess {
+  _GatewayAccess(DownloadSessionResponse session) {
+    renew(session);
+  }
+
+  late Uri playlistUri;
+  late Map<String, String> headers;
+
+  void renew(DownloadSessionResponse session) {
+    final uri = Uri.tryParse(session.downloadUrl);
+    if (session.downloadHeaders.isEmpty ||
+        uri == null ||
+        !uri.isScheme('https') ||
+        uri.host.isEmpty) {
+      // No gateway session (e.g. a direct CDN link): never download without
+      // the device-bound session.
+      throw const SecureDownloadException(
+        SecureDownloadFailure.gatewaySessionMissing,
+      );
+    }
+    playlistUri = uri;
+    headers = session.downloadHeaders;
+  }
+
+  /// Relative playlist references resolve under the gateway; anything that
+  /// points to another origin is refused so the header never leaves it.
+  void ensureAllowed(Uri uri) {
+    if (uri.scheme != playlistUri.scheme ||
+        uri.host != playlistUri.host ||
+        uri.port != playlistUri.port) {
+      throw SecureDownloadException(
+        SecureDownloadFailure.untrustedMediaHost,
+        uri.host,
+      );
+    }
   }
 }
 
