@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/use_case/use_case.dart';
+import '../../../../services/device_info_service.dart';
 import '../../../../services/notification_service/handle_notification/notification_process.dart';
 import '../../data/model/auth_model.dart';
 import '../repository/auth_repository.dart';
@@ -44,6 +45,9 @@ class ParamSignUp {
     "userableType": userableType,
     "gender": gender,
     "fcmToken": NotificationProcess.myFcmToken,
+    // A student account is bound to the device it is created on.
+    if (userableType == 'STUDENT')
+      "loginDeviceId": DeviceInfoService.getLoginDeviceId(),
     if (teacherParams != null) "teacher": teacherParams!.data,
     if (studentParams != null) "student": studentParams!.data,
   };

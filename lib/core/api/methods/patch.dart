@@ -46,7 +46,7 @@ class PatchClient<T> extends BaseApi<T> {
         Uri(
           host: baseUri.host,
           scheme: baseUri.scheme,
-          path: _endpoint,
+          path: apiPathFor(serverName, _endpoint),
           port: MasterUrlRoutes.port,
           queryParameters: _queryParameters,
         ),

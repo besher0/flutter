@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:device_safety_info/device_safety_info.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 bool kIsIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
@@ -19,6 +22,11 @@ class DeviceInfoService {
   static bool _platformInfoInitialized = false;
   static const String _deviceIdPrefsKey = 'coursaty_installation_device_id_v2';
   static String? _installationDeviceId;
+  static const MethodChannel _securityChannel = MethodChannel(
+    'coursaty/video_security',
+  );
+  static const String _iosLoginDeviceKey = 'coursaty_login_device_id_v1';
+  static String? _loginDeviceId;
   DeviceInfoService();
 
   static Future<void> init() async {
@@ -31,7 +39,64 @@ class DeviceInfoService {
     }
     _platformInfoInitialized = true;
     await _initInstallationDeviceId();
+    await _initLoginDeviceId();
     isRealDevice = isPhysicalDevice();
+  }
+
+  /// Identifies this phone for the student single-device login. Unlike the
+  /// installation id it survives reinstalling the app, so a reinstall does not
+  /// lock the student out: Android's ANDROID_ID (per device and signing key,
+  /// reset only by a factory reset) or an iOS Keychain entry (kept across
+  /// reinstalls). Sent hashed; falls back to the installation id.
+  static String getLoginDeviceId() =>
+      _loginDeviceId ?? getInstallationDeviceId();
+
+  /// Random id of this app installation (lost when the app is reinstalled).
+  static String getInstallationDeviceId() =>
+      _installationDeviceId ?? getDeviceId();
+
+  /// Whether [deviceId] names this phone: its login device id, or the
+  /// installation id that video licenses used before the two were unified.
+  static bool isThisDevice(String deviceId) =>
+      deviceId == getLoginDeviceId() || deviceId == getInstallationDeviceId();
+
+  static Future<void> _initLoginDeviceId() async {
+    try {
+      String? raw;
+      if (kIsAndroid) {
+        raw = await _securityChannel.invokeMethod<String>('getLoginDeviceId');
+      } else if (kIsIOS) {
+        const storage = FlutterSecureStorage();
+        raw = await storage.read(key: _iosLoginDeviceKey);
+        if (raw == null || raw.isEmpty) {
+          final random = Random.secure();
+          raw = base64Url.encode(
+            List<int>.generate(32, (_) => random.nextInt(256)),
+          );
+          await storage.write(key: _iosLoginDeviceKey, value: raw);
+        }
+      }
+      if (raw != null && raw.trim().isNotEmpty) {
+        _loginDeviceId = await loginDeviceIdFrom(
+          raw.trim(),
+          platform: kIsAndroid ? 'android' : 'ios',
+        );
+      }
+    } catch (error) {
+      debugPrint('login device id unavailable: ${error.runtimeType}');
+    }
+  }
+
+  /// Opaque form of a platform device id; the raw id never leaves the phone.
+  @visibleForTesting
+  static Future<String> loginDeviceIdFrom(
+    String raw, {
+    required String platform,
+  }) async {
+    final digest = await Sha256().hash(
+      utf8.encode('coursaty-login-device:$platform:$raw'),
+    );
+    return '${platform}_${base64Url.encode(digest.bytes).replaceAll('=', '')}';
   }
 
   static Future<void> _initInstallationDeviceId() async {
@@ -116,7 +181,8 @@ class DeviceInfoService {
     return 'AAAA-BBBB-99CC-36EE';
   }
 
-  static String getSecureVideoDeviceId() {
-    return _installationDeviceId ?? getDeviceId();
-  }
+  /// The video device is the login device: the account is bound to one
+  /// phone, so a reinstall (new installation id, new Keystore key) is
+  /// recognised as the same phone instead of needing a device replacement.
+  static String getSecureVideoDeviceId() => getLoginDeviceId();
 }

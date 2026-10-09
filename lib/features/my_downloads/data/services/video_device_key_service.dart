@@ -142,7 +142,7 @@ class VideoDeviceKeyService {
     return Uri(
       host: baseUri.host,
       scheme: baseUri.scheme,
-      path: endpoint,
+      path: MasterUrlRoutes.apiPath(endpoint),
       port: MasterUrlRoutes.port,
     );
   }
@@ -181,6 +181,12 @@ class VideoDeviceRegistrationException implements Exception {
   @override
   String toString() => message;
 }
+
+/// Self-service device replacement is suspended. When another device holds
+/// the account (or this device's key changed), the app only shows a warning
+/// and never calls the replacement endpoint. Set to true to bring back the
+/// confirmation dialog in the video player.
+const bool videoDeviceReplacementEnabled = false;
 
 enum DeviceReplacementReason {
   /// Another installation already holds the account's device slot.

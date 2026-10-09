@@ -129,8 +129,7 @@ Future<void> signOut(BuildContext context, {bool clearUser = true}) async {
     await GetIt.I<PrefsRepository>().clearUser();
   }
   clearAllBlocs();
-  await GetIt.I.reset();
-  await configureDependencies();
+  await resetDependencies();
   if (context.mounted) {
     context.go(GRouter.config.kRootRoute);
   }

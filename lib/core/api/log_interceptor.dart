@@ -96,7 +96,7 @@ class LoggerInterceptor extends Interceptor with HandlingExceptionRequest {
         "***|| INFO Response Request $requestRoute ||***"
         "\n Status code: ${response.statusCode}"
         "\n Status message: ${response.statusMessage}"
-        "\n Data: ${_redact(response.data)}",
+        "\n Data: ${_redact(response.data)}"
       );
       log(_redact(response.data).toString());
     }

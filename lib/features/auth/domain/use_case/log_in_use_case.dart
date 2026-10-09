@@ -3,6 +3,7 @@ import 'package:injectable/injectable.dart';
 import '../../../../core/error/failures.dart';
 
 import '../../../../core/use_case/use_case.dart';
+import '../../../../services/device_info_service.dart';
 import '../../data/model/auth_model.dart';
 import '../repository/auth_repository.dart';
 
@@ -24,5 +25,10 @@ class ParamLogIn {
 
   ParamLogIn({required this.phone, required this.password});
 
-  Map<String, dynamic> get data => {"phone": phone, "password": password};
+  /// Students can only sign in from the device their account is bound to.
+  Map<String, dynamic> get data => {
+    "phone": phone,
+    "password": password,
+    "loginDeviceId": DeviceInfoService.getLoginDeviceId(),
+  };
 }

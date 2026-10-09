@@ -1,6 +1,7 @@
 package com.example.coursaty_student_and_teacher
 
 import android.os.Build
+import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -51,6 +52,11 @@ class MainActivity : FlutterActivity() {
                         deleteVideoDeviceKey()
                         result.success(null)
                     }
+                    // Stable per device and app signing key; survives app
+                    // reinstalls (reset only by a factory reset).
+                    "getLoginDeviceId" -> result.success(
+                        Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                    )
                     else -> result.notImplemented()
                 }
             }

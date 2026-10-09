@@ -74,6 +74,11 @@
 	<false/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Needs network access to check connectivity status</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs access to the camera to let you take photos and videos for your profile and course content.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

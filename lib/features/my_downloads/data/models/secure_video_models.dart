@@ -42,9 +42,16 @@ class PlaybackSessionResponse {
   }
 }
 
+/// A download session. [downloadUrl] points at the video edge gateway, which
+/// only serves media to requests carrying [accessToken] in [accessHeader].
+/// The token lives in memory for the duration of one download and is never
+/// written to the manifest or into any URL.
 class DownloadSessionResponse {
   final String downloadUrl;
   final String downloadSessionId;
+  final String? accessToken;
+  final String accessHeader;
+  final DateTime? expiresAt;
   final String videoId;
   final String bunnyVideoId;
   final int contentVersion;
@@ -55,6 +62,9 @@ class DownloadSessionResponse {
   DownloadSessionResponse({
     required this.downloadUrl,
     required this.downloadSessionId,
+    this.accessToken,
+    this.accessHeader = 'X-Coursaty-Playback-Session',
+    this.expiresAt,
     required this.videoId,
     required this.bunnyVideoId,
     required this.contentVersion,
@@ -67,6 +77,10 @@ class DownloadSessionResponse {
       DownloadSessionResponse(
         downloadUrl: json['downloadUrl'] as String,
         downloadSessionId: json['downloadSessionId'] as String,
+        accessToken: json['accessToken'] as String?,
+        accessHeader:
+            json['accessHeader'] as String? ?? 'X-Coursaty-Playback-Session',
+        expiresAt: DateTime.tryParse(json['expiresAt'] as String? ?? ''),
         videoId: json['videoId'] as String,
         bunnyVideoId: json['bunnyVideoId'] as String? ?? '',
         contentVersion: (json['contentVersion'] as num?)?.toInt() ?? 1,
@@ -76,6 +90,14 @@ class DownloadSessionResponse {
           json['offlineLicense'] as Map<String, dynamic>,
         ),
       );
+
+  /// Headers for every gateway request of this session (playlists, segments,
+  /// keys). Empty when the backend did not issue a gateway session.
+  Map<String, String> get downloadHeaders {
+    final token = accessToken;
+    if (token == null || token.isEmpty) return const {};
+    return {accessHeader: token};
+  }
 }
 
 class OfflinePublicKey {

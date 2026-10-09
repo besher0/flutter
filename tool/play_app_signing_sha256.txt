@@ -1,0 +1,4 @@
+# SHA-256 of the Play "App signing key certificate", copied from
+# Play Console > Test and release > App integrity > App signing.
+# Put it on the line below. Colons and letter case do not matter.
+# A certificate fingerprint is public information, safe to commit.
