@@ -84,6 +84,7 @@ abstract class EndPoints {
   static final createVideo = 'videos'.lecturesScope;
   static final initTusEp = 'tus/init'.uploadsVideosScope;
   static final completeTusEp = 'tus/complete'.uploadsVideosScope;
+  static final refreshTusEp = 'tus/refresh'.uploadsVideosScope;
 
   static final createVideoLikeEP = 'videos'.interactionsScope;
 

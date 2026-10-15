@@ -330,8 +330,24 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                           if (path != null &&
                               state.uploadingProgress.containsKey(path)) ...{
                             ProgressIndicatorWidget(
-                              percent: state.uploadingProgress[path]!,
+                              percent: state.uploadingProgress[path]! < 0
+                                  ? null
+                                  : state.uploadingProgress[path],
                               textColor: Theme.of(context).colorScheme.primary,
+                              fractionDigits: 1,
+                            ),
+                            if (state.uploadStatusMessage != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  state.uploadStatusMessage!,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            TextButton.icon(
+                              onPressed: () => _confirmCancelUpload(context),
+                              icon: const Icon(Icons.close),
+                              label: const Text("إلغاء الرفع"),
                             ),
                           } else if (state.upsertLecture.isLoading)
                             CoursatyAppLoader()
@@ -389,6 +405,28 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmCancelUpload(BuildContext context) async {
+    final bloc = BlocProvider.of<CourseContentManagementBloc>(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("إلغاء رفع الفيديو؟"),
+        content: const Text("سيتوقف الرفع، وعند الحفظ لاحقاً يبدأ الرفع من جديد."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text("متابعة الرفع"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text("إلغاء الرفع"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) bloc.add(CancelVideoUploadEvent());
   }
 
   String? _requiredValidator(dynamic item) {

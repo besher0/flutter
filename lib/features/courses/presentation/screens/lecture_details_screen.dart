@@ -470,9 +470,7 @@ class _FilesTab extends StatelessWidget {
                                               child: FittedBox(
                                                 child: ProgressIndicatorWidget(
                                                   percent:
-                                                      (downloadState
-                                                          .downloadingProcesses[url] ??
-                                                      0),
+                                                      downloadState.downloadingProcesses[url],
                                                   backGroundColor:
                                                       AppColors.greyNormal,
                                                   textColor: Theme.of(
@@ -708,9 +706,7 @@ class _VideosTab extends StatelessWidget {
                                               child: FittedBox(
                                                 child: ProgressIndicatorWidget(
                                                   percent:
-                                                      (downloadState
-                                                          .downloadingProcesses[url] ??
-                                                      0),
+                                                      downloadState.downloadingProcesses[url],
                                                   backGroundColor:
                                                       AppColors.greyNormal,
                                                   textColor: Theme.of(

@@ -121,9 +121,7 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
                                   child: FittedBox(
                                     child: ProgressIndicatorWidget(
                                       percent:
-                                          (downloadState
-                                              .downloadingProcesses[url] ??
-                                          0),
+                                          downloadState.downloadingProcesses[url],
                                       backGroundColor: AppColors.greyNormal,
                                       textColor: Theme.of(
                                         context,
