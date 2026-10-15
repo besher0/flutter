@@ -30,9 +30,18 @@ class EncryptedHlsDownloadService {
     @ignoreParam FlutterSecureStorage? secureStorage,
     @ignoreParam Future<Directory> Function()? storageRoot,
     @ignoreParam Future<bool> Function()? isSecureDevice,
+    @ignoreParam Duration Function(int attempt)? retryDelay,
   }) : _secureStorage = secureStorage ?? _defaultSecureStorage,
        _storageRoot = storageRoot ?? getApplicationSupportDirectory,
-       _isSecureDevice = isSecureDevice ?? _defaultIsSecureDevice;
+       _isSecureDevice = isSecureDevice ?? _defaultIsSecureDevice,
+       _retryDelay = retryDelay ?? _defaultRetryDelay;
+
+  /// Network failures are retried, so a download survives a weak connection
+  /// and resumes by itself after the app was suspended in the background.
+  static const int _maxNetworkAttempts = 8;
+
+  static Duration _defaultRetryDelay(int attempt) =>
+      Duration(seconds: const [1, 2, 4, 8, 15, 30, 30][(attempt - 1).clamp(0, 6)]);
 
   final Dio _client;
 
@@ -52,6 +61,7 @@ class EncryptedHlsDownloadService {
   final PrefsRepository _prefs;
   final Future<Directory> Function() _storageRoot;
   final Future<bool> Function() _isSecureDevice;
+  final Duration Function(int attempt) _retryDelay;
   final AesGcm _aesGcm = AesGcm.with256bits();
   final Random _random = Random.secure();
 
@@ -431,26 +441,64 @@ class EncryptedHlsDownloadService {
     CancelToken? cancelToken,
   ) async {
     access.ensureAllowed(uri);
-    try {
-      return await _gatewayClient.getUri<T>(
-        uri,
-        cancelToken: cancelToken,
-        options: Options(
-          responseType: responseType,
-          headers: access.headers,
-          // A redirect could carry the session header to another host.
-          followRedirects: false,
-        ),
-      );
-    } on DioException catch (error) {
-      final status = error.response?.statusCode;
-      if (status == 401 || status == 403) {
-        throw SecureDownloadException(
-          SecureDownloadFailure.gatewayAccessDenied,
-          'HTTP $status ${uri.path}',
+    for (var attempt = 1; ; attempt++) {
+      try {
+        return await _gatewayClient.getUri<T>(
+          uri,
+          cancelToken: cancelToken,
+          options: Options(
+            responseType: responseType,
+            headers: access.headers,
+            // A redirect could carry the session header to another host.
+            followRedirects: false,
+          ),
         );
+      } on DioException catch (error) {
+        final status = error.response?.statusCode;
+        if (status == 401 || status == 403) {
+          throw SecureDownloadException(
+            SecureDownloadFailure.gatewayAccessDenied,
+            'HTTP $status ${uri.path}',
+          );
+        }
+        if (!_isTransient(error) || attempt >= _maxNetworkAttempts) rethrow;
+        developer.log(
+          'retrying ${uri.path} after ${error.type.name} (attempt $attempt)',
+          name: 'EncryptedHlsDownloadService',
+        );
+        await _waitBeforeRetry(attempt, cancelToken);
       }
-      rethrow;
+    }
+  }
+
+  bool _isTransient(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionError:
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.unknown:
+        return true;
+      case DioExceptionType.badResponse:
+        final status = error.response?.statusCode ?? 0;
+        return status == 429 || status >= 500;
+      case DioExceptionType.cancel:
+      case DioExceptionType.badCertificate:
+        return false;
+    }
+  }
+
+  Future<void> _waitBeforeRetry(int attempt, CancelToken? cancelToken) async {
+    await Future.any<void>([
+      Future<void>.delayed(_retryDelay(attempt)),
+      if (cancelToken != null) cancelToken.whenCancel.then((_) {}),
+    ]);
+    if (cancelToken?.isCancelled ?? false) {
+      throw DioException(
+        requestOptions: RequestOptions(),
+        type: DioExceptionType.cancel,
+        message: 'The request was manually cancelled by the user.',
+      );
     }
   }
 

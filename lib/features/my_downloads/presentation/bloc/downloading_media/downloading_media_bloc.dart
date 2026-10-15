@@ -7,6 +7,7 @@ import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart'
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/video_security_errors.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/encrypted_hls_download_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
+import 'package:coursaty_student_and_teacher/services/background_download_keep_alive.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
@@ -275,6 +276,7 @@ class DownloadingMediaBloc
     );
     if (event.fileType == 'video') {
       _cancelTokens[url] = CancelToken();
+      await BackgroundDownloadKeepAlive.acquire();
       try {
         await _encryptedHlsDownloadService.download(
           videoId: event.fileUrl,
@@ -322,6 +324,7 @@ class DownloadingMediaBloc
         _handleError(url, event.fileType, e, emit, stackTrace);
       } finally {
         _cancelTokens.remove(url);
+        await BackgroundDownloadKeepAlive.release();
       }
       return;
     }

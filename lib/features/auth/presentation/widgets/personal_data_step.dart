@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../app/widgets/coursaty_dropdown.dart';
 import '../../../../app/widgets/coursaty_text_field.dart';
+import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
 class PersonalDataStep extends StatelessWidget {
   const PersonalDataStep({
@@ -60,7 +61,7 @@ class PersonalDataStep extends StatelessWidget {
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.next,
           inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
+            AsciiDigitsFormatter(),
             LengthLimitingTextInputFormatter(10),
           ],
           validator: isActiveStep ? phoneValidator : null,

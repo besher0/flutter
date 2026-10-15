@@ -25,6 +25,7 @@ import '../../../courses/presentation/bloc/courses_bloc.dart';
 import '../../../courses/presentation/widgets/course_free_checkbox.dart';
 import '../../../courses/presentation/widgets/video_segement_item.dart';
 import '../widgets/upsert_video_segment_dialog.dart';
+import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
 class AddVideoScreen extends StatefulWidget {
   const AddVideoScreen({
@@ -276,7 +277,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                         minLines: 1,
                         controller: sortOrder,
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
+                          AsciiDigitsFormatter(),
                         ],
                       ),
                       10.verticalSpace,

@@ -16,6 +16,7 @@ import '../../../../core/common/helper/show_message.dart';
 import '../../../../core/utils/extensions/build_context.dart';
 import '../../domain/usecases/upsert_question_usecase.dart';
 import '../bloc/course_content_management_bloc.dart';
+import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
 class UpsertQuestionPage extends StatefulWidget {
   const UpsertQuestionPage({
@@ -133,7 +134,7 @@ class _UpsertQuestionPageState extends State<UpsertQuestionPage> {
                         controller: sortOrder,
                         minLines: 1,
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
+                          AsciiDigitsFormatter(),
                         ],
                       ),
 

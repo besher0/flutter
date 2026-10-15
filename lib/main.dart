@@ -1,6 +1,7 @@
 import 'package:coursaty_student_and_teacher/services/device_info_service.dart';
 import 'package:coursaty_student_and_teacher/services/network_time_protocol_service.dart';
 import 'package:coursaty_student_and_teacher/services/notification_service/handle_notification/notification_process.dart';
+import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,9 @@ bool isDateFraud = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Hardware AES-GCM for offline videos (javax.crypto / CryptoKit) instead of
+  // the much slower pure Dart implementation, which made 1080p stutter.
+  FlutterCryptography.enable();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   try {
     await Firebase.initializeApp(

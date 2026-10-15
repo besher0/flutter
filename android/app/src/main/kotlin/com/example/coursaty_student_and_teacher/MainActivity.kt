@@ -57,6 +57,27 @@ class MainActivity : FlutterActivity() {
                     "getLoginDeviceId" -> result.success(
                         Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
                     )
+                    "getEmulatorSignals" -> result.success(EmulatorSignals.collect(applicationContext))
+                    else -> result.notImplemented()
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "coursaty/background_downloads")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        try {
+                            DownloadKeepAliveService.start(applicationContext)
+                            result.success(true)
+                        } catch (error: Exception) {
+                            // e.g. not allowed to start from the background.
+                            result.error("keep_alive_failed", error.javaClass.simpleName, null)
+                        }
+                    }
+                    "stop" -> {
+                        DownloadKeepAliveService.stop(applicationContext)
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }

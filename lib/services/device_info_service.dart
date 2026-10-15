@@ -19,6 +19,9 @@ class DeviceInfoService {
   static bool isRealDevice = false;
   static bool screenLockEnabled = false;
   static bool isRealDeviceEmulatorDetector = false;
+
+  /// Emulator / PC Android signals found by the native check (Android only).
+  static List<String> emulatorSignals = const [];
   static bool _platformInfoInitialized = false;
   static const String _deviceIdPrefsKey = 'coursaty_installation_device_id_v2';
   static String? _installationDeviceId;
@@ -38,6 +41,7 @@ class DeviceInfoService {
       iosDeviceInfo = await deviceInfoPlugin.iosInfo;
     }
     _platformInfoInitialized = true;
+    if (kIsAndroid) emulatorSignals = await _readEmulatorSignals();
     await _initInstallationDeviceId();
     await _initLoginDeviceId();
     isRealDevice = isPhysicalDevice();
@@ -114,16 +118,52 @@ class DeviceInfoService {
     _installationDeviceId = deviceId;
   }
 
+  /// Only real phones may run the app.
+  ///
+  /// Android: emulators on Windows/macOS (BlueStacks, LDPlayer, Nox, WSA, ...)
+  /// report isPhysicalDevice = true, so the native check looks for what they
+  /// cannot hide: an x86 CPU or hypervisor, QEMU/VirtualBox traces, and a
+  /// missing or emulated accelerometer. A screen lock is no longer required:
+  /// it said nothing about the device (emulators can set one) and locked out
+  /// real phones without one.
+  /// iOS: refuses the Simulator and iPhone apps running on a Mac.
   static bool isPhysicalDevice() {
     if (kIsIOS) {
-      return true;
+      return iosDeviceInfo.isPhysicalDevice && !iosDeviceInfo.isiOSAppOnMac;
     } else if (kIsAndroid) {
-      return screenLockEnabled &&
-          !isKnownEmulator() &&
-          isRealDeviceEmulatorDetector &&
-          androidDeviceInfo.isPhysicalDevice;
+      return isPhysicalAndroid(
+        emulatorSignals: emulatorSignals,
+        knownEmulatorModel: isKnownEmulator(),
+        safetyCheckSaysReal: isRealDeviceEmulatorDetector,
+        platformSaysPhysical: androidDeviceInfo.isPhysicalDevice,
+      );
     }
     return false;
+  }
+
+  @visibleForTesting
+  static bool isPhysicalAndroid({
+    required List<String> emulatorSignals,
+    required bool knownEmulatorModel,
+    required bool safetyCheckSaysReal,
+    required bool platformSaysPhysical,
+  }) =>
+      emulatorSignals.isEmpty &&
+      !knownEmulatorModel &&
+      safetyCheckSaysReal &&
+      platformSaysPhysical;
+
+  static Future<List<String>> _readEmulatorSignals() async {
+    try {
+      return await _securityChannel.invokeListMethod<String>(
+            'getEmulatorSignals',
+          ) ??
+          const [];
+    } catch (error) {
+      // Fail closed: a check that cannot run must not let an emulator in.
+      debugPrint('emulator check failed: ${error.runtimeType}');
+      return const ['check-failed'];
+    }
   }
 
   static bool isKnownEmulator() {

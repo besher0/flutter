@@ -18,6 +18,7 @@ import '../../../../core/utils/extensions/build_context.dart';
 import '../../../../core/utils/responsive_padding.dart';
 import '../bloc/auth_bloc.dart';
 import 'create_guest_screen.dart';
+import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
 /// Login: title, phone + password fields, forgot/remember, primary button, sign up link.
 class LoginScreen extends StatefulWidget {
@@ -135,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
                     inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
+                      AsciiDigitsFormatter(),
                       LengthLimitingTextInputFormatter(10),
                     ],
                     validator: _validatePhone,
@@ -267,6 +268,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       } else if (state.getOrCreateGuest.isFailed &&
                           state.isNotFoundGuestError) {
                         context.pushPage(CreateGuestScreen());
+                      } else if (state.getOrCreateGuest.isFailed) {
+                        // Other failures were silent: tapping did nothing.
+                        showMessage(state.errorMessage);
                       }
                     },
                     builder: (context, state) {
