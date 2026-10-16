@@ -10,6 +10,7 @@ import 'package:coursaty_student_and_teacher/features/course_content_management/
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart';
 import 'package:dio/dio.dart' hide Headers;
 import 'package:flutter/cupertino.dart';
+import 'package:http/io_client.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tusc/tusc.dart' hide Headers;
 import 'package:bloc/bloc.dart';
@@ -321,6 +322,13 @@ class CourseContentManagementBloc
         headers: headers,
         chunkSize: 1024 * 1024,
         timeout: const Duration(seconds: 60),
+        // A fresh connection per attempt: sockets of a dropped attempt are
+        // never reused, and an unreachable server fails fast.
+        httpClient: IOClient(
+          HttpClient()
+            ..connectionTimeout = const Duration(seconds: 20)
+            ..idleTimeout = const Duration(seconds: 10),
+        ),
       ),
     );
 
