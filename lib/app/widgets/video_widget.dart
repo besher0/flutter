@@ -2,6 +2,8 @@ import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/cours
 import 'package:flutter/material.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 
+import 'playback_wakelock.dart';
+
 class VideoWidget extends StatefulWidget {
   const VideoWidget({super.key, required this.videoUrl});
 
@@ -14,6 +16,7 @@ class VideoWidget extends StatefulWidget {
 class _MyVideoWidgetBetterPlayerState extends State<VideoWidget> {
   late final BetterPlayerDataSource betterPlayerDataSource;
   late final BetterPlayerController betterPlayerController;
+  PlaybackWakelock? _wakelock;
   bool initialized = false;
 
   Future<void> init() async {
@@ -34,6 +37,7 @@ class _MyVideoWidgetBetterPlayerState extends State<VideoWidget> {
       ),
       betterPlayerDataSource: betterPlayerDataSource,
     );
+    _wakelock = PlaybackWakelock(betterPlayerController);
 
     setState(() {
       initialized = true;
@@ -48,6 +52,7 @@ class _MyVideoWidgetBetterPlayerState extends State<VideoWidget> {
 
   @override
   void dispose() {
+    _wakelock?.dispose();
     betterPlayerController.dispose();
     super.dispose();
   }

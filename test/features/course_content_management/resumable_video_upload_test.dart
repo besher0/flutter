@@ -62,15 +62,11 @@ void main() {
   ResumableVideoUpload upload(
     List<_Attempt> script, {
     Future<Map<String, String>?> Function()? refresh,
-    int maxAttempts = 10,
-    Duration delay = Duration.zero,
   }) {
     clients = [];
     return ResumableVideoUpload(
       headers: const {'AuthorizationSignature': 'old'},
       refreshHeaders: refresh ?? () async => null,
-      maxAttempts: maxAttempts,
-      retryDelay: (_) => delay,
       createClient: ({required uploadUrl, required headers}) {
         final client = _FakeTusClient(
           script[clients.length.clamp(0, script.length - 1)],
@@ -83,24 +79,26 @@ void main() {
     );
   }
 
-  test('continues the same upload after the connection drops', () async {
+  test('stops on a lost connection and resumes the same upload by hand', () async {
     final progress = <double>[];
-    final statuses = <String?>[];
-
-    final outcome = await upload([
+    final task = upload([
       _Attempt.networkError,
       _Attempt.timeout,
       _Attempt.complete,
-    ]).run(onProgress: progress.add, onStatus: statuses.add);
+    ]);
 
-    expect(outcome, VideoUploadOutcome.completed);
-    expect(clients, hasLength(3));
-    // Each retry resumes the first upload's URL instead of creating a new one.
+    // No automatic retry: each failure waits for the teacher to press resume.
+    expect(await task.run(onProgress: progress.add), VideoUploadOutcome.failed);
+    expect(clients, hasLength(1));
+    expect(progress.last, 40);
+    expect(await task.run(onProgress: progress.add), VideoUploadOutcome.failed);
+    expect(clients, hasLength(2));
+    expect(await task.run(onProgress: progress.add), VideoUploadOutcome.completed);
+
+    // Each resume continues the first upload's URL instead of creating a new one.
     expect(clients[1].receivedUploadUrl, clients[0].uploadUrl);
     expect(clients[2].receivedUploadUrl, clients[0].uploadUrl);
     expect(progress.last, 100);
-    expect(statuses, contains(isA<String>())); // "waiting for the connection"
-    expect(statuses.last, isNull);
   });
 
   test('renews an expired Bunny signature and carries on', () async {
@@ -118,30 +116,20 @@ void main() {
     expect(clients.last.receivedHeaders['AuthorizationSignature'], 'new');
   });
 
-  test('gives up after the last attempt', () async {
-    final outcome = await upload(
-      [_Attempt.networkError],
-      maxAttempts: 3,
-    ).run(onProgress: (_) {});
+  test('fails when an expired signature cannot be renewed', () async {
+    final outcome = await upload([
+      _Attempt.expiredSignature,
+    ]).run(onProgress: (_) {});
 
     expect(outcome, VideoUploadOutcome.failed);
-    expect(clients, hasLength(3));
+    expect(clients, hasLength(1));
   });
 
-  test('cancel stops while waiting for the connection', () async {
-    final task = upload(
-      [_Attempt.networkError],
-      delay: const Duration(seconds: 30),
-    );
-    final result = task.run(onProgress: (_) {});
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    task.cancel();
+  test('a cancelled upload does not start again', () async {
+    final task = upload([_Attempt.networkError])..cancel();
 
-    expect(
-      await result.timeout(const Duration(seconds: 2)),
-      VideoUploadOutcome.cancelled,
-    );
-    expect(clients, hasLength(1));
+    expect(await task.run(onProgress: (_) {}), VideoUploadOutcome.cancelled);
+    expect(clients, isEmpty);
   });
 
   testWidgets('upload percentage shows one decimal place', (tester) async {

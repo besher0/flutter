@@ -18,8 +18,9 @@ class CourseContentManagementState {
   final XFile? currentlyUploadingFile;
   final List<String> currentlyDeletingQuestionsIds;
 
-  /// e.g. waiting for the connection to come back; null while uploading.
-  final String? uploadStatusMessage;
+  /// The upload stopped (e.g. the connection dropped) and waits for the
+  /// teacher to resume it from where it stopped.
+  final bool uploadPaused;
 
   CourseContentManagementState({
     this.getAllowedSubjects = Status.init,
@@ -37,7 +38,7 @@ class CourseContentManagementState {
     this.currentlyDeletingQuestionsIds = const [],
     this.uploadingProgress = const {},
     this.currentlyUploadingFile,
-    this.uploadStatusMessage,
+    this.uploadPaused = false,
   });
 
   CourseContentManagementState copyWith({
@@ -57,8 +58,7 @@ class CourseContentManagementState {
     final XFile? currentlyUploadingFile,
     final List<String>? currentlyDeletingQuestionsIds,
     bool resetCurrentlyUploadingFile = false,
-    final String? uploadStatusMessage,
-    bool resetUploadStatusMessage = false,
+    final bool? uploadPaused,
   }) {
     return CourseContentManagementState(
       getAllowedSubjects: getAllowedSubjects ?? this.getAllowedSubjects,
@@ -76,9 +76,7 @@ class CourseContentManagementState {
           ? null
           : (currentlyUploadingFile ?? this.currentlyUploadingFile),
       uploadingProgress: uploadingProgress ?? this.uploadingProgress,
-      uploadStatusMessage: resetUploadStatusMessage
-          ? null
-          : (uploadStatusMessage ?? this.uploadStatusMessage),
+      uploadPaused: uploadPaused ?? this.uploadPaused,
       deleteFromCourseTransaction:
           deleteFromCourseTransaction ?? this.deleteFromCourseTransaction,
       deleteFromLectureTransaction:

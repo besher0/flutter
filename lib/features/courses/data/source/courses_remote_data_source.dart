@@ -194,6 +194,7 @@ class CoursesRemoteDataSource {
       serverName: ServerName.master,
       requestPrams: RequestConfig(
         endpoint: EndPoints.getCourseStatistics(id: param.courseId),
+        queryParameters: param.period.toQuery(),
         response: ResponseValue(
           fromJson: (data) => CourseStatisticsModel.fromJson(data),
         ),

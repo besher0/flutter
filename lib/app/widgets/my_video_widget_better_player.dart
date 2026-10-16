@@ -35,6 +35,7 @@ import '../../core/routes/router.dart';
 import '../../core/storage/prefs_repository.dart';
 import '../../core/theme/app_colors.dart';
 import 'chip_widget.dart';
+import 'playback_wakelock.dart';
 import 'video_zoom.dart';
 
 class MyVideoWidgetBetterPlayer extends StatefulWidget {
@@ -86,6 +87,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
 
   late BetterPlayerDataSource betterPlayerDataSource;
   late BetterPlayerController betterPlayerController;
+  PlaybackWakelock? _wakelock;
   final VideoAccessService _videoAccessService = GetIt.I<VideoAccessService>();
   final SecureOfflinePlaybackService _secureOfflinePlaybackService =
       GetIt.I<SecureOfflinePlaybackService>();
@@ -144,6 +146,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         betterPlayerDataSource: betterPlayerDataSource,
       );
       betterPlayerController.addEventsListener(_onBetterPlayerEvent);
+      _wakelock = PlaybackWakelock(betterPlayerController);
       setState(() {
         initialized = true;
       });
@@ -425,6 +428,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
   void dispose() {
     _zoomController.dispose();
     _renewalTimer?.cancel();
+    _wakelock?.dispose();
     if (initialized) {
       betterPlayerController.removeEventsListener(_onBetterPlayerEvent);
       betterPlayerController.dispose();

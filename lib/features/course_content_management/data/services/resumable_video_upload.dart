@@ -10,48 +10,40 @@ typedef TusClientFactory =
       required Map<String, String> headers,
     });
 
-/// A TUS video upload that survives a lost connection.
+/// A TUS video upload that can be resumed after a lost connection.
 ///
-/// Every attempt uses a new client that continues the same upload URL from the
-/// server's offset, so a dropped or stale connection never restarts the upload
-/// and never makes "resume" fail at once. Network failures are retried with a
-/// growing delay; an expired Bunny signature (401/403) is renewed through
-/// [refreshHeaders]; [cancel] stops it at any point.
+/// A dropped connection stops [run] with [VideoUploadOutcome.failed]; nothing
+/// is retried automatically. Calling [run] again (the teacher pressing
+/// "resume") uses a new client that continues the same upload URL from the
+/// server's offset, so the upload never restarts from zero. An expired Bunny
+/// signature (401/403) is renewed through [refreshHeaders] and a dropped
+/// upload (404/410) is recreated, both at once; [cancel] stops it at any point.
 class ResumableVideoUpload {
   ResumableVideoUpload({
     required this.createClient,
     required this.refreshHeaders,
     required Map<String, String> headers,
-    this.maxAttempts = 40,
-    Duration Function(int attempt)? retryDelay,
-  }) : _headers = headers,
-       _retryDelay = retryDelay ?? _defaultRetryDelay;
+  }) : _headers = headers;
 
   final TusClientFactory createClient;
 
   /// Fresh signed TUS headers, or null when they cannot be renewed.
   final Future<Map<String, String>?> Function() refreshHeaders;
 
-  /// About 15 minutes of retries in total before giving up.
-  final int maxAttempts;
-  final Duration Function(int attempt) _retryDelay;
+  /// Attempts per [run]: the first one plus one per recoverable server answer.
+  static const _maxAttempts = 3;
 
   Map<String, String> _headers;
   String? _uploadUrl;
   TusBaseClient? _client;
   bool _cancelled = false;
 
-  static Duration _defaultRetryDelay(int attempt) => Duration(
-    seconds: const [2, 4, 8, 15, 30][(attempt - 1).clamp(0, 4)],
-  );
-
   bool get isCancelled => _cancelled;
 
   Future<VideoUploadOutcome> run({
     required void Function(double percent) onProgress,
-    void Function(String? message)? onStatus,
   }) async {
-    for (var attempt = 1; ; attempt++) {
+    for (var attempt = 1; attempt <= _maxAttempts; attempt++) {
       if (_cancelled) return VideoUploadOutcome.cancelled;
 
       final client = createClient(uploadUrl: _uploadUrl, headers: _headers);
@@ -63,64 +55,44 @@ class ResumableVideoUpload {
           onProgress: (count, total, _) {
             if (total <= 0) return;
             onProgress(count * 100 / total);
-            onStatus?.call(null);
           },
           onComplete: (_) => completed = true,
           onError: (error) => protocolError = error,
         );
       } catch (_) {
-        // No connection, socket closed, DNS... retried below.
+        // No connection, socket closed, DNS... the teacher resumes by hand.
       }
       if (client.uploadUrl.isNotEmpty) _uploadUrl = client.uploadUrl;
 
-      if (completed) {
-        onStatus?.call(null);
-        return VideoUploadOutcome.completed;
-      }
+      if (completed) return VideoUploadOutcome.completed;
       if (_cancelled || client.state == TusUploadState.cancelled) {
         return VideoUploadOutcome.cancelled;
       }
 
       final status = protocolError?.response.statusCode;
       if (status == 401 || status == 403) {
-        // The signed upload headers expired during a long interruption.
+        // The signed upload headers expired while the upload was paused.
         Map<String, String>? fresh;
         try {
           fresh = await refreshHeaders();
         } catch (_) {
           fresh = null;
         }
-        if (fresh != null) {
-          _headers = fresh;
-        } else if (attempt >= maxAttempts) {
-          return VideoUploadOutcome.failed;
-        }
+        if (fresh == null) return VideoUploadOutcome.failed;
+        _headers = fresh;
       } else if (status == 404 || status == 410) {
         // The server dropped this upload: start a new one for the video.
         _uploadUrl = null;
-      }
-
-      if (attempt >= maxAttempts) return VideoUploadOutcome.failed;
-      onStatus?.call('انقطع الاتصال، سيُستكمل الرفع تلقائياً عند عودته…');
-      if (!await _wait(_retryDelay(attempt))) {
-        return VideoUploadOutcome.cancelled;
+      } else {
+        return VideoUploadOutcome.failed;
       }
     }
+    return VideoUploadOutcome.failed;
   }
 
-  /// Stops the upload: the request in flight is dropped and no retry follows.
+  /// Stops the upload: the request in flight is dropped.
   void cancel() {
     _cancelled = true;
     _client?.cancelUpload();
-  }
-
-  /// Waits [delay], returning false as soon as the upload is cancelled.
-  Future<bool> _wait(Duration delay) async {
-    final end = DateTime.now().add(delay);
-    while (DateTime.now().isBefore(end)) {
-      if (_cancelled) return false;
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-    }
-    return !_cancelled;
   }
 }

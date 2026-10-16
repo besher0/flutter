@@ -52,7 +52,6 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
 
   late final TextEditingController courseName,
       courseDescription,
-      courseTelegram,
       courseDiscussionGroup,
       courseYoutube,
       courseInstagram,
@@ -77,7 +76,6 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
     isPriceVisibleNotifier = ValueNotifier(true);
     courseName = TextEditingController();
     courseDescription = TextEditingController();
-    courseTelegram = TextEditingController();
     courseDiscussionGroup = TextEditingController();
     courseYoutube = TextEditingController();
     courseInstagram = TextEditingController();
@@ -97,7 +95,6 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
   void dispose() {
     courseName.dispose();
     courseDescription.dispose();
-    courseTelegram.dispose();
     courseDiscussionGroup.dispose();
     courseYoutube.dispose();
     // duration.dispose();
@@ -107,6 +104,11 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
     chooseFile.dispose();
     isPriceVisibleNotifier.dispose();
     super.dispose();
+  }
+
+  String? get _discussionGroupUrl {
+    final url = courseDiscussionGroup.text.trim();
+    return url.isEmpty ? null : url;
   }
 
   final GlobalKey<FormState> _formKey = GlobalKey();
@@ -419,13 +421,7 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
               choosedFile: chooseFile,
             ),
           CoursatyTextField(
-            label: 'رابط التلغرام (اختياري)',
-            hint: 'https://t.me/...',
-            controller: courseTelegram,
-          ),
-          10.verticalSpace,
-          CoursatyTextField(
-            label: 'رابط مجموعة النقاش (اختياري)',
+            label: 'رابط كروب المناقشة (اختياري)',
             hint: 'https://t.me/...',
             controller: courseDiscussionGroup,
           ),
@@ -570,13 +566,10 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
                                 // departmentId: departmentController.text.isEmpty
                                 //     ? null
                                 //     : departmentController.text,
-                                telegramUrl: courseTelegram.text.trim().isEmpty
-                                    ? null
-                                    : courseTelegram.text.trim(),
-                                discussionGroupUrl:
-                                    courseDiscussionGroup.text.trim().isEmpty
-                                    ? null
-                                    : courseDiscussionGroup.text.trim(),
+                                // The discussion group is the course Telegram
+                                // link shown on the course page.
+                                telegramUrl: _discussionGroupUrl,
+                                discussionGroupUrl: _discussionGroupUrl,
                                 introVideoUrl: courseYoutube.text.trim().isEmpty
                                     ? null
                                     : courseYoutube.text,
@@ -624,10 +617,20 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
         categoryController.text = data.details?.categoryId ?? '';
         courseName.text = data.course?.name ?? '';
         courseDescription.text = data.details?.description ?? '';
-        // The backend returns the course Telegram link under `details`.
-        courseTelegram.text =
-            data.details?.telegramUrl ?? data.course?.telegramUrl ?? '';
-        courseDiscussionGroup.text = data.details?.discussionGroupUrl ?? '';
+        // The backend returns the course Telegram link under `details`;
+        // older courses may only have the discussion group link.
+        courseDiscussionGroup.text =
+            [
+                  data.details?.telegramUrl,
+                  data.course?.telegramUrl,
+                  data.details?.discussionGroupUrl,
+                ]
+                .firstWhere(
+                  (url) => url?.trim().isNotEmpty == true,
+                  orElse: () => null,
+                )
+                ?.trim() ??
+            '';
         courseYoutube.text = data.details?.introVideoUrl ?? '';
         // universityController.text = data.details?.universityId ?? '';
         // collegeController.text = data.details?.collegeId ?? '';

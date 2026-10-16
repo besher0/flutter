@@ -60,6 +60,7 @@ dependencies:
   json_serializable: ^6.9.4
   tusc: ^3.0.0
   better_player_plus: ^1.1.5
+  wakelock_plus: ^1.5.2
   root_checker_plus: ^1.0.0
   url_launcher: ^6.1.14
   app_links: ^7.0.0

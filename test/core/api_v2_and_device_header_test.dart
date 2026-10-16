@@ -23,7 +23,10 @@ void main() {
     });
 
     test('Bunny endpoints are not versioned', () {
-      expect(apiPathFor(ServerName.bunny, 'library/1/videos'), 'library/1/videos');
+      expect(
+        apiPathFor(ServerName.bunny, 'library/1/videos'),
+        'library/1/videos',
+      );
     });
 
     test('a real request goes to /v2 with the device header', () async {
@@ -63,7 +66,9 @@ void main() {
     await dio.get('https://video.bunnycdn.com/library/1/videos');
 
     expect(
-      adapter.requests.single.headers.containsKey(DeviceHeaderInterceptor.header),
+      adapter.requests.single.headers.containsKey(
+        DeviceHeaderInterceptor.header,
+      ),
       isFalse,
     );
   });
@@ -76,19 +81,22 @@ void main() {
       );
     });
 
-    test('licenses issued to the old installation id still belong to this phone', () {
-      expect(
-        DeviceInfoService.isThisDevice(DeviceInfoService.getLoginDeviceId()),
-        isTrue,
-      );
-      expect(
-        DeviceInfoService.isThisDevice(
-          DeviceInfoService.getInstallationDeviceId(),
-        ),
-        isTrue,
-      );
-      expect(DeviceInfoService.isThisDevice('android_someone-else'), isFalse);
-    });
+    test(
+      'licenses issued to the old installation id still belong to this phone',
+      () {
+        expect(
+          DeviceInfoService.isThisDevice(DeviceInfoService.getLoginDeviceId()),
+          isTrue,
+        );
+        expect(
+          DeviceInfoService.isThisDevice(
+            DeviceInfoService.getInstallationDeviceId(),
+          ),
+          isTrue,
+        );
+        expect(DeviceInfoService.isThisDevice('android_someone-else'), isFalse);
+      },
+    );
   });
 }
 

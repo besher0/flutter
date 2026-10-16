@@ -1,5 +1,8 @@
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/revenue_widgets.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
+import 'package:coursaty_student_and_teacher/core/models/revenue_invoice_model.dart';
 import 'package:coursaty_student_and_teacher/core/theme/app_colors.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/presentation/bloc/teachers_bloc.dart';
@@ -18,10 +21,18 @@ class TeacherRevenueScreen extends StatefulWidget {
 }
 
 class _TeacherRevenueScreenState extends State<TeacherRevenueScreen> {
+  RevenuePeriod _period = RevenuePeriod.allTime;
+
   @override
   void initState() {
     super.initState();
-    BlocProvider.of<TeachersBloc>(context).add(GetRevenuesEvent());
+    _load();
+  }
+
+  void _load() {
+    BlocProvider.of<TeachersBloc>(
+      context,
+    ).add(GetRevenuesEvent(period: _period));
   }
 
   @override
@@ -29,682 +40,233 @@ class _TeacherRevenueScreenState extends State<TeacherRevenueScreen> {
     return Scaffold(
       appBar: TitleAppBar(title: "إيراداتي"),
       body: SafeArea(
-        child: BlocBuilder<TeachersBloc, TeachersState>(
-          buildWhen: (p, c) => p.getRevenues != c.getRevenues,
-          builder: (context, state) {
-            final courses = state.teacherRevenueModel?.courses ?? [];
-            final totals = state.teacherRevenueModel?.totals;
-            return state.getRevenues.isLoading
-                ? Center(child: CoursatyAppLoader())
-                : courses.isEmpty
-                ? Center(
-                    child: Text(
-                      'لا توجد بيانات إيرادات',
-                      style: GoogleFonts.cairo(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      BlocProvider.of<TeachersBloc>(
-                        context,
-                      ).add(GetRevenuesEvent());
-                    },
-                    child: CustomScrollView(
-                      physics: AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        SliverPadding(
-                          padding: const EdgeInsets.all(16),
-                          sliver: SliverToBoxAdapter(
-                            child: _TotalsCard(totals: totals),
-                          ),
-                        ),
-                        if (state.teacherRevenueModel?.invoice != null)
-                          SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            sliver: SliverToBoxAdapter(
-                              child: _InvoiceSummaryCard(
-                                invoice: state.teacherRevenueModel!.invoice!,
-                              ),
-                            ),
-                          ),
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          sliver: SliverList.separated(
-                            itemCount: courses.length,
-                            itemBuilder: (context, index) {
-                              final course = courses[index];
-
-                              final invoiceCourses =
-                                  state.teacherRevenueModel?.invoice?.courses ??
-                                  [];
-
-                              final invoiceCourse =
-                                  index < invoiceCourses.length
-                                  ? invoiceCourses[index]
-                                  : null;
-
-                              return _CourseRevenueCard(
-                                course: course,
-                                index: index,
-                                invoiceCourse: invoiceCourse,
-                              );
-                            },
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 14),
-                          ),
-                        ),
-
-                        const SliverToBoxAdapter(child: SizedBox(height: 20)),
-                      ],
-                    ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: RevenuePeriodSelector(
+                selected: _period,
+                onChanged: (period) {
+                  setState(() => _period = period);
+                  _load();
+                },
+              ),
+            ),
+            Expanded(
+              child: BlocBuilder<TeachersBloc, TeachersState>(
+                buildWhen: (p, c) => p.getRevenues != c.getRevenues,
+                builder: (context, state) {
+                  if (state.getRevenues.isLoading) {
+                    return Center(child: CoursatyAppLoader());
+                  }
+                  final model = state.teacherRevenueModel;
+                  if (state.getRevenues.isFailed || model == null) {
+                    return Center(child: TryAgainWidget(onPress: _load));
+                  }
+                  return RefreshIndicator(
+                    onRefresh: () async => _load(),
+                    child: _RevenueReport(model: model, period: _period),
                   );
-          },
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _TotalsCard extends StatelessWidget {
-  const _TotalsCard({required this.totals});
+class _RevenueReport extends StatelessWidget {
+  const _RevenueReport({required this.model, required this.period});
 
-  final Totals? totals;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: context.colorScheme.surface,
-        border: Border(right: BorderSide(color: context.colorScheme.primary)),
-      ),
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "الإجماليات",
-            style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 20),
-
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                  title: "إجمالي الإيرادات",
-                  value: "${totals?.grossRevenue ?? 0} ل.س",
-                ),
-              ),
-              Expanded(
-                child: _InfoItem(
-                  title: "إيراد المدرس",
-                  value: "${totals?.teacherRevenue ?? 0} ل.س",
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                  title: "إيراد المنصة",
-                  value: "${totals?.adminRevenue ?? 0} ل.س",
-                ),
-              ),
-              Expanded(
-                child: _InfoItem(
-                  title: "المشتركون",
-                  value: "${totals?.subscribersCount ?? 0}",
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InvoiceSummaryCard extends StatelessWidget {
-  const _InvoiceSummaryCard({required this.invoice});
-
-  final Invoice invoice;
+  final TeacherRevenueModel model;
+  final RevenuePeriod period;
 
   @override
   Widget build(BuildContext context) {
-    final s = invoice.summary;
+    final summary = model.invoice.summary;
+    final hasSales = summary.subscriptions > 0;
+    final courses = _courseRows();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: context.colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "ملخص الفاتورة",
-            style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 20),
-
-          _SingleLineInfo(title: "العملة", value: invoice.currency ?? "-"),
-
-          // _SingleLineInfo(
-          //   title: "المنطقة الزمنية",
-          //   value: invoice.timezone ?? "-",
-          // ),
-          const Divider(),
-
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                  title: "إجمالي المشتركين",
-                  value: "${s?.totalSubscribers ?? 0}",
-                ),
-              ),
-              Expanded(
-                child: _InfoItem(
-                  title: "المشتركون الفريدون",
-                  value: "${s?.uniqueSubscribersCount ?? 0}",
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                  title: "إجمالي الخصومات",
-                  value: "${s?.totalDiscount ?? 0} ل.س",
-                ),
-              ),
-              Expanded(
-                child: _InfoItem(
-                  title: "إجمالي الإيرادات",
-                  value: "${s?.totalRevenues ?? 0} ل.س",
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                  title: "إيراد المدرس",
-                  value: "${s?.teacherRevenue ?? 0} ل.س",
-                ),
-              ),
-              Expanded(
-                child: _InfoItem(
-                  title: "إيراد المنصة",
-                  value: "${s?.platformRevenue ?? 0} ل.س",
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// class _TotalsCard extends StatelessWidget {
-//   const _TotalsCard({required this.totals});
-//
-//   final Totals? totals;
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       decoration: BoxDecoration(
-//         borderRadius: BorderRadius.circular(18),
-//         color: context.colorScheme.surface,
-//         border: Border(right: BorderSide(color: context.colorScheme.primary)),
-//         boxShadow: [
-//           BoxShadow(
-//             color: context.colorScheme.primary.withValues(alpha: 0.2),
-//             offset: Offset(0, 4),
-//             blurRadius: 10,
-//             spreadRadius: 0,
-//           ),
-//         ],
-//       ),
-//       child: Padding(
-//         padding: const EdgeInsets.all(18),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             Text(
-//               'الإجماليات',
-//               style: GoogleFonts.cairo(
-//                 fontSize: 20,
-//                 fontWeight: FontWeight.bold,
-//                 color: Theme.of(context).colorScheme.primary,
-//               ),
-//             ),
-//
-//             const SizedBox(height: 18),
-//
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'إجمالي الإيرادات',
-//                     value:
-//                         ' ل.س ${(totals?.grossRevenue ?? 0).toStringAsFixed(2)}',
-//                   ),
-//                 ),
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'إيراد المدرّس',
-//                     value:
-//                         ' ل.س ${(totals?.teacherRevenue ?? 0).toStringAsFixed(2)}',
-//                   ),
-//                 ),
-//               ],
-//             ),
-//
-//             const SizedBox(height: 14),
-//
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'إيراد الإدارة',
-//                     value:
-//                         ' ل.س ${(totals?.adminRevenue ?? 0).toStringAsFixed(2)}',
-//                   ),
-//                 ),
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'عدد المشتركين',
-//                     value: '${totals?.subscribersCount ?? 0}',
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-class _CourseRevenueCard extends StatelessWidget {
-  const _CourseRevenueCard({
-    required this.course,
-    required this.index,
-    this.invoiceCourse,
-  });
-
-  final TeacherRevenueModelCourse course;
-  final InvoiceCourse? invoiceCourse;
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = course.course;
-    final r = course.revenue;
-    final rating = course.rating;
-
-    final line = invoiceCourse?.lineItems?.isNotEmpty == true
-        ? invoiceCourse!.lineItems!.first
-        : null;
-
-    final discount = line?.discount;
-
-    final color = index.isEven
-        ? context.colorScheme.primary
-        : AppColors.secondary;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: context.colorScheme.surface,
-        border: Border(right: BorderSide(color: color)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            c?.name ?? "-",
-            style: GoogleFonts.cairo(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          _SingleLineInfo(
-            title: "تاريخ النشر",
-            value: _formatDate(c?.publishedAt),
-          ),
-
-          _SingleLineInfo(
-            title: "تاريخ الانتهاء",
-            value: _formatDate(c?.expiresAt),
-          ),
-
-          _SingleLineInfo(title: "السعر", value: "${c?.price ?? 0} ل.س"),
-
-          _SingleLineInfo(
-            title: "مكتملة",
-            value: c?.isCompleted == true ? "نعم" : "لا",
-          ),
-
-          const Divider(height: 30),
-
-          Text(
-            "الإيرادات",
-            style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                  title: "قبل النسبة",
-                  value: "${r?.beforePercentage ?? 0}",
-                ),
-              ),
-              Expanded(
-                child: _InfoItem(
-                  title: "إيراد المدرس",
-                  value: "${r?.teacherRevenue ?? 0}",
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                  title: "إيراد المنصة",
-                  value: "${r?.adminRevenue ?? 0}",
-                ),
-              ),
-              Expanded(
-                child: _InfoItem(
-                  title: "النسبة",
-                  value:
-                      "${r?.teacherPercentage ?? 0}% / ${r?.adminPercentage ?? 0}%",
-                ),
-              ),
-            ],
-          ),
-
-          const Divider(height: 30),
-
-          Text(
-            "الإحصائيات",
-            style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                  title: "المشتركون",
-                  value: "${course.subscribersCount ?? 0}",
-                ),
-              ),
-              Expanded(
-                child: _InfoItem(
-                  title: "التقييم",
-                  value:
-                      "${rating?.average ?? 0} (${rating?.ratersCount ?? 0})",
-                ),
-              ),
-            ],
-          ),
-
-          if (line != null) ...[
-            const Divider(height: 30),
-
-            Text(
-              "تفاصيل الفاتورة",
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 12),
-
-            _SingleLineInfo(
-              title: "سعر الدورة",
-              value: "${line.coursePrice ?? 0} ل.س",
-            ),
-
-            _SingleLineInfo(
-              title: "المشتركون",
-              value: "${line.subscribersCount ?? 0}",
-            ),
-
-            _SingleLineInfo(
-              title: "المشتركون الفريدون",
-              value: "${line.uniqueSubscribersCount ?? 0}",
-            ),
-
-            _SingleLineInfo(
-              title: "الإجمالي",
-              value: "${line.subtotal ?? 0} ل.س",
-            ),
-
-            _SingleLineInfo(
-              title: "إيراد المدرس",
-              value: "${line.teacherRevenue ?? 0} ل.س",
-            ),
-
-            _SingleLineInfo(
-              title: "إيراد المنصة",
-              value: "${line.platformRevenue ?? 0} ل.س",
-            ),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        RevenueHeroCard(
+          title: 'صافي أرباحك · ${period.label}',
+          amount: summary.teacherRevenue,
+          footer: [
+            Text('من مبيعات ${formatMoney(summary.totalRevenues)}'),
+            Text('${formatCount(summary.subscriptions)} اشتراك'),
           ],
-
-          if (discount != null) ...[
-            const Divider(height: 30),
-
-            Text(
-              "الخصومات",
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-            ),
-
+        ),
+        const SizedBox(height: 12),
+        _BalanceCard(balance: model.withdrawals),
+        const SizedBox(height: 12),
+        if (!hasSales)
+          RevenueSection(
+            title: 'ملخص الفترة',
+            child: RevenueEmptyPeriod(period: period),
+          )
+        else ...[
+          RevenueStatGrid(
+            stats: [
+              RevenueStat(
+                'إجمالي المبيعات',
+                formatMoney(summary.totalRevenues),
+                Icons.payments_outlined,
+                hint: 'ما دفعه الطلاب بعد الخصومات',
+              ),
+              RevenueStat(
+                'الاشتراكات',
+                formatCount(summary.subscriptions),
+                Icons.how_to_reg_outlined,
+                hint:
+                    '${formatCount(summary.initialSubscriptions)} جديد · ${formatCount(summary.renewals)} تجديد',
+              ),
+              RevenueStat(
+                'الطلاب',
+                formatCount(summary.uniqueStudents),
+                Icons.groups_outlined,
+                hint: 'طلاب مختلفون',
+              ),
+              RevenueStat(
+                'متوسط الاشتراك',
+                formatMoney(summary.averagePerSubscription),
+                Icons.trending_up,
+                hint: 'المدفوع لكل اشتراك',
+              ),
+              RevenueStat(
+                'الخصومات الممنوحة',
+                formatMoney(summary.totalDiscount),
+                Icons.local_offer_outlined,
+                hint:
+                    'كورس ${formatMoney(summary.courseDiscount)} · أكواد ${formatMoney(summary.codeDiscount)}',
+              ),
+              RevenueStat(
+                'حصة المنصة',
+                formatMoney(summary.platformRevenue),
+                Icons.account_balance_outlined,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          RevenueSection(
+            title: 'كيف حُسبت أرباحك',
+            child: RevenueBreakdown(summary: summary),
+          ),
+          if (model.invoice.monthly.length > 1) ...[
             const SizedBox(height: 12),
-
-            _SingleLineInfo(
-              title: "نسبة الخصم",
-              value: "${discount.percentage ?? 0}%",
-            ),
-
-            _SingleLineInfo(
-              title: "خصم لكل مشترك",
-              value: "${discount.amountPerSubscriber ?? 0}",
-            ),
-
-            _SingleLineInfo(
-              title: "إجمالي الخصومات",
-              value: "${discount.totalAmount ?? 0}",
-            ),
-
-            _SingleLineInfo(
-              title: "خصم الدورة",
-              value: "${discount.courseAmountPerSubscriber ?? 0}",
-            ),
-
-            _SingleLineInfo(
-              title: "خصم الكود",
-              value: "${discount.codeAmountPerSubscriber ?? 0}",
+            RevenueSection(
+              title: 'أرباحك حسب الشهر',
+              subtitle: 'آخر ستة أشهر فيها اشتراكات',
+              child: RevenueMonthlyBars(
+                months: model.invoice.monthly,
+                valueOf: (month) => month.teacherRevenue,
+              ),
             ),
           ],
         ],
+        if (courses.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Text(
+            'الكورسات (${formatCount(courses.length)})',
+            style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          Text(
+            'مرتبة حسب أرباحك في الفترة المختارة',
+            style: GoogleFonts.cairo(fontSize: 12, color: AppColors.greyDark),
+          ),
+          const SizedBox(height: 8),
+          for (final row in courses)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _CourseRevenueCard(
+                row: row,
+                totalTeacherRevenue: summary.teacherRevenue,
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  /// Courses paired with their invoice by id, most profitable first.
+  List<_CourseRow> _courseRows() {
+    final rows = <_CourseRow>[];
+    final seen = <String?>{};
+    for (final course in model.courses) {
+      seen.add(course.id);
+      rows.add(_CourseRow(course, model.invoice.courseById(course.id)));
+    }
+    // Courses sold in the period but no longer listed for the teacher.
+    for (final invoice in model.invoice.courses) {
+      if (!seen.contains(invoice.id)) rows.add(_CourseRow(null, invoice));
+    }
+    rows.sort(
+      (a, b) => b.teacherRevenue.compareTo(a.teacherRevenue) != 0
+          ? b.teacherRevenue.compareTo(a.teacherRevenue)
+          : b.subscriptions.compareTo(a.subscriptions),
+    );
+    return rows;
+  }
+}
+
+class _CourseRow {
+  _CourseRow(this.course, this.invoice);
+
+  final TeacherCourseRevenue? course;
+  final RevenueCourseInvoice? invoice;
+
+  String get name => course?.name ?? invoice?.name ?? '-';
+  double get teacherRevenue => invoice?.summary.teacherRevenue ?? 0;
+  int get subscriptions => invoice?.summary.subscriptions ?? 0;
+}
+
+class _BalanceCard extends StatelessWidget {
+  const _BalanceCard({required this.balance});
+
+  final TeacherBalance balance;
+
+  @override
+  Widget build(BuildContext context) {
+    return RevenueSection(
+      title: 'رصيدك',
+      subtitle: 'محسوب على كامل الفترات',
+      child: Row(
+        children: [
+          Expanded(
+            child: _BalanceFigure(
+              label: 'المتاح للسحب',
+              value: formatMoney(balance.remainingAmount),
+              color: AppColors.success,
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 44,
+            color: context.colorScheme.primary.withValues(alpha: 0.15),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _BalanceFigure(
+              label: 'تم سحبه (${formatCount(balance.withdrawalCount)} عملية)',
+              value: formatMoney(balance.withdrawnAmount),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// class _CourseRevenueCard extends StatelessWidget {
-//   const _CourseRevenueCard({required this.course, required this.index});
-//
-//   final TeacherRevenueModelCourse course;
-//   final int index;
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final courseInfo = course.course;
-//     final revenue = course.revenue;
-//     final rating = course.rating;
-//     final color = (index & 1 == 0)
-//         ? context.colorScheme.primary
-//         : AppColors.secondary;
-//     return Container(
-//       decoration: BoxDecoration(
-//         borderRadius: BorderRadius.circular(18),
-//         color: context.colorScheme.surface,
-//         border: Border(right: BorderSide(color: color)),
-//         boxShadow: [
-//           BoxShadow(
-//             color: context.colorScheme.primary.withValues(alpha: 0.2),
-//             offset: Offset(0, 4),
-//             blurRadius: 10,
-//             spreadRadius: 0,
-//           ),
-//         ],
-//       ),
-//       child: Padding(
-//         padding: const EdgeInsets.all(18),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             /// اسم الدورة
-//             Text(
-//               courseInfo?.name ?? 'دورة غير معروفة',
-//               style: GoogleFonts.cairo(
-//                 fontSize: 18,
-//                 fontWeight: FontWeight.w800,
-//                 color: color,
-//               ),
-//             ),
-//
-//             const SizedBox(height: 10),
-//
-//             /// تاريخ النشر
-//             _SingleLineInfo(
-//               title: 'تاريخ النشر',
-//               value: _formatDate(courseInfo?.publishedAt),
-//             ),
-//
-//             const SizedBox(height: 18),
-//
-//             /// تفاصيل الإيرادات
-//             Text(
-//               'تفاصيل الإيرادات',
-//               style: GoogleFonts.cairo(
-//                 fontSize: 16,
-//                 fontWeight: FontWeight.w800,
-//                 color: AppColors.greyNormal,
-//               ),
-//             ),
-//
-//             const SizedBox(height: 14),
-//
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'قبل النسبة',
-//                     value:
-//                         ' ل.س ${(revenue?.beforePercentage ?? 0).toStringAsFixed(2)}',
-//                   ),
-//                 ),
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'نسبة المدرّس',
-//                     value: '${revenue?.teacherPercentage ?? 0}%',
-//                   ),
-//                 ),
-//               ],
-//             ),
-//
-//             const SizedBox(height: 14),
-//
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'نسبة الإدارة',
-//                     value: '${revenue?.adminPercentage ?? 0}%',
-//                   ),
-//                 ),
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'إيراد المدرّس',
-//                     value:
-//                         ' ل.س ${(revenue?.teacherRevenue ?? 0).toStringAsFixed(2)}',
-//                   ),
-//                 ),
-//               ],
-//             ),
-//
-//             const SizedBox(height: 18),
-//
-//             /// المشتركين والتقييم
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'عدد المشتركين',
-//                     value: '${course.subscribersCount ?? 0}',
-//                   ),
-//                 ),
-//                 Expanded(
-//                   child: _InfoItem(
-//                     title: 'التقييم',
-//                     value:
-//                         '${(rating?.average ?? 0).toStringAsFixed(1)} (${rating?.ratersCount ?? 0})',
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
+class _BalanceFigure extends StatelessWidget {
+  const _BalanceFigure({required this.label, required this.value, this.color});
 
-class _InfoItem extends StatelessWidget {
-  const _InfoItem({required this.title, required this.value});
-
-  final String title;
+  final String label;
   final String value;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -712,56 +274,161 @@ class _InfoItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title,
-          style: GoogleFonts.cairo(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.greyNormal,
-          ),
+          label,
+          style: GoogleFonts.cairo(fontSize: 13, color: AppColors.greyDark),
         ),
-
-        const SizedBox(height: 6),
-
-        Text(
-          value,
-          style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w400),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            value,
+            style: GoogleFonts.cairo(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _SingleLineInfo extends StatelessWidget {
-  const _SingleLineInfo({required this.title, required this.value});
+class _CourseRevenueCard extends StatelessWidget {
+  const _CourseRevenueCard({
+    required this.row,
+    required this.totalTeacherRevenue,
+  });
 
-  final String title;
-  final String value;
+  final _CourseRow row;
+  final double totalTeacherRevenue;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          '$title: ',
-          style: GoogleFonts.cairo(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.greyNormal,
+    final course = row.course;
+    final invoice = row.invoice;
+    final summary = invoice?.summary;
+    final primary = context.colorScheme.primary;
+    final share = totalTeacherRevenue == 0
+        ? 0.0
+        : row.teacherRevenue / totalTeacherRevenue;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: context.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: primary.withValues(alpha: 0.12)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          title: Text(
+            row.name,
+            style: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.w800),
           ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                [
+                  '${formatCount(row.subscriptions)} اشتراك',
+                  if (course != null && course.ratersCount > 0)
+                    '★ ${course.ratingAverage.toStringAsFixed(1)} (${formatCount(course.ratersCount)})',
+                ].join(' · '),
+                style: GoogleFonts.cairo(
+                  fontSize: 12,
+                  color: AppColors.greyDark,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: share,
+                        minHeight: 6,
+                        color: primary,
+                        backgroundColor: primary.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    formatMoney(row.teacherRevenue),
+                    style: GoogleFonts.cairo(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
+          children: [
+            if (summary != null && summary.subscriptions > 0) ...[
+              RevenueRow('المبيعات', formatMoney(summary.totalRevenues)),
+              RevenueRow(
+                'حصتك (${formatPercent(summary.teacherShare)})',
+                formatMoney(summary.teacherRevenue),
+                emphasized: true,
+              ),
+              RevenueRow('حصة المنصة', formatMoney(summary.platformRevenue)),
+              RevenueRow(
+                'الاشتراكات',
+                '${formatCount(summary.initialSubscriptions)} جديد · ${formatCount(summary.renewals)} تجديد',
+              ),
+              if (summary.totalDiscount > 0)
+                RevenueRow(
+                  'الخصومات الممنوحة',
+                  formatMoney(summary.totalDiscount),
+                ),
+            ] else
+              RevenueRow('المبيعات', 'لا اشتراكات في هذه الفترة'),
+            if (course != null) ...[
+              const Divider(height: 20),
+              RevenueRow('السعر الحالي', formatMoney(course.price)),
+              RevenueRow(
+                'نسبتك الحالية',
+                formatPercent(course.teacherPercentage),
+              ),
+              RevenueRow('تاريخ النشر', _formatDate(course.publishedAt)),
+              if (course.expiresAt != null)
+                RevenueRow('تاريخ الانتهاء', _formatDate(course.expiresAt)),
+              RevenueRow(
+                'الحالة',
+                course.isCompleted ? 'مكتمل' : 'قيد الإنجاز',
+              ),
+            ],
+            if (invoice != null && invoice.lineItems.isNotEmpty) ...[
+              const Divider(height: 20),
+              Text(
+                'الاشتراكات حسب السعر',
+                style: GoogleFonts.cairo(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              RevenueLineItemsList(lineItems: invoice.lineItems),
+            ],
+            if (invoice != null && invoice.codeGroups.isNotEmpty) ...[
+              const Divider(height: 20),
+              Text(
+                'مصادر الاشتراك',
+                style: GoogleFonts.cairo(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              RevenueCodeGroupsList(codeGroups: invoice.codeGroups),
+            ],
+          ],
         ),
-      ],
+      ),
     );
   }
 }
 
-String _formatDate(DateTime? date) {
-  if (date == null) return '-';
-
-  return DateFormat('yyyy/MM/dd').format(date);
-}
+String _formatDate(DateTime? date) =>
+    date == null ? '-' : DateFormat('yyyy/MM/dd').format(date.toLocal());

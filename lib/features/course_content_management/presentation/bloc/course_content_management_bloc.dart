@@ -331,16 +331,6 @@ class CourseContentManagementBloc
         progresses[path] = percent;
         emit(state.copyWith(uploadingProgress: progresses));
       },
-      onStatus: (message) {
-        if (isClosed || _cancelledUploads.contains(path)) return;
-        if (message == state.uploadStatusMessage) return;
-        emit(
-          state.copyWith(
-            uploadStatusMessage: message,
-            resetUploadStatusMessage: message == null,
-          ),
-        );
-      },
     );
     if (outcome != VideoUploadOutcome.completed) return false;
 
@@ -379,7 +369,7 @@ class CourseContentManagementBloc
       state.copyWith(
         uploadingProgress: progresses,
         upsertLecture: Status.init,
-        resetUploadStatusMessage: true,
+        uploadPaused: false,
       ),
     );
   }
@@ -390,12 +380,15 @@ class CourseContentManagementBloc
   ) async {
     upsertVideoParams = event.params;
     bool success = true;
-    emit(state.copyWith(upsertLecture: Status.loading));
+    emit(state.copyWith(upsertLecture: Status.loading, uploadPaused: false));
     if (state.currentlyUploadingFile != null) {
       final path = state.currentlyUploadingFile!.path;
-      success = await _uploadVideoUsingTusForCourse(
-        video: state.currentlyUploadingFile!,
-      );
+      // Already on Bunny when only saving the lecture failed: don't upload again.
+      success =
+          uploadingVideos[path] != null ||
+          await _uploadVideoUsingTusForCourse(
+            video: state.currentlyUploadingFile!,
+          );
       // Cancelled by the teacher: the cancel event already reset the screen.
       if (!success && _cancelledUploads.contains(path)) return;
     }
@@ -424,10 +417,15 @@ class CourseContentManagementBloc
       final response = await upsertVideoUsecase(event.params);
       response.fold(
         (l) {
+          // The file is uploaded; pressing save again only retries this step.
+          Map<String, double> progresses = Map.of(state.uploadingProgress);
+          final uploadedPath = state.currentlyUploadingFile?.path;
+          if (uploadedPath != null) progresses.remove(uploadedPath);
           emit(
             state.copyWith(
               upsertLecture: Status.failure,
               errorMessage: l.message,
+              uploadingProgress: progresses,
             ),
           );
         },
@@ -435,7 +433,12 @@ class CourseContentManagementBloc
           Map<String, double> progresses = Map.of(state.uploadingProgress);
           // Metadata-only edits have no file in flight.
           final uploadedPath = state.currentlyUploadingFile?.path;
-          if (uploadedPath != null) progresses.remove(uploadedPath);
+          if (uploadedPath != null) {
+            progresses.remove(uploadedPath);
+            // Picking the same file again later is a new upload.
+            uploadingVideos.remove(uploadedPath);
+            tuscInitResponse.remove(uploadedPath);
+          }
           upsertVideoParams = null;
           emit(
             state.copyWith(
@@ -449,16 +452,14 @@ class CourseContentManagementBloc
       return;
     }
     if (state.currentlyUploadingFile != null) {
-      Map<String, double> progresses = Map.of(state.uploadingProgress);
-      progresses.remove(state.currentlyUploadingFile!.path);
+      // Keep the reached percentage: the screen shows it with a resume button
+      // that continues the same upload from where it stopped.
       emit(
         state.copyWith(
           errorMessage:
-              "تعذر إكمال رفع الفيديو. تحقق من الاتصال واضغط حفظ لاستكمال الرفع من حيث توقف",
+              "توقف رفع الفيديو. تحقق من الاتصال ثم اضغط «استئناف الرفع» للمتابعة من حيث توقف",
           upsertLecture: Status.failure,
-          uploadingProgress: progresses,
-          resetCurrentlyUploadingFile: success,
-          resetUploadStatusMessage: true,
+          uploadPaused: true,
         ),
       );
     }
@@ -471,10 +472,15 @@ class CourseContentManagementBloc
     if (state.currentlyUploadingFile != null) {
       cancelVideoUpload(video: state.currentlyUploadingFile!);
     }
+    final progresses = Map.of(state.uploadingProgress);
+    final previous = state.currentlyUploadingFile?.path;
+    if (previous != null) progresses.remove(previous);
     emit(
       state.copyWith(
         currentlyUploadingFile: event.file,
         resetCurrentlyUploadingFile: event.file == null,
+        uploadingProgress: progresses,
+        uploadPaused: false,
       ),
     );
   }

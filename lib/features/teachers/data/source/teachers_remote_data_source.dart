@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/models/revenue_invoice_model.dart';
 import 'package:coursaty_student_and_teacher/core/api/client_config.dart';
 import 'package:coursaty_student_and_teacher/core/api/methods/delete.dart';
 import 'package:coursaty_student_and_teacher/core/api/methods/get.dart';
@@ -54,10 +55,11 @@ class TeachersRemoteDataSource {
     return getTeacherAffiliations();
   }
 
-  Future<TeacherRevenueModel> getRevenue() async {
+  Future<TeacherRevenueModel> getRevenue(RevenuePeriod period) async {
     final GetClient<TeacherRevenueModel> getRevenue = GetClient(
       requestPrams: RequestConfig(
         endpoint: EndPoints.getTeacherRevenues,
+        queryParameters: period.toQuery(),
         response: ResponseValue(
           fromJson: (data) => TeacherRevenueModel.fromJson(data),
         ),

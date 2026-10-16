@@ -141,7 +141,10 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
                             ),
                             // Hidden entirely (base, discount, final) when the
                             // course price is not visible to students.
-                            if (state.courseDetailsModel?.course?.isPriceVisible ??
+                            if (state
+                                    .courseDetailsModel
+                                    ?.course
+                                    ?.isPriceVisible ??
                                 true) ...[
                               10.horizontalSpace,
                               Row(
@@ -368,9 +371,16 @@ class _DetailsTab extends StatelessWidget {
   final Details details;
   final Course course;
 
-  /// The backend sends the course Telegram link under `details`; `course`
-  /// is kept as a fallback for older cached downloads.
-  String? get _telegramUrl => details.telegramUrl ?? course.telegramUrl;
+  /// The course discussion group (Telegram). Teachers fill it as
+  /// `telegramUrl`; `discussionGroupUrl` and `course.telegramUrl` are kept as
+  /// fallbacks for older courses and cached downloads.
+  String? get _telegramUrl =>
+      [details.telegramUrl, course.telegramUrl, details.discussionGroupUrl]
+          .map((url) => url?.trim())
+          .firstWhere(
+            (url) => url != null && url.isNotEmpty,
+            orElse: () => null,
+          );
 
   @override
   Widget build(BuildContext context) {
@@ -496,9 +506,7 @@ class _DetailsTab extends StatelessWidget {
             height: 1.8,
           ),
         ),
-        if (_telegramUrl?.trim().isNotEmpty == true ||
-            details.discussionGroupUrl?.trim().isNotEmpty == true ||
-            details.introVideoUrl != null) ...{
+        if (_telegramUrl != null || details.introVideoUrl != null) ...{
           15.verticalSpace,
           Divider(color: AppColors.secondary.withValues(alpha: 0.2)),
           15.verticalSpace,
@@ -519,18 +527,7 @@ class _DetailsTab extends StatelessWidget {
               ),
               15.verticalSpace,
             },
-            if (_telegramUrl?.trim().isNotEmpty == true) ...{
-              MediaItem(
-                assetUrl: AppAssets.telegram,
-                color: Color(0xff1DA0E0),
-                onTap: () {
-                  HelperFunctions.urlLauncher(_telegramUrl!.trim());
-                },
-                title: "قناة التلغرام",
-              ),
-              15.verticalSpace,
-            },
-            if (details.discussionGroupUrl?.trim().isNotEmpty == true) ...{
+            if (_telegramUrl != null) ...{
               BlocBuilder<HomeBloc, HomeState>(
                 builder: (context, state) {
                   return MediaItem(
@@ -544,11 +541,9 @@ class _DetailsTab extends StatelessWidget {
                         showPaidContentDialog(context, courseId: course.id!);
                         return;
                       }
-                      HelperFunctions.urlLauncher(
-                        details.discussionGroupUrl!.trim(),
-                      );
+                      HelperFunctions.urlLauncher(_telegramUrl!);
                     },
-                    title: "مجموعة المتابعة مع الاستاذ",
+                    title: "كروب المناقشة على التلغرام",
                   );
                 },
               ),
