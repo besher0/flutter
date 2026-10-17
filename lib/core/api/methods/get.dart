@@ -36,6 +36,18 @@ class GetClient<T> extends BaseApi<T> {
   final dynamic _data;
   final ServerName serverName;
 
+  /// `Uri` throws on non-string query values (an `int` page or year), so
+  /// numbers and booleans are sent as text; lists keep one entry per value and
+  /// null stays null (a bare key, as before).
+  static Map<String, dynamic> _stringQuery(Map<String, dynamic>? query) => {
+    for (final entry in (query ?? const <String, dynamic>{}).entries)
+      entry.key: switch (entry.value) {
+        null => null,
+        final Iterable values => values.map((v) => '$v').toList(),
+        final value => '$value',
+      },
+  };
+
   @override
   Future<T> call() async {
     try {
@@ -48,7 +60,7 @@ class GetClient<T> extends BaseApi<T> {
           path: apiPathFor(serverName, _endpoint),
           port: MasterUrlRoutes.port,
           queryParameters: {
-            ...?_queryParameters,
+            ..._stringQuery(_queryParameters),
             "deviceId": DeviceInfoService.getDeviceId(),
           },
         ),

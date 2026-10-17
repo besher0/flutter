@@ -57,9 +57,12 @@ class RevenuePeriod {
   final int? year;
   final int? month;
 
-  Map<String, dynamic> toQuery() => {
-    if (year != null) 'year': year,
-    if (month != null) 'month': month,
+  /// Values are strings: requests are built with Dart's `Uri`, which only
+  /// accepts `String` query values. Sending the `int` year made every period
+  /// other than "all time" throw before the request left the device.
+  Map<String, String> toQuery() => {
+    if (year != null) 'year': '$year',
+    if (month != null) 'month': '$month',
   };
 
   @override

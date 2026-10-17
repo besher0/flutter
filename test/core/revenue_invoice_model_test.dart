@@ -139,7 +139,29 @@ void main() {
   test('period query sends year and month only when chosen', () {
     final now = DateTime(2026, 1, 15);
     expect(RevenuePeriod.allTime.toQuery(), isEmpty);
-    expect(RevenuePeriod.lastMonth(now).toQuery(), {'year': 2025, 'month': 12});
-    expect(RevenuePeriod.thisYear(now).toQuery(), {'year': 2026});
+    expect(RevenuePeriod.lastMonth(now).toQuery(), {
+      'year': '2025',
+      'month': '12',
+    });
+    expect(RevenuePeriod.thisYear(now).toQuery(), {'year': '2026'});
+  });
+
+  // Every filter except "all time" used to fail: requests are built with
+  // Dart's Uri, which throws on the int year/month before anything is sent.
+  test('every period builds a request URL', () {
+    expect(
+      () => Uri(host: 'x', queryParameters: {'year': 2026}),
+      throwsA(anything),
+    );
+    for (final period in RevenuePeriod.options(DateTime(2026, 1, 15))) {
+      final uri = Uri(
+        scheme: 'https',
+        host: 'example.com',
+        path: '/v2/teachers/me/revenue',
+        queryParameters: period.toQuery(),
+      );
+      expect(uri.queryParameters['year'], period.year?.toString());
+      expect(uri.queryParameters['month'], period.month?.toString());
+    }
   });
 }
