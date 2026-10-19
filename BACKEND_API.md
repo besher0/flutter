@@ -58,6 +58,15 @@
 - Revenue period filters (`/teachers/me/revenue`, `/teachers/{id}/revenue`, course statistics,
   `/admins/revenue`): `year` with optional `month`, **or** `dateFrom` + `dateTo` (`YYYY-MM-DD`,
   Asia/Damascus), never both.
+- **Students vs subscriptions (2026-10-19).** "N طالب" everywhere = `StudentSubscription` rows
+  (unique per student+course, a renewal rewrites the row) = `_count.subscriptions` /
+  `studentsCount`. Revenue `subscribersCount` / invoice `totalSubscribers` = revenue transactions
+  in the period **including renewals** — never label it as a student count. Course and teacher
+  revenue responses now also send `studentsCount`, `subscriptionsCount`,
+  `initialSubscriptions`, `renewals` (branch `fix/codes-print-header-and-guards`). Money and
+  "this month" figures (teacher home, admin home, code statistics) come from revenue transactions
+  in the Asia/Damascus month (`RevenueService.sumTransactions` / `damascusMonth`), not from
+  subscription rows.
 - Admin set-password: `PATCH /admins/users/{userNumber}/password` `{password}` — looks the user up
   **by phone only**, and the password must be **≥ 8 characters** after trimming.
 - Students sign in from one bound device (`X-Coursaty-Device` header / `did` in the token); admins
