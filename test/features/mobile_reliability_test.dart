@@ -32,17 +32,11 @@ void main() {
   });
 
   group('real devices only', () {
-    bool decide({
-      List<String> signals = const [],
-      bool knownModel = false,
-      bool safety = true,
-      bool platform = true,
-    }) => DeviceInfoService.isPhysicalAndroid(
-      emulatorSignals: signals,
-      knownEmulatorModel: knownModel,
-      safetyCheckSaysReal: safety,
-      platformSaysPhysical: platform,
-    );
+    bool decide({List<String> signals = const [], bool knownModel = false}) =>
+        DeviceInfoService.isPhysicalAndroid(
+          emulatorSignals: signals,
+          knownEmulatorModel: knownModel,
+        );
 
     test('a phone with no emulator signal passes', () {
       expect(decide(), isTrue);
@@ -56,6 +50,24 @@ void main() {
 
     test('a check that could not run fails closed', () {
       expect(decide(signals: ['check-failed']), isFalse);
+    });
+
+    test('an unbranded tablet with a "generic" build fingerprint passes', () {
+      expect(decide(signals: ['fingerprint']), isTrue);
+      expect(decide(signals: ['fingerprint', 'cpu:hypervisor']), isFalse);
+    });
+
+    test('emulator names are matched as whole words of the build fields', () {
+      bool known(List<String> fields) =>
+          DeviceInfoService.isKnownEmulatorBuild(fields);
+      expect(known(['google', 'sdk_gphone64_x86_64', 'Pixel']), isTrue);
+      expect(known(['generic/generic_x86/generic_x86:9/...']), isTrue);
+      expect(known(['Genymotion', 'vbox86p']), isTrue);
+      expect(known(['unknown']), isFalse);
+      expect(known(['generic/full_rk3326/rk3326:10/user/release-keys']), isFalse);
+      expect(known(['samsung', 'gracelte', 'SM-N935F']), isFalse);
+      expect(known(['Lenovo', 'TB-X606F', 'mt6771', 'TB-X606F_EEA']), isFalse);
+      expect(known(['Candy', 'virtual_tab', 'x86_64']), isFalse);
     });
   });
 

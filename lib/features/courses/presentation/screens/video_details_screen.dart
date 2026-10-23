@@ -189,31 +189,28 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
               ),
       ),
 
+      // The video stays fixed at the top; only the details and seek points under
+      // it scroll (the whole page used to scroll, carrying the video away).
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: MyVideoWidgetBetterPlayer(
-                    filePath: !widget.fromNetwork ? filePath : null,
-                    videoUrl: widget.video.videoUrl,
-                    preferredResolution: widget.quality ?? '720p',
-                    videoName: videoName,
-                    videoId: widget.video.id!,
-                    isFromNetwork: widget.fromNetwork,
-                    duration:
-                        'مدة الفيديو  ${(widget.video.durationSeconds ?? 0).formatDurationFromSeconds()}',
-                    segments: widget.video.segments ?? [],
-                    teacher: widget.teacher,
-                    videoDescription: widget.video.description,
-                    courseId: widget.courseId,
-                  ),
-                ),
-              ),
-            ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: MyVideoWidgetBetterPlayer(
+              pinVideo: true,
+              filePath: !widget.fromNetwork ? filePath : null,
+              videoUrl: widget.video.videoUrl,
+              preferredResolution: widget.quality ?? '720p',
+              videoName: videoName,
+              videoId: widget.video.id!,
+              isFromNetwork: widget.fromNetwork,
+              duration:
+                  'مدة الفيديو  ${(widget.video.durationSeconds ?? 0).formatDurationFromSeconds()}',
+              segments: widget.video.segments ?? [],
+              teacher: widget.teacher,
+              videoDescription: widget.video.description,
+              courseId: widget.courseId,
+            ),
           ),
         ),
       ),

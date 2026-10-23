@@ -52,9 +52,15 @@ class MyVideoWidgetBetterPlayer extends StatefulWidget {
     this.videoDescription,
     this.teacher,
     required this.courseId,
+    this.pinVideo = false,
   });
 
   final List<Segment> segments;
+
+  /// The video stays in place and only the details under it (teacher,
+  /// description, seek points) scroll. Needs a bounded height, so the parent
+  /// must not be a scroll view.
+  final bool pinVideo;
   final String videoName;
   final String videoId;
   final String duration;
@@ -134,11 +140,6 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
           fit: BoxFit.contain,
           autoPlay: false,
           looping: false,
-          // Pinch-to-zoom: the overlay sits between the video and the
-          // controls, so only the picture is magnified.
-          overlay: VideoZoomController.isSupported
-              ? VideoZoomOverlay(zoomController: _zoomController)
-              : null,
           routePageBuilder: VideoZoomController.isSupported
               ? _buildFullScreenPage
               : null,
@@ -383,14 +384,40 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     await _renewPlayback(proactive: false);
   }
 
+  /// Pinch-to-zoom around the player (inline and full screen). The player
+  /// itself is scaled; its controls are hidden while zoomed (see
+  /// [_onZoomChanged]) and a reset button floats above the picture.
   Widget _zoomable(Widget player) {
     if (!VideoZoomController.isSupported) return player;
-    return VideoZoomGestureLayer(controller: _zoomController, child: player);
+    return Stack(
+      children: [
+        VideoZoomGestureLayer(
+          controller: _zoomController,
+          child: VideoZoomTransform(controller: _zoomController, child: player),
+        ),
+        Positioned(
+          top: 8,
+          left: 8,
+          child: VideoZoomResetButton(controller: _zoomController),
+        ),
+      ],
+    );
+  }
+
+  bool _controlsHiddenForZoom = false;
+
+  /// Zoomed controls would be scaled and pushed off screen, so they are hidden
+  /// while the picture is zoomed and come back (on tap) once it is reset.
+  void _onZoomChanged() {
+    final zoomed = _zoomController.value.isZoomed;
+    if (zoomed == _controlsHiddenForZoom || !initialized) return;
+    _controlsHiddenForZoom = zoomed;
+    betterPlayerController.setControlsEnabled(!zoomed);
   }
 
   /// Same page as better_player's default full-screen route, plus pinch zoom.
-  /// The gesture layer is sized to the video box so zoom coordinates match the
-  /// overlay drawn inside the player.
+  /// The zoom layer is sized to the video box, like the inline player's, so
+  /// the same zoom maps onto both.
   Widget _buildFullScreenPage(
     BuildContext context,
     Animation<double> animation,
@@ -416,6 +443,12 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         ),
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _zoomController.addListener(_onZoomChanged);
   }
 
   @override
@@ -472,299 +505,316 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Text(
-                      //   widget.videoName,
-                      //   style: GoogleFonts.cairo(
-                      //     fontSize: 18,
-                      //     fontWeight: FontWeight.w700,
-                      //     color: Theme.of(context).colorScheme.primary,
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 8),
-                      // Text(
-                      //   widget.duration,
-                      //   style: GoogleFonts.cairo(
-                      //     fontSize: 16,
-                      //     color: AppColors.greyDark,
-                      //   ),
-                      // ),
-                      if (widget.teacher != null) ...{
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                InkWell(
-                                  onTap: () {
-                                    context.pop(); // video details
-                                    context.pop(); // lecture details
-                                    // course details
-                                    context.pushReplacement(
-                                      "${GRouter.config.applicationRoutes.teacherDetails}/${widget.teacher!.id}/${widget.teacher!.name}",
-                                    );
-                                  },
-                                  child: widget.teacher?.image == null
-                                      ? CircleAvatar(
-                                          radius: 26,
-                                          backgroundColor: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                          child: SvgPicture.asset(
-                                            AppAssets.iconBoy,
-                                            height: 26,
-                                            color: Theme.of(
+                if (!widget.pinVideo) const SizedBox(height: 16),
+                _scrollableWhenPinned(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Text(
+                        //   widget.videoName,
+                        //   style: GoogleFonts.cairo(
+                        //     fontSize: 18,
+                        //     fontWeight: FontWeight.w700,
+                        //     color: Theme.of(context).colorScheme.primary,
+                        //   ),
+                        // ),
+                        // const SizedBox(height: 8),
+                        // Text(
+                        //   widget.duration,
+                        //   style: GoogleFonts.cairo(
+                        //     fontSize: 16,
+                        //     color: AppColors.greyDark,
+                        //   ),
+                        // ),
+                        if (widget.teacher != null) ...{
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  InkWell(
+                                    onTap: () {
+                                      context.pop(); // video details
+                                      context.pop(); // lecture details
+                                      // course details
+                                      context.pushReplacement(
+                                        "${GRouter.config.applicationRoutes.teacherDetails}/${widget.teacher!.id}/${widget.teacher!.name}",
+                                      );
+                                    },
+                                    child: widget.teacher?.image == null
+                                        ? CircleAvatar(
+                                            radius: 26,
+                                            backgroundColor: Theme.of(
                                               context,
-                                            ).colorScheme.onPrimary,
-                                          ),
-                                        )
-                                      : ClipRRect(
-                                          borderRadius:
-                                              BorderRadiusGeometry.circular(
-                                                180,
-                                              ),
-                                          child: CachedNetworkImage(
-                                            imageUrl:
-                                                widget.teacher?.image ?? '',
-                                            width: 40.r,
-                                            height: 40.r,
-                                            fit: BoxFit.cover,
-                                            placeholder: (_, __) => SizedBox(
+                                            ).colorScheme.primary,
+                                            child: SvgPicture.asset(
+                                              AppAssets.iconBoy,
+                                              height: 26,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onPrimary,
+                                            ),
+                                          )
+                                        : ClipRRect(
+                                            borderRadius:
+                                                BorderRadiusGeometry.circular(
+                                                  180,
+                                                ),
+                                            child: CachedNetworkImage(
+                                              imageUrl:
+                                                  widget.teacher?.image ?? '',
                                               width: 40.r,
                                               height: 40.r,
-                                              child: Center(
-                                                child:
-                                                    CircularProgressIndicator(),
+                                              fit: BoxFit.cover,
+                                              placeholder: (_, __) => SizedBox(
+                                                width: 40.r,
+                                                height: 40.r,
+                                                child: Center(
+                                                  child:
+                                                      CircularProgressIndicator(),
+                                                ),
                                               ),
+                                              errorWidget: (_, __, ___) =>
+                                                  const Icon(Icons.error),
                                             ),
-                                            errorWidget: (_, __, ___) =>
-                                                const Icon(Icons.error),
                                           ),
-                                        ),
-                                ),
-                                10.horizontalSpace,
-                                Text(
-                                  'أ. ${widget.teacher?.name ?? ''}',
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
                                   ),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              spacing: 10,
-                              children: [
-                                InkWell(
-                                  onTap: () {
-                                    Share.share(
-                                      'https://coursay.duckdns.org/teacher?tid=${widget.teacher!.id}&name=${widget.teacher!.name}',
-                                    );
-                                  },
-                                  child: ChipWidget(
-                                    iconPath: AppAssets.iconShare,
+                                  10.horizontalSpace,
+                                  Text(
+                                    'أ. ${widget.teacher?.name ?? ''}',
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
                                   ),
-                                ),
-                                FutureBuilder(
-                                  future:
-                                      HelperFunctions.lostInternetConnection(),
-                                  builder: (context, snapShot) {
-                                    print(snapShot.error);
-                                    print(snapShot.data);
-                                    print(snapShot.connectionState);
-                                    if (snapShot.connectionState ==
-                                        ConnectionState.done) {
-                                      if (!(snapShot.data ?? true)) {
-                                        return BlocBuilder<HomeBloc, HomeState>(
-                                          buildWhen: (p, c) =>
-                                              p.activeCourses !=
-                                              c.activeCourses,
-                                          builder: (context, state) {
-                                            return BlocBuilder<
-                                              CoursesBloc,
-                                              CoursesState
-                                            >(
-                                              buildWhen: (p, c) =>
-                                                  p.upsertVideoInteraction !=
-                                                  c.upsertVideoInteraction,
-                                              builder: (context, state) {
-                                                bool liked =
-                                                    state
-                                                        .videoInteractionModel
-                                                        ?.isLikedByUser ??
-                                                    false;
-                                                return state
-                                                        .upsertVideoInteraction
-                                                        .isLoading
-                                                    ? CoursatyAppLoader()
-                                                    : InkWell(
-                                                        onTap: () {
-                                                          if (GetIt.I<
-                                                                PrefsRepository
-                                                              >()
-                                                              .isGuest) {
-                                                            showGuestContentDialog(
-                                                              context,
-                                                            );
-                                                            return;
-                                                          }
-                                                          final hasAccess = context
-                                                              .read<
-                                                                MyDownloadsBloc
-                                                              >()
-                                                              .state
-                                                              .courseIdToCourseDetailsReferences
-                                                              .keys
-                                                              .any(
-                                                                (key) =>
-                                                                    key ==
-                                                                    widget
-                                                                        .courseId,
-                                                              );
-                                                          if (!hasAccess) {
-                                                            showPaidContentDialog(
-                                                              context,
-                                                              courseId: widget
-                                                                  .courseId,
-                                                            );
-                                                            return;
-                                                          }
-                                                          BlocProvider.of<
-                                                                CoursesBloc
-                                                              >(context)
-                                                              .add(
-                                                                ToggleVideoInteractionEvent(
-                                                                  widget
-                                                                      .videoId,
-                                                                ),
-                                                              );
-                                                        },
-                                                        child: ChipWidget(
-                                                          text:
-                                                              (state.videoInteractionModel?.likesCount ??
-                                                                      0)
-                                                                  .toString(),
-                                                          iconPath: liked
-                                                              ? AppAssets
-                                                                    .iconHeartFilled
-                                                              : AppAssets
-                                                                    .iconHeart,
-                                                          iconColor:
-                                                              const Color(
-                                                                0xFFC61F1F,
-                                                              ),
-                                                        ),
-                                                      );
-                                              },
-                                            );
-                                          },
-                                        );
-                                      }
-                                    }
-                                    return SizedBox.shrink();
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        10.verticalSpace,
-                        Divider(
-                          color: AppColors.secondary.withValues(alpha: 0.2),
-                        ),
-                        10.verticalSpace,
-                      },
-                      if (widget.videoDescription != null &&
-                          widget.videoDescription!.trim().isNotEmpty) ...{
-                        const SizedBox(height: 16),
-                        Text(
-                          "عن الفيديو",
-                          style: GoogleFonts.cairo(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 9),
-                        Text(
-                          widget.videoDescription!,
-                          style: GoogleFonts.cairo(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
-                            color: Theme.of(context).colorScheme.onSurface,
-                            height: 1.4,
-                          ),
-                        ),
-                        10.verticalSpace,
-                        Divider(
-                          color: AppColors.secondary.withValues(alpha: 0.2),
-                        ),
-                        10.verticalSpace,
-                      },
-                      if (widget.segments.isNotEmpty) ...{
-                        15.verticalSpace,
-                        Text(
-                          "تجد في هذا الفيديو",
-                          style: GoogleFonts.cairo(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        15.verticalSpace,
-                        ListView.separated(
-                          physics: NeverScrollableScrollPhysics(),
-                          itemCount: widget.segments.length,
-                          shrinkWrap: true,
-                          separatorBuilder: (context, index) {
-                            return Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                10.verticalSpace,
-                                Divider(
-                                  color: AppColors.secondary.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  indent: 22.w,
-                                  endIndent: 22.w,
-                                  height: 0,
-                                ),
-                                10.verticalSpace,
-                              ],
-                            );
-                          },
-                          itemBuilder: (context, index) {
-                            Segment p = widget.segments[index];
-                            return InkWell(
-                              onTap: () {
-                                betterPlayerController.seekTo(
-                                  Duration(seconds: (p.startSeconds ?? 0)),
-                                );
-                              },
-                              child: VideoSegementItem(
-                                index: index,
-                                segment: p,
+                                ],
                               ),
-                            );
-                          },
-                        ),
-                      },
-                    ],
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                spacing: 10,
+                                children: [
+                                  InkWell(
+                                    onTap: () {
+                                      Share.share(
+                                        'https://coursay.duckdns.org/teacher?tid=${widget.teacher!.id}&name=${widget.teacher!.name}',
+                                      );
+                                    },
+                                    child: ChipWidget(
+                                      iconPath: AppAssets.iconShare,
+                                    ),
+                                  ),
+                                  FutureBuilder(
+                                    future:
+                                        HelperFunctions.lostInternetConnection(),
+                                    builder: (context, snapShot) {
+                                      print(snapShot.error);
+                                      print(snapShot.data);
+                                      print(snapShot.connectionState);
+                                      if (snapShot.connectionState ==
+                                          ConnectionState.done) {
+                                        if (!(snapShot.data ?? true)) {
+                                          return BlocBuilder<
+                                            HomeBloc,
+                                            HomeState
+                                          >(
+                                            buildWhen: (p, c) =>
+                                                p.activeCourses !=
+                                                c.activeCourses,
+                                            builder: (context, state) {
+                                              return BlocBuilder<
+                                                CoursesBloc,
+                                                CoursesState
+                                              >(
+                                                buildWhen: (p, c) =>
+                                                    p.upsertVideoInteraction !=
+                                                    c.upsertVideoInteraction,
+                                                builder: (context, state) {
+                                                  bool liked =
+                                                      state
+                                                          .videoInteractionModel
+                                                          ?.isLikedByUser ??
+                                                      false;
+                                                  return state
+                                                          .upsertVideoInteraction
+                                                          .isLoading
+                                                      ? CoursatyAppLoader()
+                                                      : InkWell(
+                                                          onTap: () {
+                                                            if (GetIt.I<
+                                                                  PrefsRepository
+                                                                >()
+                                                                .isGuest) {
+                                                              showGuestContentDialog(
+                                                                context,
+                                                              );
+                                                              return;
+                                                            }
+                                                            final hasAccess = context
+                                                                .read<
+                                                                  MyDownloadsBloc
+                                                                >()
+                                                                .state
+                                                                .courseIdToCourseDetailsReferences
+                                                                .keys
+                                                                .any(
+                                                                  (key) =>
+                                                                      key ==
+                                                                      widget
+                                                                          .courseId,
+                                                                );
+                                                            if (!hasAccess) {
+                                                              showPaidContentDialog(
+                                                                context,
+                                                                courseId: widget
+                                                                    .courseId,
+                                                              );
+                                                              return;
+                                                            }
+                                                            BlocProvider.of<
+                                                                  CoursesBloc
+                                                                >(context)
+                                                                .add(
+                                                                  ToggleVideoInteractionEvent(
+                                                                    widget
+                                                                        .videoId,
+                                                                  ),
+                                                                );
+                                                          },
+                                                          child: ChipWidget(
+                                                            text:
+                                                                (state.videoInteractionModel?.likesCount ??
+                                                                        0)
+                                                                    .toString(),
+                                                            iconPath: liked
+                                                                ? AppAssets
+                                                                      .iconHeartFilled
+                                                                : AppAssets
+                                                                      .iconHeart,
+                                                            iconColor:
+                                                                const Color(
+                                                                  0xFFC61F1F,
+                                                                ),
+                                                          ),
+                                                        );
+                                                },
+                                              );
+                                            },
+                                          );
+                                        }
+                                      }
+                                      return SizedBox.shrink();
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          10.verticalSpace,
+                          Divider(
+                            color: AppColors.secondary.withValues(alpha: 0.2),
+                          ),
+                          10.verticalSpace,
+                        },
+                        if (widget.videoDescription != null &&
+                            widget.videoDescription!.trim().isNotEmpty) ...{
+                          const SizedBox(height: 16),
+                          Text(
+                            "عن الفيديو",
+                            style: GoogleFonts.cairo(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 9),
+                          Text(
+                            widget.videoDescription!,
+                            style: GoogleFonts.cairo(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              height: 1.4,
+                            ),
+                          ),
+                          10.verticalSpace,
+                          Divider(
+                            color: AppColors.secondary.withValues(alpha: 0.2),
+                          ),
+                          10.verticalSpace,
+                        },
+                        if (widget.segments.isNotEmpty) ...{
+                          15.verticalSpace,
+                          Text(
+                            "تجد في هذا الفيديو",
+                            style: GoogleFonts.cairo(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          15.verticalSpace,
+                          ListView.separated(
+                            physics: NeverScrollableScrollPhysics(),
+                            itemCount: widget.segments.length,
+                            shrinkWrap: true,
+                            separatorBuilder: (context, index) {
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  10.verticalSpace,
+                                  Divider(
+                                    color: AppColors.secondary.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    indent: 22.w,
+                                    endIndent: 22.w,
+                                    height: 0,
+                                  ),
+                                  10.verticalSpace,
+                                ],
+                              );
+                            },
+                            itemBuilder: (context, index) {
+                              Segment p = widget.segments[index];
+                              return InkWell(
+                                onTap: () {
+                                  betterPlayerController.seekTo(
+                                    Duration(seconds: (p.startSeconds ?? 0)),
+                                  );
+                                },
+                                child: VideoSegementItem(
+                                  index: index,
+                                  segment: p,
+                                ),
+                              );
+                            },
+                          ),
+                        },
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           )
         : Center(child: CoursatyAppLoader());
+  }
+
+  /// With [MyVideoWidgetBetterPlayer.pinVideo], the details scroll on their own
+  /// below the video, so scrolling the seek points never moves the player.
+  Widget _scrollableWhenPinned(Widget details) {
+    if (!widget.pinVideo) return details;
+    return Expanded(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 24),
+        child: details,
+      ),
+    );
   }
 }
 

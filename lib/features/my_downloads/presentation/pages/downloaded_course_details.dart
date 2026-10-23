@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/chip_widget.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/paid_content_dialog.dart';
@@ -102,8 +103,10 @@ class _DownloadedCourseDetailsState extends State<DownloadedCourseDetails>
                           ),
                         ),
                       ),
-                      // Hidden entirely when the course price is not visible.
-                      if (widget.course.course?.isPriceVisible ?? true) ...[
+                      // Hidden entirely when the course price is not visible,
+                      // or on an iPhone whose admin setting hides paid content.
+                      if ((widget.course.course?.isPriceVisible ?? true) &&
+                          !PaidContentPolicy.hidePaid) ...[
                         10.horizontalSpace,
                         Row(
                           mainAxisSize: MainAxisSize.min,

@@ -47,7 +47,16 @@ class DownloadKeepAliveService : Service() {
         stopSelf()
     }
 
+    // The app was closed from recent apps. The manifest's stopWithTask already
+    // stops the service; some devices skip it, so stop here too rather than
+    // leave a "downloading" notification for a download that has ended.
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
+        stopForeground(STOP_FOREGROUND_REMOVE)
         wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
         super.onDestroy()

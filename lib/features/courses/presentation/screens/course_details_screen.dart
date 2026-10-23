@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/chip_widget.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
@@ -140,12 +141,14 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
                               ),
                             ),
                             // Hidden entirely (base, discount, final) when the
-                            // course price is not visible to students.
-                            if (state
-                                    .courseDetailsModel
-                                    ?.course
-                                    ?.isPriceVisible ??
-                                true) ...[
+                            // course price is not visible to students, or on an
+                            // iPhone whose admin setting hides paid content.
+                            if ((state
+                                        .courseDetailsModel
+                                        ?.course
+                                        ?.isPriceVisible ??
+                                    true) &&
+                                !PaidContentPolicy.hidePaid) ...[
                               10.horizontalSpace,
                               Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -278,6 +281,9 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
                   final finalPrice =
                       course?.discountedPrice ?? course?.basePrice ?? 0;
                   return !state.getCourseDetailsStatus.isSuccess
+                      ? SizedBox.shrink()
+                      // iPhone with paid content hidden: no subscribe flow.
+                      : PaidContentPolicy.hidePaid
                       ? SizedBox.shrink()
                       : (course?.isFree ?? false)
                       ? SizedBox.shrink()
@@ -530,6 +536,13 @@ class _DetailsTab extends StatelessWidget {
             if (_telegramUrl != null) ...{
               BlocBuilder<HomeBloc, HomeState>(
                 builder: (context, state) {
+                  final subscribed =
+                      state.activeCourses.any((item) => item.id == course.id) ||
+                      (course.isFree ?? false);
+                  // A subscribers-only group would only lead to a purchase.
+                  if (!subscribed && PaidContentPolicy.hidePaid) {
+                    return const SizedBox.shrink();
+                  }
                   return MediaItem(
                     assetUrl: AppAssets.telegram,
                     color: Color(0xff1DA0E0),

@@ -67,6 +67,19 @@
   "this month" figures (teacher home, admin home, code statistics) come from revenue transactions
   in the Asia/Damascus month (`RevenueService.sumTransactions` / `damascusMonth`), not from
   subscription rows.
+- **App updates (branch `fix/device-alt-id-app-update`).** `GET /app-updates/{android|ios}/check?build=N`
+  (public) → `{updateAvailable, required, latestVersion, latestBuild, mode, storeUrl, downloadUrl,
+  message}`; admins use `GET /app-updates` and `PUT /app-updates/{platform}` `{latestVersion,
+  latestBuild, mode: FLEXIBLE|FORCE, storeUrl?, downloadUrl?, message?}`. `build` is the number after
+  `+` in pubspec. The ST app checks at launch and on resume (`AppUpdateGate`).
+- **iPhone paid content (same branch).** `GET /system-settings/app-config` (public) →
+  `{iosPaidContentVisible}` (default false); admins `PATCH` it. The ST app's `PaidContentPolicy.hidePaid`
+  (iOS only, cached, hidden until the server answers) hides prices, subscribe/QR/code activation,
+  purchase requests, points of sale and locked videos/files/questions. Teacher screens are unaffected.
+- **Second student device id (same branch).** Login/sign-up also send `loginDeviceAltId` (hashed
+  Widevine id, independent of the signing key). Stored as `User.loginDeviceAltId`; when
+  `loginDeviceId` changes but this matches, the binding moves to the new id (a store install after an
+  APK from outside the store). Cleared by the admin device reset.
 - Admin set-password: `PATCH /admins/users/{userNumber}/password` `{password}` — looks the user up
   **by phone only**, and the password must be **≥ 8 characters** after trimming.
 - Students sign in from one bound device (`X-Coursaty-Device` header / `did` in the token); admins

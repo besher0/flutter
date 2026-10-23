@@ -28,7 +28,7 @@ class _CoursatyAppState extends State<CoursatyApp> with WidgetsBindingObserver {
   }
 
   void _initializeSecurity() async {
-    await ScreenCapturePolicy.instance.resetToAllowed();
+    // await ScreenCapturePolicy.instance.resetToAllowed();
   }
 
   @override

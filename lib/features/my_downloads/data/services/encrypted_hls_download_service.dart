@@ -12,7 +12,6 @@ import 'package:coursaty_student_and_teacher/features/my_downloads/data/services
 import 'package:coursaty_student_and_teacher/services/check_device_root_service.dart';
 import 'package:coursaty_student_and_teacher/services/device_info_service.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:device_safety_info/device_safety_info.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:injectable/injectable.dart';
@@ -73,7 +72,9 @@ class EncryptedHlsDownloadService {
   static Future<bool> _defaultIsSecureDevice() async {
     await CheckDeviceRootService.isDeviceRooted();
     if (CheckDeviceRootService.isDeviceHasRoot) return false;
-    return DeviceSafetyInfo.isRealDevice;
+    // Same verdict as the app's entry gate: device_safety_info alone refused
+    // real tablets whose build strings contain "generic" or "unknown".
+    return DeviceInfoService.isRealDevice;
   }
 
   Future<DownloadedVideoManifest> download({

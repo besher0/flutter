@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'dart:io';
 
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
@@ -355,6 +356,24 @@ class _FilesTab extends StatelessWidget {
                   );
                 }
 
+                // iPhone with paid content hidden: locked files are not shown.
+                final viewerIsGuest = GetIt.I<PrefsRepository>().isGuest ||
+                    GetIt.I<PrefsRepository>().token == null;
+                final shownFiles = PaidContentPolicy.hidePaid
+                    ? files
+                          .where(
+                            (file) => !isLectureFileLocked(
+                              file: file,
+                              courseId: courseId,
+                              isCourseFree: isCourseFree,
+                              isGuest: viewerIsGuest,
+                              activeCourseIds: state.activeCourses
+                                  .map((item) => item.id)
+                                  .whereType<String>(),
+                            ),
+                          )
+                          .toList()
+                    : files;
                 return state.getActiveCourses.isLoading
                     ? CoursatyAppLoader()
                     : RefreshIndicator(
@@ -364,16 +383,16 @@ class _FilesTab extends StatelessWidget {
                         child: ListView.separated(
                           physics: NeverScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(16),
-                          itemCount: files.length,
+                          itemCount: shownFiles.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 10),
                           itemBuilder: (_, i) {
-                            final url = files[i].fileUrl;
+                            final url = shownFiles[i].fileUrl;
                             final prefs = GetIt.I<PrefsRepository>();
                             final isGuest =
                                 prefs.isGuest || prefs.token == null;
                             final isLocked = isLectureFileLocked(
-                              file: files[i],
+                              file: shownFiles[i],
                               courseId: courseId,
                               isCourseFree: isCourseFree,
                               isGuest: isGuest,
@@ -404,18 +423,18 @@ class _FilesTab extends StatelessWidget {
                                 if (fileExist) {
                                   context.pushPage(
                                     LectureViewer(
-                                      lecture: files[i],
+                                      lecture: shownFiles[i],
                                       filePath: filePath,
                                     ),
                                   );
                                 } else if (canOpenLectureFileAsGuest(
-                                  file: files[i],
+                                  file: shownFiles[i],
                                   isCourseFree: isCourseFree,
                                   isGuest: isGuest,
                                 )) {
                                   context.pushPage(
                                     LectureViewer(
-                                      lecture: files[i],
+                                      lecture: shownFiles[i],
                                       filePath: url!,
                                       fromNetwork: true,
                                     ),
@@ -428,7 +447,7 @@ class _FilesTab extends StatelessWidget {
                                       fileUrl: url!,
                                       fileType: 'file',
                                       downloadUrl: url,
-                                      fileName: files[i].fileName,
+                                      fileName: shownFiles[i].fileName,
                                       courseId: courseId,
                                       lectureId: lectureDetailsModel?.lecture?.id,
                                       courseDetailsModel: courseDetailsModel,
@@ -437,7 +456,7 @@ class _FilesTab extends StatelessWidget {
                                   );
                                 }
                               },
-                              size: fileExist ? null : files[i].size,
+                              size: fileExist ? null : shownFiles[i].size,
                               actions: [
                                 if (fileExist) ...{
                                   SvgPicture.asset(
@@ -496,7 +515,7 @@ class _FilesTab extends StatelessWidget {
                                                         fileUrl: url!,
                                                         fileType: 'file',
                                                         fileName:
-                                                            files[i].fileName,
+                                                            shownFiles[i].fileName,
                                                       ),
                                                     );
                                               },
@@ -521,7 +540,7 @@ class _FilesTab extends StatelessWidget {
                                         ),
                                 },
                               ],
-                              title: files[i].fileName ?? '',
+                              title: shownFiles[i].fileName ?? '',
                               index: i,
                             );
                           },
@@ -577,6 +596,24 @@ class _VideosTab extends StatelessWidget {
                   );
                 }
 
+                // iPhone with paid content hidden: locked videos are not shown.
+                final viewerIsGuest = GetIt.I<PrefsRepository>().isGuest ||
+                    GetIt.I<PrefsRepository>().token == null;
+                final shownVideos = PaidContentPolicy.hidePaid
+                    ? videos
+                          .where(
+                            (video) => !isLectureVideoLocked(
+                              video: video,
+                              courseId: courseId,
+                              isCourseFree: isCourseFree,
+                              isGuest: viewerIsGuest,
+                              activeCourseIds: state.activeCourses
+                                  .map((item) => item.id)
+                                  .whereType<String>(),
+                            ),
+                          )
+                          .toList()
+                    : videos;
                 return state.getActiveCourses.isLoading
                     ? CoursatyAppLoader()
                     : RefreshIndicator(
@@ -586,24 +623,24 @@ class _VideosTab extends StatelessWidget {
                         child: ListView.separated(
                           physics: NeverScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(16),
-                          itemCount: videos.length,
+                          itemCount: shownVideos.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 10),
                           itemBuilder: (_, i) {
-                            final url = videos[i].id;
+                            final url = shownVideos[i].id;
                             final canDownload =
-                                videos[i].offlineDownloadEnabled ?? true;
+                                shownVideos[i].offlineDownloadEnabled ?? true;
                             final prefs = GetIt.I<PrefsRepository>();
                             final isGuest =
                                 prefs.isGuest || prefs.token == null;
                             final isFree =
-                                isCourseFree || (videos[i].isFree ?? false);
+                                isCourseFree || (shownVideos[i].isFree ?? false);
                             print(myDownloadState.urlToFileReferences);
                             bool isLocked =
                                 url == null ||
-                                videos[i].locked == true ||
+                                shownVideos[i].locked == true ||
                                 (isGuest
-                                    ? !(videos[i].isFree ?? false)
+                                    ? !(shownVideos[i].isFree ?? false)
                                     : (!isFree &&
                                           !state.activeCourses.any(
                                             (item) => item.id == courseId,
@@ -617,7 +654,7 @@ class _VideosTab extends StatelessWidget {
                               isExist: videoExist,
                               fileUrl: url,
                               isVideo: true,
-                              // size: videoExist ? null : videos[i].videoSize,
+                              // size: videoExist ? null : shownVideos[i].videoSize,
                               onTap: () {
                                 if (isLocked) {
                                   showSubscribeToCourseDialog(
@@ -633,10 +670,10 @@ class _VideosTab extends StatelessWidget {
                                 if (videoExist) {
                                   context.pushPage(
                                     VideoDetailsScreen(
-                                      video: videos[i],
+                                      video: shownVideos[i],
                                       courseId: courseId,
                                       fromNetwork: false,
-                                      isFree: videos[i].isFree ?? false,
+                                      isFree: shownVideos[i].isFree ?? false,
                                       courseDetailsModel: courseDetailsModel,
                                       lectureDetailsModel: lectureDetailsModel,
                                       teacher: BlocProvider.of<CoursesBloc>(
@@ -649,16 +686,16 @@ class _VideosTab extends StatelessWidget {
                                   showVideoQualityDialog(
                                     context,
                                     toDownload: false,
-                                    videoId: videos[i].id!,
+                                    videoId: shownVideos[i].id!,
 
                                     onChooseQuality: (context, quality) {
                                       context.pushPage(
                                         VideoDetailsScreen(
-                                          video: videos[i],
+                                          video: shownVideos[i],
                                           courseId: courseId,
                                           quality: quality,
                                           fromNetwork: !videoExist,
-                                          isFree: videos[i].isFree ?? false,
+                                          isFree: shownVideos[i].isFree ?? false,
                                           courseDetailsModel:
                                               courseDetailsModel,
                                           lectureDetailsModel:
@@ -674,7 +711,7 @@ class _VideosTab extends StatelessWidget {
                                 }
                               },
                               actions: [
-                                if ((videos[i].isFree ?? false) ||
+                                if ((shownVideos[i].isFree ?? false) ||
                                     videoExist) ...{
                                   SvgPicture.asset(
                                     AppAssets.iconPlayCircle,
@@ -725,7 +762,7 @@ class _VideosTab extends StatelessWidget {
                                                         fileUrl: url!,
                                                         fileType: 'video',
                                                         fileName:
-                                                            videos[i].videoName,
+                                                            shownVideos[i].videoName,
                                                       ),
                                                     );
                                               },
@@ -748,7 +785,7 @@ class _VideosTab extends StatelessWidget {
                                             }
                                             showVideoQualityDialog(
                                               context,
-                                              videoId: videos[i].id!,
+                                              videoId: shownVideos[i].id!,
                                               toDownload: true,
                                               onChooseQuality: (context, quality) {
                                                 BlocProvider.of<
@@ -761,10 +798,10 @@ class _VideosTab extends StatelessWidget {
                                                         quality: quality,
                                                         fileType: 'video',
                                                         fileName:
-                                                            videos[i].videoName,
+                                                            shownVideos[i].videoName,
                                                         courseId: courseId,
                                                         lectureId:
-                                                            videos[i].lectureId,
+                                                            shownVideos[i].lectureId,
                                                         courseDetailsModel:
                                                             courseDetailsModel,
                                                         lectureDetailsModel:
@@ -788,7 +825,7 @@ class _VideosTab extends StatelessWidget {
                                         ),
                                 },
                               ],
-                              title: videos[i].videoName ?? '',
+                              title: shownVideos[i].videoName ?? '',
                               index: i,
                             );
                           },
@@ -840,6 +877,15 @@ class _McqTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // iPhone with paid content hidden: questions that need a subscription
+    // are not shown (nor buttons that would lead to buying it).
+    final lockedAsPaid =
+        PaidContentPolicy.hidePaid &&
+        !isCourseFree &&
+        !context.watch<HomeBloc>().state.activeCourses.any(
+          (item) => item.id == courseId,
+        );
+    final questions = lockedAsPaid ? const <QuestionModel>[] : this.questions;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: RefreshIndicator(

@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final isAuthenticatedStudent =
           !_prefsRepository.isGuest && _prefsRepository.token != null;
       if (isAuthenticatedStudent &&
-          SubscriptionFeatureFlags.showLegacySubscriptionMethods) {
+          SubscriptionFeatureFlags.showPointsOfSale) {
         BlocProvider.of<SalesPointsBloc>(context).add(GetSalesPointsEvent());
       }
       BlocProvider.of<HomeBloc>(context).add(GetMyActiveCourses());

@@ -65,9 +65,13 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- stopWithTask: closing the app from recent apps ends the download
+             (it runs in Dart, which dies with the app), so the service and its
+             "downloading" notification must go too. -->
         <service
             android:name=".DownloadKeepAliveService"
             android:exported="false"
+            android:stopWithTask="true"
             android:foregroundServiceType="dataSync"/>
     </application>
     <!-- Required to query activities that can process text, see:

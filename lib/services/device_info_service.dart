@@ -30,6 +30,7 @@ class DeviceInfoService {
   );
   static const String _iosLoginDeviceKey = 'coursaty_login_device_id_v1';
   static String? _loginDeviceId;
+  static String? _loginDeviceAltId;
   DeviceInfoService();
 
   static Future<void> init() async {
@@ -54,6 +55,14 @@ class DeviceInfoService {
   /// reinstalls). Sent hashed; falls back to the installation id.
   static String getLoginDeviceId() =>
       _loginDeviceId ?? getInstallationDeviceId();
+
+  /// A second id of this phone that does not depend on the app's signing key
+  /// (hashed Widevine id, Android only). ANDROID_ID changes when the app is
+  /// reinstalled with another signature — an APK from outside the store, then
+  /// the store version — and the student was refused as "another device"; the
+  /// server recognises the phone by this id and moves the binding. Null when
+  /// the phone has no Widevine.
+  static String? getLoginDeviceAltId() => _loginDeviceAltId;
 
   /// Random id of this app installation (lost when the app is reinstalled).
   static String getInstallationDeviceId() =>
@@ -89,6 +98,20 @@ class DeviceInfoService {
     } catch (error) {
       debugPrint('login device id unavailable: ${error.runtimeType}');
     }
+    if (!kIsAndroid) return;
+    try {
+      final alt = await _securityChannel.invokeMethod<String>(
+        'getLoginDeviceAltId',
+      );
+      if (alt != null && alt.trim().isNotEmpty) {
+        _loginDeviceAltId = await loginDeviceIdFrom(
+          alt.trim(),
+          platform: 'android-drm',
+        );
+      }
+    } catch (error) {
+      debugPrint('second login device id unavailable: ${error.runtimeType}');
+    }
   }
 
   /// Opaque form of a platform device id; the raw id never leaves the phone.
@@ -118,7 +141,7 @@ class DeviceInfoService {
     _installationDeviceId = deviceId;
   }
 
-  /// Only real phones may run the app.
+  /// Only real phones and tablets may run the app.
   ///
   /// Android: emulators on Windows/macOS (BlueStacks, LDPlayer, Nox, WSA, ...)
   /// report isPhysicalDevice = true, so the native check looks for what they
@@ -126,6 +149,13 @@ class DeviceInfoService {
   /// missing or emulated accelerometer. A screen lock is no longer required:
   /// it said nothing about the device (emulators can set one) and locked out
   /// real phones without one.
+  ///
+  /// ⚠️ The plugins' own checks (device_info_plus `isPhysicalDevice`,
+  /// device_safety_info `isRealDevice`) and an AOSP "generic" fingerprint used
+  /// to refuse the device too. They look for words such as "generic",
+  /// "unknown" or "sdk" anywhere in the build strings, which unbranded tablets
+  /// carry, so they no longer decide; every emulator they catch also leaves
+  /// one of the signals above.
   /// iOS: refuses the Simulator and iPhone apps running on a Mac.
   static bool isPhysicalDevice() {
     if (kIsIOS) {
@@ -134,24 +164,30 @@ class DeviceInfoService {
       return isPhysicalAndroid(
         emulatorSignals: emulatorSignals,
         knownEmulatorModel: isKnownEmulator(),
-        safetyCheckSaysReal: isRealDeviceEmulatorDetector,
-        platformSaysPhysical: androidDeviceInfo.isPhysicalDevice,
       );
     }
     return false;
   }
 
+  /// Native signals that real devices can show as well; reported, never
+  /// blocking on their own.
+  static const Set<String> weakEmulatorSignals = {'fingerprint'};
+
   @visibleForTesting
   static bool isPhysicalAndroid({
     required List<String> emulatorSignals,
     required bool knownEmulatorModel,
-    required bool safetyCheckSaysReal,
-    required bool platformSaysPhysical,
   }) =>
-      emulatorSignals.isEmpty &&
-      !knownEmulatorModel &&
-      safetyCheckSaysReal &&
-      platformSaysPhysical;
+      emulatorSignals.every(weakEmulatorSignals.contains) &&
+      !knownEmulatorModel;
+
+  /// Why this device was refused, shown on the refusal page so a wrongly
+  /// refused device can be reported (e.g. "cpu:hypervisor, model").
+  static String get emulatorDiagnostics => [
+    ...emulatorSignals.where((s) => !weakEmulatorSignals.contains(s)),
+    if (kIsAndroid && _platformInfoInitialized && isKnownEmulator())
+      'known-build',
+  ].join(', ');
 
   static Future<List<String>> _readEmulatorSignals() async {
     try {
@@ -168,45 +204,50 @@ class DeviceInfoService {
 
   static bool isKnownEmulator() {
     final info = androidDeviceInfo;
+    return isKnownEmulatorBuild([
+      info.brand,
+      info.device,
+      info.model,
+      info.hardware,
+      info.product,
+      info.fingerprint,
+      info.manufacturer,
+    ]);
+  }
 
-    final values = [
-      info.brand.toLowerCase(),
-      info.device.toLowerCase(),
-      info.model.toLowerCase(),
-      info.hardware.toLowerCase(),
-      info.product.toLowerCase(),
-      info.fingerprint.toLowerCase(),
-      info.manufacturer.toLowerCase(),
-    ];
-
-    const emulatorKeywords = [
-      'unknown',
-      'google_sdk',
-      'android sdk built for x86',
-      'generic',
+  /// Emulator names, matched as whole words of each build field.
+  ///
+  /// ⚠️ The fields used to be joined into one string and searched for
+  /// fragments such as "unknown", "generic", "sdk", "x86", "virtual" or
+  /// "andy", which real (often unbranded) tablets and phones contain, and the
+  /// list even named a real Samsung phone ("gracelte").
+  @visibleForTesting
+  static bool isKnownEmulatorBuild(List<String> fields) {
+    const emulatorWords = {
       'goldfish',
-      'vbox86',
-      'sdk_google',
       'ranchu',
-      'sdk',
-      'emulator',
       'vbox',
+      'vbox86',
+      'vbox86p',
       'virtualbox',
       'genymotion',
-      'nox',
       'bluestacks',
       'memu',
-      'andy',
+      'nox',
       'ldplayer',
       'waydroid',
-      'x86',
-      'virtual',
-      'gracelte',
-    ];
-    String data = values.join('');
-    for (var item in emulatorKeywords) {
-      if (data.contains(item)) {
-        return true;
+      'google_sdk',
+      'sdk_google',
+      'sdk_x86',
+      'emulator',
+    };
+    for (final field in fields) {
+      for (final word in field.toLowerCase().split(RegExp(r'[^a-z0-9_]+'))) {
+        if (emulatorWords.contains(word) ||
+            word.startsWith('sdk_gphone') ||
+            word.startsWith('generic_x86')) {
+          return true;
+        }
       }
     }
     return false;

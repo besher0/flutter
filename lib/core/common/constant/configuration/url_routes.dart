@@ -51,6 +51,13 @@ abstract class EndPoints {
   static final getAllSeasonsEP = 'seasons'.academicsScope;
 
   static final getNotificationsEP = 'notifications'.noScope;
+
+  /// Public app settings, e.g. whether the iPhone app shows paid content.
+  static final appConfig = 'system-settings/app-config'.noScope;
+
+  /// Public: the admin's release policy for this build (no sign-in needed).
+  static String appUpdateCheck({required String platform}) =>
+      'app-updates/$platform/check'.noScope;
   static final getTeacherNotifications = 'notifications/my'.noScope;
   static final addNotificationEP = '/notifications'.noScope;
   static final getSalesPoints = 'point-of-sales'.noScope;

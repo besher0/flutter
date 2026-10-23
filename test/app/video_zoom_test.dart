@@ -113,5 +113,78 @@ void main() {
       expect(zoom.value.offset.dx, greaterThan(-0.5));
       expect(zoom.value.offset.dy, closeTo(-0.5, 1e-9));
     });
+
+    testWidgets('a double tap resets a zoomed picture', (tester) async {
+      final zoom = await pump(tester);
+      zoom.value = const VideoZoom(scale: 2, offset: Offset(-0.5, -0.5));
+      await tester.pump();
+
+      final center = tester.getCenter(find.byType(VideoZoomGestureLayer));
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await tester.pumpAndSettle();
+
+      expect(zoom.value, VideoZoom.identity);
+    });
   });
+
+  // The zoom used to paint a second Texture of the same video over the
+  // player, which tore the picture into black blocks on Android. Now the
+  // player itself is transformed, and must not be rebuilt by a zoom change.
+  group('VideoZoomTransform', () {
+    test('translates by the viewport fraction, then scales', () {
+      final m = VideoZoomTransform.zoomTransform(
+        const VideoZoom(scale: 2, offset: Offset(-0.5, -0.25)),
+        const Size(400, 200),
+      );
+      expect(MatrixUtils.transformPoint(m, Offset.zero), const Offset(-200, -50));
+      expect(MatrixUtils.transformPoint(m, const Offset(100, 100)), const Offset(0, 150));
+      expect(
+        VideoZoomTransform.zoomTransform(VideoZoom.identity, const Size(400, 200)),
+        Matrix4.identity(),
+      );
+    });
+
+    testWidgets('keeps the same player while zooming and back', (tester) async {
+      final zoom = VideoZoomController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 400,
+              height: 225,
+              child: VideoZoomTransform(controller: zoom, child: const _Player()),
+            ),
+          ),
+        ),
+      );
+      final state = tester.state(find.byType(_Player));
+
+      zoom.value = const VideoZoom(scale: 3, offset: Offset(-1, -1));
+      await tester.pump();
+      expect(tester.state(find.byType(_Player)), same(state));
+      final transform = tester.widget<Transform>(
+        find.descendant(of: find.byType(VideoZoomTransform), matching: find.byType(Transform)),
+      );
+      expect(transform.transform.getMaxScaleOnAxis(), 3);
+
+      zoom.reset();
+      await tester.pump();
+      expect(tester.state(find.byType(_Player)), same(state));
+      expect(find.byType(Texture), findsNothing);
+    });
+  });
+}
+
+class _Player extends StatefulWidget {
+  const _Player();
+
+  @override
+  State<_Player> createState() => _PlayerState();
+}
+
+class _PlayerState extends State<_Player> {
+  @override
+  Widget build(BuildContext context) => const ColoredBox(color: Colors.black);
 }

@@ -30,5 +30,7 @@ class ParamLogIn {
     "phone": phone,
     "password": password,
     "loginDeviceId": DeviceInfoService.getLoginDeviceId(),
+    if (DeviceInfoService.getLoginDeviceAltId() != null)
+      "loginDeviceAltId": DeviceInfoService.getLoginDeviceAltId(),
   };
 }

@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/services/device_info_service.dart';
 import 'package:coursaty_student_and_teacher/services/network_time_protocol_service.dart';
 import 'package:coursaty_student_and_teacher/services/notification_service/handle_notification/notification_process.dart';
@@ -46,7 +47,10 @@ void main() async {
     configureDependencies(),
     NotificationProcess.init(),
     DeviceInfoService.init(),
+    PaidContentPolicy.init(),
   ]);
+  // Not awaited: the cached setting is already in place.
+  PaidContentPolicy.refresh();
   isDateFraud = NetworkTimeProtocolService.checkLocalTimeValidity();
   runApp(const CoursatyApp());
 }

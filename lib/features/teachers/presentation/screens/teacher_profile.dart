@@ -156,7 +156,7 @@ class _TeacherProfileState extends State<TeacherProfile> {
                 15.verticalSpace,
                 Row(
                   children: [
-                    if (SubscriptionFeatureFlags.showLegacySubscriptionMethods)
+                    if (SubscriptionFeatureFlags.showPointsOfSale)
                       Expanded(
                         child: _ButtonItem(
                           onTap: () {
@@ -167,7 +167,7 @@ class _TeacherProfileState extends State<TeacherProfile> {
                           title: "نقاط البيع",
                         ),
                       ),
-                    if (SubscriptionFeatureFlags.showLegacySubscriptionMethods)
+                    if (SubscriptionFeatureFlags.showPointsOfSale)
                       SizedBox(width: 10),
                     Expanded(
                       child: _ButtonItem(
