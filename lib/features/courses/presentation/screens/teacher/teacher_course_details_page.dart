@@ -1,12 +1,15 @@
 import 'dart:developer';
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/revenue_widgets.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
+import 'package:coursaty_student_and_teacher/core/models/revenue_invoice_model.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/date_time.dart';
 import 'package:coursaty_student_and_teacher/features/course_content_management/presentation/pages/upsert_lecture_screen.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/course_details_model.dart';
+import 'package:coursaty_student_and_teacher/features/courses/data/model/course_statistcis_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/courses_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/screens/teacher/course_details_section.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/lecture_item.dart';
@@ -92,11 +95,7 @@ class _TeacherCourseDetailsPageState extends State<TeacherCourseDetailsPage> {
                           },
                           courseId: widget.courseId,
                         ),
-                        _RevenueTab(
-                          onFailed: () {
-                            _fetchStatistics();
-                          },
-                        ),
+                        _RevenueTab(courseId: widget.courseId),
                       ],
                     ),
                   );
@@ -291,137 +290,190 @@ class _LectureTile extends StatelessWidget {
   }
 }
 
-class _RevenueTab extends StatelessWidget {
-  const _RevenueTab({required this.onFailed});
+class _RevenueTab extends StatefulWidget {
+  const _RevenueTab({required this.courseId});
 
-  final Function() onFailed;
+  final String courseId;
+
+  @override
+  State<_RevenueTab> createState() => _RevenueTabState();
+}
+
+class _RevenueTabState extends State<_RevenueTab>
+    with AutomaticKeepAliveClientMixin {
+  RevenuePeriod _period = RevenuePeriod.allTime;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  void _load() {
+    BlocProvider.of<CoursesBloc>(
+      context,
+    ).add(GetCourseStatisticsEvent(courseId: widget.courseId, period: _period));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<CoursesBloc, CoursesState>(
-      buildWhen: (p, c) => p.getCourseStatistics != c.getCourseStatistics,
-      builder: (context, state) {
-        if (state.getCourseStatistics.isLoading) {
-          return Center(child: CoursatyAppLoader());
-        }
-        if (state.getCourseStatistics.isFailed) {
-          return TryAgainWidget(
-            onPress: () {
-              onFailed.call();
+    super.build(context);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: RevenuePeriodSelector(
+            selected: _period,
+            onChanged: (period) {
+              setState(() => _period = period);
+              _load();
             },
-          );
-        }
-        final stats = state.courseStatisticsModel!;
-        return Container(
-          height: 0.7.sh,
-          padding: HWEdgeInsets.symmetric(horizontal: 15, vertical: 25),
-          margin: HWEdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: 0.2.sh,
           ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(kr12),
-            border: Border(
-              right: BorderSide(color: Theme.of(context).colorScheme.primary),
-            ),
-          ),
-          child: RefreshIndicator(
-            onRefresh: () async {
-              onFailed.call();
+        ),
+        Expanded(
+          child: BlocBuilder<CoursesBloc, CoursesState>(
+            buildWhen: (p, c) => p.getCourseStatistics != c.getCourseStatistics,
+            builder: (context, state) {
+              final stats = state.courseStatisticsModel;
+              if (state.getCourseStatistics.isLoading ||
+                  state.getCourseStatistics.isInit) {
+                return Center(child: CoursatyAppLoader());
+              }
+              if (state.getCourseStatistics.isFailed || stats == null) {
+                return Center(child: TryAgainWidget(onPress: _load));
+              }
+              return RefreshIndicator(
+                onRefresh: () async => _load(),
+                child: _CourseRevenueReport(stats: stats, period: _period),
+              );
             },
-            child: SingleChildScrollView(
-              physics: AlwaysScrollableScrollPhysics(),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 10,
-                children: [
-                  Text(
-                    'موجز عن إيرادات الكورس',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  _RevenueRow(
-                    'تاريخ نشر الكورس',
-                    '${stats.course?.publishedAt?.dmy}',
-                  ),
-                  if (stats.course?.expiresAt != null)
-                    _RevenueRow(
-                      'تاريخ إنتهاء الكورس',
-                      stats.course!.expiresAt!.dmy,
-                    ),
-                  if (stats.subscriptionPrice?.isPriceVisible ?? true)
-                    _RevenueRow(
-                      'سعر الاشتراك',
-                      '${stats.subscriptionPrice?.afterDiscount ?? 0}ل.س ',
-                    ),
-                  _RevenueRow(
-                    'عدد المشتركين',
-                    '${stats.subscriptions?.count ?? 0}',
-                  ),
-                  _RevenueRow(
-                    'التقييم',
-                    '(${stats.rating?.ratersCount ?? 0}) ${stats.rating?.average ?? 0} ☆',
-                  ),
-                  _RevenueRow(
-                    'إيرادات قبل النسبة',
-                    '${stats.revenue?.beforePercentage}ل.س ',
-                  ),
-                  _RevenueRow(
-                    'إيرادات بعد النسبة',
-                    '${stats.revenue?.afterPercentage}ل.س ',
-                  ),
-                  _RevenueRow(
-                    'نسبتي',
-                    '${stats.percentages?.teacherPercentage ?? 0}%',
-                  ),
-                ],
-              ),
-            ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
 
-class _RevenueRow extends StatelessWidget {
-  const _RevenueRow(this.label, this.value);
+class _CourseRevenueReport extends StatelessWidget {
+  const _CourseRevenueReport({required this.stats, required this.period});
 
-  final String label;
-  final String value;
+  final CourseStatisticsModel stats;
+  final RevenuePeriod period;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.cairo(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
+    final summary = stats.summary;
+    final courseInvoice = stats.courseInvoice;
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        RevenueHeroCard(
+          title: 'أرباحك من الكورس · ${period.label}',
+          amount: summary.teacherRevenue,
+          footer: [
+            Text('من مبيعات ${formatMoney(summary.totalRevenues)}'),
+            Text('نسبتك الحالية ${formatPercent(stats.myPercentage)}'),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (summary.subscriptions == 0)
+          RevenueSection(
+            title: 'ملخص الفترة',
+            child: RevenueEmptyPeriod(period: period),
+          )
+        else ...[
+          RevenueStatGrid(
+            stats: [
+              RevenueStat(
+                'الاشتراكات',
+                formatCount(summary.subscriptions),
+                Icons.how_to_reg_outlined,
+                hint:
+                    '${formatCount(summary.initialSubscriptions)} جديد · ${formatCount(summary.renewals)} تجديد',
+              ),
+              RevenueStat(
+                'الطلاب',
+                formatCount(summary.uniqueStudents),
+                Icons.groups_outlined,
+              ),
+              RevenueStat(
+                'متوسط الاشتراك',
+                formatMoney(summary.averagePerSubscription),
+                Icons.trending_up,
+                hint: 'المدفوع لكل اشتراك',
+              ),
+              RevenueStat(
+                'الخصومات الممنوحة',
+                formatMoney(summary.totalDiscount),
+                Icons.local_offer_outlined,
+                hint:
+                    'كورس ${formatMoney(summary.courseDiscount)} · أكواد ${formatMoney(summary.codeDiscount)}',
+              ),
+            ],
           ),
-          10.horizontalSpace,
-          Text(
-            value,
-            style: GoogleFonts.cairo(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.greyNormal,
-            ),
+          const SizedBox(height: 12),
+          RevenueSection(
+            title: 'كيف حُسبت أرباحك',
+            child: RevenueBreakdown(summary: summary),
           ),
+          if (stats.invoice.monthly.length > 1) ...[
+            const SizedBox(height: 12),
+            RevenueSection(
+              title: 'أرباحك حسب الشهر',
+              subtitle: 'آخر ستة أشهر فيها اشتراكات',
+              child: RevenueMonthlyBars(
+                months: stats.invoice.monthly,
+                valueOf: (month) => month.teacherRevenue,
+              ),
+            ),
+          ],
+          if (courseInvoice != null && courseInvoice.lineItems.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            RevenueSection(
+              title: 'الاشتراكات حسب السعر',
+              child: RevenueLineItemsList(lineItems: courseInvoice.lineItems),
+            ),
+          ],
+          if (courseInvoice != null && courseInvoice.codeGroups.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            RevenueSection(
+              title: 'مصادر الاشتراك',
+              subtitle: 'دفعات الأكواد وإيصالات الدفع',
+              child: RevenueCodeGroupsList(
+                codeGroups: courseInvoice.codeGroups,
+              ),
+            ),
+          ],
         ],
-      ),
+        const SizedBox(height: 12),
+        RevenueSection(
+          title: 'معلومات الكورس',
+          child: Column(
+            children: [
+              if (stats.isPriceVisible) ...[
+                RevenueRow(
+                  'سعر الاشتراك الحالي',
+                  formatMoney(stats.priceAfterDiscount),
+                ),
+                if (stats.discountPercentage > 0)
+                  RevenueRow(
+                    'قبل الخصم',
+                    '${formatMoney(stats.priceBeforeDiscount)} (خصم ${formatPercent(stats.discountPercentage)})',
+                  ),
+              ] else
+                RevenueRow('سعر الاشتراك', 'مخفي عن الطلاب'),
+              RevenueRow(
+                'التقييم',
+                stats.ratersCount == 0
+                    ? 'لا تقييمات بعد'
+                    : '★ ${stats.ratingAverage.toStringAsFixed(1)} من ${formatCount(stats.ratersCount)} تقييم',
+              ),
+              if (stats.publishedAt != null)
+                RevenueRow('تاريخ النشر', stats.publishedAt!.toLocal().dmy),
+              if (stats.expiresAt != null)
+                RevenueRow('تاريخ الانتهاء', stats.expiresAt!.toLocal().dmy),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

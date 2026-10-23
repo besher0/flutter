@@ -151,8 +151,7 @@ class HomeContent extends StatelessWidget {
                         ),
                         const SizedBox(height: 24),
                       },
-                      if (SubscriptionFeatureFlags
-                          .showLegacySubscriptionMethods)
+                      if (SubscriptionFeatureFlags.showPointsOfSale)
                         BlocBuilder<SalesPointsBloc, SalesPointsState>(
                           buildWhen: (p, c) =>
                               p.getSalesPointsStatus != c.getSalesPointsStatus,

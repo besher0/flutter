@@ -14,6 +14,7 @@ import '../../../../app/widgets/coursaty_dropdown.dart';
 import '../../../../app/widgets/coursaty_text_field.dart';
 import '../../../../app/widgets/try_again_widget.dart';
 import '../../data/model/education_model.dart';
+import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
 class UniversityDataStep extends StatelessWidget {
   const UniversityDataStep({
@@ -243,7 +244,7 @@ class UniversityDataStep extends StatelessWidget {
             controller: universityNumberController,
             keyboardType: TextInputType.phone,
             textInputAction: TextInputAction.next,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            inputFormatters: [AsciiDigitsFormatter()],
             validator: isActiveStep
                 ? (text) {
                     if (text == null) {

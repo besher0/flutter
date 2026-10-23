@@ -1,6 +1,9 @@
 package com.example.coursaty_student_and_teacher
 
+import android.media.MediaDrm
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -14,6 +17,7 @@ import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
+import java.util.UUID
 
 class MainActivity : FlutterActivity() {
     private val channelName = "coursaty/video_security"
@@ -21,6 +25,17 @@ class MainActivity : FlutterActivity() {
     private val keyStoreType = "AndroidKeyStore"
     private lateinit var integrityManager: StandardIntegrityManager
     private var integrityProvider: StandardIntegrityManager.StandardIntegrityTokenProvider? = null
+
+    // The Flutter engine, and the Dart download with it, ends with this
+    // activity (the back button on older Android, or the system reclaiming
+    // it). Stop the keep-alive service so its "downloading" notification does
+    // not outlive the download.
+    override fun onDestroy() {
+        if (!isChangingConfigurations) {
+            DownloadKeepAliveService.stop(applicationContext)
+        }
+        super.onDestroy()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -57,9 +72,51 @@ class MainActivity : FlutterActivity() {
                     "getLoginDeviceId" -> result.success(
                         Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
                     )
+                    // Per device and independent of the signing key, unlike
+                    // ANDROID_ID: recognises this phone after a reinstall with
+                    // another signature (an APK from outside the store, then
+                    // the store version). Null without Widevine.
+                    "getLoginDeviceAltId" -> Thread {
+                        val id = widevineDeviceId()
+                        Handler(Looper.getMainLooper()).post { result.success(id) }
+                    }.start()
+                    "getEmulatorSignals" -> result.success(EmulatorSignals.collect(applicationContext))
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "coursaty/background_downloads")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        try {
+                            DownloadKeepAliveService.start(applicationContext)
+                            result.success(true)
+                        } catch (error: Exception) {
+                            // e.g. not allowed to start from the background.
+                            result.error("keep_alive_failed", error.javaClass.simpleName, null)
+                        }
+                    }
+                    "stop" -> {
+                        DownloadKeepAliveService.stop(applicationContext)
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    private fun widevineDeviceId(): String? = try {
+        val drm = MediaDrm(UUID.fromString("edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"))
+        try {
+            drm.getPropertyByteArray(MediaDrm.PROPERTY_DEVICE_UNIQUE_ID)
+                .joinToString("") { "%02x".format(it) }
+                .takeIf { it.isNotEmpty() }
+        } finally {
+            drm.close()
+        }
+    } catch (_: Exception) {
+        null
     }
 
     private fun prepareIntegrity(result: MethodChannel.Result) {

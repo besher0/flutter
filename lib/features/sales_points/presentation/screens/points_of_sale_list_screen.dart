@@ -17,7 +17,7 @@ class _PointsOfSaleListScreenState extends State<PointsOfSaleListScreen> {
   @override
   void initState() {
     super.initState();
-    if (SubscriptionFeatureFlags.showLegacySubscriptionMethods) {
+    if (SubscriptionFeatureFlags.showPointsOfSale) {
       BlocProvider.of<SalesPointsBloc>(context).add(GetSalesPointsEvent());
     }
   }
@@ -36,8 +36,7 @@ class _PointsOfSaleListScreenState extends State<PointsOfSaleListScreen> {
                   ? Center(child: CoursatyAppLoader())
                   : RefreshIndicator(
                       onRefresh: () async {
-                        if (SubscriptionFeatureFlags
-                            .showLegacySubscriptionMethods) {
+                        if (SubscriptionFeatureFlags.showPointsOfSale) {
                           BlocProvider.of<SalesPointsBloc>(
                             context,
                           ).add(GetSalesPointsEvent());

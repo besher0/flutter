@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:coursaty_student_and_teacher/core/api/client_config.dart';
 import 'package:coursaty_student_and_teacher/core/api/detect_server.dart';
 import 'package:coursaty_student_and_teacher/core/api/device_header_interceptor.dart';
+import 'package:coursaty_student_and_teacher/core/api/methods/get.dart';
 import 'package:coursaty_student_and_teacher/core/api/methods/post.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/url_routes.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
@@ -23,7 +24,10 @@ void main() {
     });
 
     test('Bunny endpoints are not versioned', () {
-      expect(apiPathFor(ServerName.bunny, 'library/1/videos'), 'library/1/videos');
+      expect(
+        apiPathFor(ServerName.bunny, 'library/1/videos'),
+        'library/1/videos',
+      );
     });
 
     test('a real request goes to /v2 with the device header', () async {
@@ -54,6 +58,29 @@ void main() {
     });
   });
 
+  test('number query values are sent as text instead of throwing', () async {
+    final adapter = _RecordingAdapter(status: 200);
+    GetIt.I
+      ..registerSingleton<Dio>(Dio()..httpClientAdapter = adapter)
+      ..registerSingleton<PrefsRepository>(_Prefs());
+    addTearDown(GetIt.I.reset);
+
+    final ok = await GetClient<bool>(
+      requestPrams: RequestConfig(
+        endpoint: EndPoints.getTeacherRevenues,
+        queryParameters: {'year': 2026, 'month': 10, 'ids': [1, 2]},
+        response: ResponseValue(returnValueOnSuccess: true),
+      ),
+    )();
+
+    expect(ok, isTrue);
+    final uri = adapter.requests.single.uri;
+    expect(uri.path, '/v2/teachers/me/revenue');
+    expect(uri.queryParameters['year'], '2026');
+    expect(uri.queryParameters['month'], '10');
+    expect(uri.queryParametersAll['ids'], ['1', '2']);
+  });
+
   test('the device header is never sent to other hosts', () async {
     final adapter = _RecordingAdapter();
     final dio = Dio()
@@ -63,7 +90,9 @@ void main() {
     await dio.get('https://video.bunnycdn.com/library/1/videos');
 
     expect(
-      adapter.requests.single.headers.containsKey(DeviceHeaderInterceptor.header),
+      adapter.requests.single.headers.containsKey(
+        DeviceHeaderInterceptor.header,
+      ),
       isFalse,
     );
   });
@@ -76,23 +105,29 @@ void main() {
       );
     });
 
-    test('licenses issued to the old installation id still belong to this phone', () {
-      expect(
-        DeviceInfoService.isThisDevice(DeviceInfoService.getLoginDeviceId()),
-        isTrue,
-      );
-      expect(
-        DeviceInfoService.isThisDevice(
-          DeviceInfoService.getInstallationDeviceId(),
-        ),
-        isTrue,
-      );
-      expect(DeviceInfoService.isThisDevice('android_someone-else'), isFalse);
-    });
+    test(
+      'licenses issued to the old installation id still belong to this phone',
+      () {
+        expect(
+          DeviceInfoService.isThisDevice(DeviceInfoService.getLoginDeviceId()),
+          isTrue,
+        );
+        expect(
+          DeviceInfoService.isThisDevice(
+            DeviceInfoService.getInstallationDeviceId(),
+          ),
+          isTrue,
+        );
+        expect(DeviceInfoService.isThisDevice('android_someone-else'), isFalse);
+      },
+    );
   });
 }
 
 class _RecordingAdapter implements HttpClientAdapter {
+  _RecordingAdapter({this.status = 201});
+
+  final int status;
   final requests = <RequestOptions>[];
 
   @override
@@ -104,7 +139,7 @@ class _RecordingAdapter implements HttpClientAdapter {
     requests.add(options);
     return ResponseBody.fromString(
       '{"ok":true}',
-      201,
+      status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
       },

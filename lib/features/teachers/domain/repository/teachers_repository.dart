@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/models/revenue_invoice_model.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_affilations_model.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_revenue_model.dart';
@@ -29,5 +30,5 @@ abstract class TeachersRepository {
   Future<Either<Failure, TeacherWithdrawalModel>> getTeacherWithdrawals(
     Map<String, dynamic> data,
   );
-  Future<Either<Failure, TeacherRevenueModel>> getRevenue();
+  Future<Either<Failure, TeacherRevenueModel>> getRevenue(RevenuePeriod period);
 }

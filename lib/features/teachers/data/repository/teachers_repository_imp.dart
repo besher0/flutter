@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/models/revenue_invoice_model.dart';
 import 'package:coursaty_student_and_teacher/core/api/api.dart';
 import 'package:coursaty_student_and_teacher/core/error/failures.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_affilations_model.dart';
@@ -66,9 +67,9 @@ class TeachersRepositoryImp extends TeachersRepository
   }
 
   @override
-  Future<Either<Failure, TeacherRevenueModel>> getRevenue() {
+  Future<Either<Failure, TeacherRevenueModel>> getRevenue(RevenuePeriod period) {
     return handlingExceptionRequest(
-      tryCall: () => remoteDataSource.getRevenue(),
+      tryCall: () => remoteDataSource.getRevenue(period),
     );
   }
 

@@ -86,7 +86,8 @@ class UpsertCourseParams {
     if (expiresAt != null) "expiresAt": expiresAt!.toIso8601String(),
     if (introVideoUrl != null) "introVideoUrl": introVideoUrl,
     if (courseId != null || telegramUrl != null) "telegramUrl": telegramUrl,
-    if (discussionGroupUrl != null) "discussionGroupUrl": discussionGroupUrl,
+    if (courseId != null || discussionGroupUrl != null)
+      "discussionGroupUrl": discussionGroupUrl,
     if (instagramUrl != null) "instagramUrl": instagramUrl,
   };
 }

@@ -1,6 +1,7 @@
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/design/app_assets.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/feature_flags.dart';
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/subscribe_to_course.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,8 @@ Future<void> showPaidContentDialog(
   BuildContext context, {
   required String courseId,
 }) async {
+  // iPhone with paid content hidden: no purchase flow at all.
+  if (PaidContentPolicy.hidePaid) return;
   if (!SubscriptionFeatureFlags.showLegacySubscriptionMethods) {
     await showSubscribeToCourseDialog(context, courseId: courseId);
     return;

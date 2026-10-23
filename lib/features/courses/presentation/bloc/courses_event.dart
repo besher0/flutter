@@ -79,8 +79,12 @@ class GetTeacherCourseDetailsEvent extends CoursesEvent {
 
 class GetCourseStatisticsEvent extends CoursesEvent {
   final String courseId;
+  final RevenuePeriod period;
 
-  GetCourseStatisticsEvent({required this.courseId});
+  GetCourseStatisticsEvent({
+    required this.courseId,
+    this.period = RevenuePeriod.allTime,
+  });
 }
 
 class GetTeacherCourses extends CoursesEvent {

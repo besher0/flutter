@@ -10,6 +10,7 @@ import 'package:coursaty_student_and_teacher/features/course_content_management/
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart';
 import 'package:dio/dio.dart' hide Headers;
 import 'package:flutter/cupertino.dart';
+import 'package:http/io_client.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tusc/tusc.dart' hide Headers;
 import 'package:bloc/bloc.dart';
@@ -33,6 +34,7 @@ import '../../../common/data/models/upload_file_response_model.dart';
 import '../../../common/domain/usecases/upload_file_usecase.dart';
 import '../../data/models/tus_upload_response_model.dart';
 import '../../data/models/upload_video_response_model.dart';
+import '../../data/services/resumable_video_upload.dart';
 import 'package:path_provider/path_provider.dart';
 
 part 'course_content_management_event.dart';
@@ -66,6 +68,7 @@ class CourseContentManagementBloc
     on<GetAllSeasonsEvent>(_onGetAllSeasonsEvent);
     on<UpsertVideoEvent>(_onUpsertVideoEvent);
     on<VideoSelectedEvent>(_onVideoSelectedEvent);
+    on<CancelVideoUploadEvent>(_onCancelVideoUploadEvent);
     on<UpsertFileEvent>(_onUpsertFileEvent);
     on<UpsertQuestionEvent>(_onUpsertQuestionEvent);
     on<UpsertVideoSegmentEvent>(_onUpsertVideoSegmentEvent);
@@ -245,31 +248,55 @@ class CourseContentManagementBloc
     );
   }
 
-  ValueNotifier<bool> uploadCompleted = ValueNotifier(false);
+  /// One resumable upload per selected file, kept after a failure so that
+  /// pressing save again continues from where it stopped.
+  final Map<String, ResumableVideoUpload> _uploads = {};
+  final Set<String> _cancelledUploads = {};
+
+  Dio _apiClient() => Dio(
+    BaseOptions(
+      contentType: 'application/json',
+      responseType: ResponseType.json,
+      headers: {
+        HttpHeaders.authorizationHeader:
+            "Bearer ${GetIt.I<PrefsRepository>().token}",
+        HttpHeaders.acceptHeader: 'application/json',
+      },
+    ),
+  );
+
+  /// Renews the signed TUS headers after they expired (long interruption).
+  Future<Map<String, String>?> _refreshTusHeaders(String path) async {
+    final videoId = tuscInitResponse[path]?.upload?.videoId;
+    if (videoId == null) return null;
+    final response = await _apiClient().post(
+      MasterUrlRoutes.baseUrl + EndPoints.refreshTusEp,
+      data: {"videoId": videoId},
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) return null;
+    final refreshed = TusInitResponseModel.fromJson(response.data);
+    tuscInitResponse[path] = refreshed;
+    return refreshed.upload?.headers?.toJson().map(
+      (key, value) => MapEntry(key, value.toString()),
+    );
+  }
 
   Future<bool> _uploadVideoUsingTusForCourse({required XFile video}) async {
     final path = video.path;
+    _cancelledUploads.remove(path);
     Map<String, double> progresses = Map.of(state.uploadingProgress);
     if (!progresses.containsKey(path)) {
-      progresses[path] = 0;
+      // Unknown until the server reports the offset (a resumed upload is not
+      // at 0%): the screen shows a spinner meanwhile.
+      progresses[path] = -1;
       emit(state.copyWith(uploadingProgress: progresses));
     }
-    // Shared across uploads; a previous success must not mark this one done.
-    uploadCompleted.value = false;
     if (tuscInitResponse[path] == null) {
-      var response;
+      Response? response;
       try {
-        response = await Dio(
-          BaseOptions(
-            contentType: 'application/json',
-            responseType: ResponseType.json,
-            headers: {
-              HttpHeaders.authorizationHeader:
-                  "Bearer ${GetIt.I<PrefsRepository>().token}",
-              HttpHeaders.acceptHeader: 'application/json',
-            },
-          ),
-        ).post(MasterUrlRoutes.baseUrl + EndPoints.initTusEp);
+        response = await _apiClient().post(
+          MasterUrlRoutes.baseUrl + EndPoints.initTusEp,
+        );
       } catch (e, st) {
         log(e.toString());
         log(st.toString());
@@ -279,101 +306,80 @@ class CourseContentManagementBloc
       }
       tuscInitResponse[path] = TusInitResponseModel.fromJson(response.data);
     }
-    if (tuscClients[path] == null) {
-      tuscClients[path] = TusClient(
+    if (_cancelledUploads.contains(path)) return false;
+
+    final upload = _uploads[path] ??= ResumableVideoUpload(
+      headers: tuscInitResponse[path]!.upload!.headers!.toJson().map(
+        (key, value) => MapEntry(key, value.toString()),
+      ),
+      refreshHeaders: () => _refreshTusHeaders(path),
+      createClient: ({required uploadUrl, required headers}) => TusClient(
         url: BunnyUrlRoutes.baseUrl + BunnyEndPoints.uploadVideoTusEP,
-
-        /// Required
+        // Continue the same upload instead of creating a new one.
+        uploadUrl: uploadUrl,
         file: video,
-
         cache: TusPersistentCache(directory.path),
+        headers: headers,
+        chunkSize: 1024 * 1024,
+        timeout: const Duration(seconds: 60),
+        // A fresh connection per attempt: sockets of a dropped attempt are
+        // never reused, and an unreachable server fails fast.
+        httpClient: IOClient(
+          HttpClient()
+            ..connectionTimeout = const Duration(seconds: 20)
+            ..idleTimeout = const Duration(seconds: 10),
+        ),
+      ),
+    );
 
-        headers: tuscInitResponse[path]!.upload!.headers!.toJson(),
+    final outcome = await upload.run(
+      onProgress: (percent) {
+        if (isClosed || _cancelledUploads.contains(path)) return;
+        final progresses = Map.of(state.uploadingProgress);
+        progresses[path] = percent;
+        emit(state.copyWith(uploadingProgress: progresses));
+      },
+    );
+    if (outcome != VideoUploadOutcome.completed) return false;
+
+    try {
+      final response = await _apiClient().post(
+        MasterUrlRoutes.baseUrl + EndPoints.completeTusEp,
+        data: {"videoId": tuscInitResponse[path]!.upload!.videoId},
       );
+      uploadingVideos[path] = UploadVideoResponseModel.fromJson(response.data);
+    } catch (e) {
+      // The bytes are on Bunny; saving again only repeats this step.
+      log('complete upload failed: $e');
+      return false;
     }
-    if ((await tuscClients[path]!.canResume())) {
-      print('can resumeeeeeee ${tuscClients[path]!.resumingEnabled}');
-      try {
-        await tuscClients[path]!.resumeUpload();
-      } catch (e) {
-        print(e.toString());
-        return false;
-      }
-    } else {
-      try {
-        await tuscClients[path]!.startUpload(
-          onProgress: (count, total, progress) {
-            Map<String, double> progresses = Map.of(state.uploadingProgress);
-            progresses[path] = (count / total * 100);
-            emit(state.copyWith(uploadingProgress: progresses));
-            print(
-              'Progress: $count of $total | ${(count / total * 100).toInt()}%',
-            );
-          },
-
-          /// response: the http response of the last chunkSize uploaded
-          onComplete: (response) {
-            print('uploadCompleted');
-            uploadCompleted.value = true;
-          },
-          onTimeout: () {
-            print('Upload timed out');
-            uploadingVideos[path] = null;
-          },
-          onError: (error) {
-            print(error.toString());
-            uploadingVideos[path] = null;
-          },
-        );
-      } catch (e, st) {
-        print(e);
-        print(st);
-        uploadingVideos[path] = null;
-      }
-    }
-    print('uploadCompleted ${uploadCompleted.value}');
-    if (uploadCompleted.value) {
-      await Dio(
-            BaseOptions(
-              contentType: 'application/json',
-              responseType: ResponseType.json,
-              headers: {
-                HttpHeaders.authorizationHeader:
-                    "Bearer ${GetIt.I<PrefsRepository>().token}",
-                HttpHeaders.acceptHeader: 'application/json',
-              },
-            ),
-          )
-          .post(
-            MasterUrlRoutes.baseUrl + EndPoints.completeTusEp,
-            data: {"videoId": tuscInitResponse[path]!.upload!.videoId},
-          )
-          .then((response) {
-            log(response.data.toString());
-            log(response.headers.toString());
-            uploadingVideos[path] = UploadVideoResponseModel.fromJson(
-              response.data,
-            );
-          })
-          .catchError((error) {
-            print('error $error');
-          })
-          .onError((e, st) {
-            print('e $e');
-            print('st $st');
-          });
-    }
+    _uploads.remove(path);
     return uploadingVideos[path] != null;
   }
 
   void cancelVideoUpload({required XFile video}) {
     final path = video.path;
-    if (tuscClients[path] == null) {
-      return;
-    }
+    _cancelledUploads.add(path);
+    _uploads.remove(path)?.cancel();
     uploadingVideos[path] = null;
     tuscInitResponse[path] = null;
-    tuscClients[path]!.cancelUpload();
+  }
+
+  FutureOr<void> _onCancelVideoUploadEvent(
+    CancelVideoUploadEvent event,
+    Emitter<CourseContentManagementState> emit,
+  ) {
+    final file = state.currentlyUploadingFile;
+    if (file == null) return null;
+    cancelVideoUpload(video: file);
+    final progresses = Map.of(state.uploadingProgress)..remove(file.path);
+    emit(
+      state.copyWith(
+        uploadingProgress: progresses,
+        upsertLecture: Status.init,
+        uploadPaused: false,
+      ),
+    );
   }
 
   FutureOr<void> _onUpsertVideoEvent(
@@ -382,11 +388,17 @@ class CourseContentManagementBloc
   ) async {
     upsertVideoParams = event.params;
     bool success = true;
-    emit(state.copyWith(upsertLecture: Status.loading));
+    emit(state.copyWith(upsertLecture: Status.loading, uploadPaused: false));
     if (state.currentlyUploadingFile != null) {
-      success = await _uploadVideoUsingTusForCourse(
-        video: state.currentlyUploadingFile!,
-      );
+      final path = state.currentlyUploadingFile!.path;
+      // Already on Bunny when only saving the lecture failed: don't upload again.
+      success =
+          uploadingVideos[path] != null ||
+          await _uploadVideoUsingTusForCourse(
+            video: state.currentlyUploadingFile!,
+          );
+      // Cancelled by the teacher: the cancel event already reset the screen.
+      if (!success && _cancelledUploads.contains(path)) return;
     }
     if (success) {
       final uploadingFile = state.currentlyUploadingFile;
@@ -413,10 +425,15 @@ class CourseContentManagementBloc
       final response = await upsertVideoUsecase(event.params);
       response.fold(
         (l) {
+          // The file is uploaded; pressing save again only retries this step.
+          Map<String, double> progresses = Map.of(state.uploadingProgress);
+          final uploadedPath = state.currentlyUploadingFile?.path;
+          if (uploadedPath != null) progresses.remove(uploadedPath);
           emit(
             state.copyWith(
               upsertLecture: Status.failure,
               errorMessage: l.message,
+              uploadingProgress: progresses,
             ),
           );
         },
@@ -424,7 +441,12 @@ class CourseContentManagementBloc
           Map<String, double> progresses = Map.of(state.uploadingProgress);
           // Metadata-only edits have no file in flight.
           final uploadedPath = state.currentlyUploadingFile?.path;
-          if (uploadedPath != null) progresses.remove(uploadedPath);
+          if (uploadedPath != null) {
+            progresses.remove(uploadedPath);
+            // Picking the same file again later is a new upload.
+            uploadingVideos.remove(uploadedPath);
+            tuscInitResponse.remove(uploadedPath);
+          }
           upsertVideoParams = null;
           emit(
             state.copyWith(
@@ -438,14 +460,14 @@ class CourseContentManagementBloc
       return;
     }
     if (state.currentlyUploadingFile != null) {
-      Map<String, double> progresses = Map.of(state.uploadingProgress);
-      progresses.remove(state.currentlyUploadingFile!.path);
+      // Keep the reached percentage: the screen shows it with a resume button
+      // that continues the same upload from where it stopped.
       emit(
         state.copyWith(
-          errorMessage: "حدث خطأ ما , تحقق من الاتصال بالانترنت",
+          errorMessage:
+              "توقف رفع الفيديو. تحقق من الاتصال ثم اضغط «استئناف الرفع» للمتابعة من حيث توقف",
           upsertLecture: Status.failure,
-          uploadingProgress: progresses,
-          resetCurrentlyUploadingFile: success,
+          uploadPaused: true,
         ),
       );
     }
@@ -458,10 +480,15 @@ class CourseContentManagementBloc
     if (state.currentlyUploadingFile != null) {
       cancelVideoUpload(video: state.currentlyUploadingFile!);
     }
+    final progresses = Map.of(state.uploadingProgress);
+    final previous = state.currentlyUploadingFile?.path;
+    if (previous != null) progresses.remove(previous);
     emit(
       state.copyWith(
         currentlyUploadingFile: event.file,
         resetCurrentlyUploadingFile: event.file == null,
+        uploadingProgress: progresses,
+        uploadPaused: false,
       ),
     );
   }

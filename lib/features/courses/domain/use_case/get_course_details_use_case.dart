@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/models/revenue_invoice_model.dart';
 import '../../../../core/use_case/use_case.dart';
 import '../../data/model/course_details_model.dart';
 import '../repository/courses_repository.dart';
@@ -23,5 +24,11 @@ class GetCourseDetailsUseCase
 class ParamGetCourseDetails {
   final String courseId;
 
-  ParamGetCourseDetails({required this.courseId});
+  /// Only used by the course statistics request.
+  final RevenuePeriod period;
+
+  ParamGetCourseDetails({
+    required this.courseId,
+    this.period = RevenuePeriod.allTime,
+  });
 }

@@ -5,6 +5,7 @@ import 'package:coursaty_student_and_teacher/core/models/pagination_model.dart';
 import 'package:coursaty_student_and_teacher/core/use_case/use_case.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/course_category.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/course_rating.dart';
+import 'package:coursaty_student_and_teacher/core/models/revenue_invoice_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/course_statistcis_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/get_teacher_courses_model.dart'
     hide YearElement;
@@ -627,7 +628,7 @@ class CoursesBloc extends Bloc<CoursesEvent, CoursesState> {
   ) async {
     emit(state.copyWith(getCourseStatistics: Status.loading));
     final res = await getCourseStatisticsUsecase(
-      ParamGetCourseDetails(courseId: event.courseId),
+      ParamGetCourseDetails(courseId: event.courseId, period: event.period),
     );
     res.fold(
       (l) => emit(

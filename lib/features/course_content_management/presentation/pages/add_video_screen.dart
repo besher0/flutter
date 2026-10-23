@@ -25,6 +25,7 @@ import '../../../courses/presentation/bloc/courses_bloc.dart';
 import '../../../courses/presentation/widgets/course_free_checkbox.dart';
 import '../../../courses/presentation/widgets/video_segement_item.dart';
 import '../widgets/upsert_video_segment_dialog.dart';
+import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
 class AddVideoScreen extends StatefulWidget {
   const AddVideoScreen({
@@ -275,9 +276,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                         label: 'ترتيب الفيديو (اختياري)',
                         minLines: 1,
                         controller: sortOrder,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
+                        inputFormatters: [AsciiDigitsFormatter()],
                       ),
                       10.verticalSpace,
                       IsFreeCourseTile(
@@ -328,54 +327,41 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                         children: [
                           if (path != null &&
                               state.uploadingProgress.containsKey(path)) ...{
-                            ProgressIndicatorWidget(
-                              percent: state.uploadingProgress[path]!,
-                              textColor: Theme.of(context).colorScheme.primary,
+                            if (!state.uploadPaused ||
+                                state.uploadingProgress[path]! >= 0)
+                              ProgressIndicatorWidget(
+                                percent: state.uploadingProgress[path]! < 0
+                                    ? null
+                                    : state.uploadingProgress[path],
+                                textColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                fractionDigits: 1,
+                              ),
+                            if (state.uploadPaused) ...{
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8, bottom: 8),
+                                child: Text(
+                                  "توقف الرفع بسبب انقطاع الاتصال",
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              CoursatyPrimaryButton(
+                                label: "استئناف الرفع",
+                                onPressed: () => _submit(context, state),
+                              ),
+                            },
+                            TextButton.icon(
+                              onPressed: () => _confirmCancelUpload(context),
+                              icon: const Icon(Icons.close),
+                              label: const Text("إلغاء الرفع"),
                             ),
                           } else if (state.upsertLecture.isLoading)
                             CoursatyAppLoader()
                           else
                             CoursatyPrimaryButton(
                               label: !widget.isForEdit ? 'إضافة' : "تعديل",
-                              onPressed: () {
-                                if (formKey.currentState!.validate()) {
-                                  if (widget.video == null &&
-                                      state.currentlyUploadingFile == null) {
-                                    showMessage("رجاء قم باختيار فيديو");
-                                    return;
-                                  }
-                                  BlocProvider.of<CourseContentManagementBloc>(
-                                    context,
-                                  ).add(
-                                    UpsertVideoEvent(
-                                      UpsertVideoParams(
-                                        // Duration only describes a newly
-                                        // chosen file; edits without one keep
-                                        // the stored duration.
-                                        duration:
-                                            state.currentlyUploadingFile == null
-                                            ? null
-                                            : int.tryParse(videoDuration.text),
-                                        videoName: name.text,
-                                        lectureId: widget.lectureId,
-                                        isFree: isFree.value,
-                                        description:
-                                            description.text.trim().isEmpty
-                                            ? null
-                                            : description.text,
-                                        videoId: widget.video?.id,
-                                        sortOrder: sortOrder.text.trim().isEmpty
-                                            ? null
-                                            : sortOrder.text,
-                                        videoSize: videoSize.text.trim().isEmpty
-                                            ? null
-                                            : videoSize.text,
-                                      ),
-                                      courseId: widget.courseId,
-                                    ),
-                                  );
-                                }
-                              },
+                              onPressed: () => _submit(context, state),
                             ),
                         ],
                       ),
@@ -388,6 +374,59 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
         ),
       ),
     );
+  }
+
+  void _submit(BuildContext context, CourseContentManagementState state) {
+    if (!formKey.currentState!.validate()) return;
+    if (widget.video == null && state.currentlyUploadingFile == null) {
+      showMessage("رجاء قم باختيار فيديو");
+      return;
+    }
+    BlocProvider.of<CourseContentManagementBloc>(context).add(
+      UpsertVideoEvent(
+        UpsertVideoParams(
+          // Duration only describes a newly chosen file; edits without one
+          // keep the stored duration.
+          duration: state.currentlyUploadingFile == null
+              ? null
+              : int.tryParse(videoDuration.text),
+          videoName: name.text,
+          lectureId: widget.lectureId,
+          isFree: isFree.value,
+          description: description.text.trim().isEmpty
+              ? null
+              : description.text,
+          videoId: widget.video?.id,
+          sortOrder: sortOrder.text.trim().isEmpty ? null : sortOrder.text,
+          videoSize: videoSize.text.trim().isEmpty ? null : videoSize.text,
+        ),
+        courseId: widget.courseId,
+      ),
+    );
+  }
+
+  Future<void> _confirmCancelUpload(BuildContext context) async {
+    final bloc = BlocProvider.of<CourseContentManagementBloc>(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("إلغاء رفع الفيديو؟"),
+        content: const Text(
+          "سيتوقف الرفع نهائياً، وعند الحفظ لاحقاً يبدأ الرفع من جديد.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text("متابعة الرفع"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text("إلغاء الرفع"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) bloc.add(CancelVideoUploadEvent());
   }
 
   String? _requiredValidator(dynamic item) {

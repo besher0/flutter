@@ -152,12 +152,19 @@ void main() {
   });
 
   test('teacher statistics read the flag', () {
-    final hidden = SubscriptionPrice.fromJson({
-      'beforeDiscount': 400,
-      'afterDiscount': 300,
-      'isPriceVisible': false,
+    final hidden = CourseStatisticsModel.fromJson({
+      'subscriptionPrice': {
+        'beforeDiscount': 400,
+        'afterDiscount': 300,
+        'isPriceVisible': false,
+      },
     });
     expect(hidden.isPriceVisible, isFalse);
-    expect(SubscriptionPrice.fromJson({'afterDiscount': 300}).isPriceVisible, isTrue);
+    expect(
+      CourseStatisticsModel.fromJson({
+        'subscriptionPrice': {'afterDiscount': 300},
+      }).isPriceVisible,
+      isTrue,
+    );
   });
 }

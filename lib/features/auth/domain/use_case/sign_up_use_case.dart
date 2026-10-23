@@ -48,6 +48,9 @@ class ParamSignUp {
     // A student account is bound to the device it is created on.
     if (userableType == 'STUDENT')
       "loginDeviceId": DeviceInfoService.getLoginDeviceId(),
+    if (userableType == 'STUDENT' &&
+        DeviceInfoService.getLoginDeviceAltId() != null)
+      "loginDeviceAltId": DeviceInfoService.getLoginDeviceAltId(),
     if (teacherParams != null) "teacher": teacherParams!.data,
     if (studentParams != null) "student": studentParams!.data,
   };

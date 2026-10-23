@@ -77,6 +77,7 @@ void main() {
       secureStorage: storage,
       storageRoot: () async => root,
       isSecureDevice: () async => true,
+      retryDelay: (_) => Duration.zero,
     );
     return _Harness(service, gateway, access, storage);
   }
@@ -220,6 +221,22 @@ void main() {
       SecureDownloadFailure.gatewayAccessDenied,
     );
     expect(h.access.created, 2);
+  });
+
+  test('retries network failures so a download survives a dropped connection', () async {
+    final h = harness();
+    // As after the app was suspended in the background: the next two
+    // requests for this segment fail before reaching the gateway.
+    h.gateway.networkFailures['/$_guid/720p/video0.ts'] = 2;
+
+    final manifest = await download(h);
+
+    expect(manifest.status, SecureVideoDownloadStatus.completed);
+    expect(
+      h.gateway.paths.where((p) => p == '/$_guid/720p/video0.ts'),
+      hasLength(3),
+    );
+    expect(h.access.created, 1); // same session, no re-authorization
   });
 
   test('rejects a response that is not an HLS playlist', () async {
@@ -378,6 +395,7 @@ class _FakeGateway implements HttpClientAdapter {
   final bool Function(RequestOptions request, String path)? deny;
   final validTokens = <String>{};
   final requests = <RequestOptions>[];
+  final networkFailures = <String, int>{};
 
   List<String> get paths => requests.map((r) => r.uri.path).toList();
 
@@ -389,6 +407,14 @@ class _FakeGateway implements HttpClientAdapter {
   ) async {
     requests.add(options);
     final path = options.uri.path;
+    final failures = networkFailures[path] ?? 0;
+    if (failures > 0) {
+      networkFailures[path] = failures - 1;
+      throw DioException(
+        requestOptions: options,
+        type: DioExceptionType.connectionError,
+      );
+    }
     final token = options.headers[_header];
     if (options.uri.host != 'gw.coursaty.test' ||
         !validTokens.contains(token) ||

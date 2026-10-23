@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/services.dart';
 
+import 'playback_wakelock.dart';
+
 class PreviewFileVideo extends StatefulWidget {
   const PreviewFileVideo({
     super.key,
@@ -20,6 +22,7 @@ class PreviewFileVideo extends StatefulWidget {
 class _MyVideoWidgetBetterPlayerState extends State<PreviewFileVideo> {
   late final BetterPlayerDataSource betterPlayerDataSource;
   late final BetterPlayerController betterPlayerController;
+  PlaybackWakelock? _wakelock;
   bool initialized = false;
 
   Future<void> init() async {
@@ -45,6 +48,7 @@ class _MyVideoWidgetBetterPlayerState extends State<PreviewFileVideo> {
       ),
       betterPlayerDataSource: betterPlayerDataSource,
     );
+    _wakelock = PlaybackWakelock(betterPlayerController);
     betterPlayerController.addEventsListener((event) {
       if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
         widget.videoDuration.text =
@@ -70,6 +74,7 @@ class _MyVideoWidgetBetterPlayerState extends State<PreviewFileVideo> {
 
   @override
   void dispose() {
+    _wakelock?.dispose();
     betterPlayerController.dispose();
     super.dispose();
   }

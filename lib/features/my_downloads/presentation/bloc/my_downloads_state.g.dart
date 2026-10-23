@@ -35,6 +35,11 @@ MyDownloadsState _$MyDownloadsStateFromJson(
             ),
           ) ??
       const {},
+  courseIdToFirstDownloadAt:
+      (json['courseIdToFirstDownloadAt'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, DateTime.parse(e as String)),
+      ) ??
+      const {},
 );
 
 Map<String, dynamic> _$MyDownloadsStateToJson(MyDownloadsState instance) =>
@@ -48,4 +53,7 @@ Map<String, dynamic> _$MyDownloadsStateToJson(MyDownloadsState instance) =>
           .lectureIdToLectureDetailsReferences
           .map((k, e) => MapEntry(k, e.toJson())),
       'ownerUserId': instance.ownerUserId,
+      'courseIdToFirstDownloadAt': instance.courseIdToFirstDownloadAt.map(
+        (k, e) => MapEntry(k, e.toIso8601String()),
+      ),
     };

@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:bloc/bloc.dart';
+import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/course_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/course_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart'
     hide Lecture;
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/downloaded_course_expiry.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/encrypted_hls_download_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:injectable/injectable.dart';
@@ -35,6 +37,9 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     if (!_prefsRepository.isGuest && userId != null && userId.isNotEmpty) {
       add(SyncDownloadsOwner(userId));
     }
+    // Expired courses leave the device on every start, not only when the
+    // downloads screen is opened.
+    add(DeleteCoursesWhichAreExpired());
   }
 
   final PrefsRepository _prefsRepository;
@@ -54,19 +59,38 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     SaveCoursesInLocalEvent event,
     Emitter<MyDownloadsState> emit,
   ) {
+    // The server's current subscription dates replace the snapshots saved
+    // with the downloads, so a renewal keeps the course on the device.
+    _serverCoursesFresh = true;
+    final details = Map.of(state.courseIdToCourseDetailsReferences);
+    for (final course in event.courses) {
+      final saved = details[course.id];
+      if (saved == null) continue;
+      final expiresAt = DownloadedCourseExpiry.latest(
+        saved.subscriptionExpiresAt,
+        course.subscriptionExpiresAt,
+      );
+      if (expiresAt != saved.subscriptionExpiresAt) {
+        details[course.id!] = saved.copyWith(subscriptionExpiresAt: expiresAt);
+      }
+    }
+    final previous = {for (final item in state.courses) item.id: item};
     emit(
       state.copyWith(
+        courseIdToCourseDetailsReferences: details,
         courses: event.courses.map((item) {
-          if (item.isFree ?? false) {
-            if (item.freeCourseExpirationAt == null) {
-              return item.copyWith(freeCourseExpirationAt: DateTime.now());
-            }
-            return item;
-          }
-          return item;
+          if (!(item.isFree ?? false)) return item;
+          // Keep the first date: a refreshed list must not restart it.
+          return item.copyWith(
+            freeCourseExpirationAt:
+                previous[item.id]?.freeCourseExpirationAt ??
+                item.freeCourseExpirationAt ??
+                DateTime.now(),
+          );
         }).toList(),
       ),
     );
+    add(DeleteCoursesWhichAreExpired());
   }
 
   void _onSaveReferenceOfDownloadedFile(
@@ -74,12 +98,12 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     Emitter<MyDownloadsState> emit,
   ) {
     final nextState = state.withDownloadedFile(
-        fileUrl: event.fileUrl,
-        localFilePath: event.localFilePath,
-        courseId: event.courseId,
-        lectureId: event.lectureId,
-        courseDetailsModel: event.courseDetailsModel,
-        lectureDetailsModel: event.lectureDetailsModel,
+      fileUrl: event.fileUrl,
+      localFilePath: event.localFilePath,
+      courseId: event.courseId,
+      lectureId: event.lectureId,
+      courseDetailsModel: event.courseDetailsModel,
+      lectureDetailsModel: event.lectureDetailsModel,
     );
     debugPrint(
       '[Downloads] saved reference '
@@ -104,22 +128,13 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     DeleteEveryThingRelatedToCourse event,
     Emitter<MyDownloadsState> emit,
   ) async {
-    // List<CourseModel> courses = List.of(state.courses);
-    // CourseModel? course = courses.firstWhereOrNull(
-    //   (item) => item.id == event.courseId,
-    // );
-    // if (course == null) {
-    //   return;
-    // }
-    Map<String, CourseDetailsModel> coursesDetails = Map.of(
-      state.courseIdToCourseDetailsReferences,
-    );
-    Map<String, LectureDetailsModel> lecturesDetails = Map.of(
-      state.lectureIdToLectureDetailsReferences,
-    );
-    final Map<String, String> filePaths = Map.of(state.urlToFileReferences);
-    List<String> lecturesIds = [];
-    for (final item in coursesDetails[event.courseId]?.lectures ?? const []) {
+    final lecturesDetails = state.lectureIdToLectureDetailsReferences;
+    final filePaths = state.urlToFileReferences;
+    final lecturesIds = <String>[];
+    final removedFiles = <String>{};
+    for (final item
+        in state.courseIdToCourseDetailsReferences[event.courseId]?.lectures ??
+            const []) {
       lecturesIds.add(item.id!);
       for (final item in lecturesDetails[item.id!]?.videos ?? const []) {
         final videoKey = item.id!;
@@ -127,30 +142,38 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
         if (url != null) {
           await _deleteFileFromLocal(path: url, videoId: videoKey);
         }
-        filePaths.remove(videoKey);
+        removedFiles.add(videoKey);
       }
       for (final item in lecturesDetails[item.id!]?.files ?? const []) {
         final url = filePaths[item.fileUrl!];
         if (url != null) {
           await _deleteFileFromLocal(path: url);
         }
-        filePaths.remove(item.fileUrl!);
+        removedFiles.add(item.fileUrl!);
       }
       for (final item in lecturesDetails[item.id!]?.questions ?? const []) {
         final url = filePaths[item.imageUrl ?? ''];
         if (url != null) {
           await _deleteFileFromLocal(path: url);
-          filePaths.remove(item.imageUrl ?? '');
+          removedFiles.add(item.imageUrl ?? '');
         }
       }
     }
-    lecturesDetails.removeWhere((k, v) => lecturesIds.contains(k));
-    coursesDetails.removeWhere((k, v) => k == event.courseId);
-    // courses.removeWhere((item) => item.id == event.courseId);
-    final nextState = state.copyWith(
-      courseIdToCourseDetailsReferences: coursesDetails,
-      urlToFileReferences: filePaths,
-      lectureIdToLectureDetailsReferences: lecturesDetails,
+    // Several courses can be removed at once: apply this removal to the state
+    // as it is now, not to the copy taken before the files were deleted, or
+    // one removal would bring back the course another one just removed.
+    final current = state;
+    final nextState = current.copyWith(
+      courseIdToCourseDetailsReferences: Map.of(
+        current.courseIdToCourseDetailsReferences,
+      )..remove(event.courseId),
+      urlToFileReferences: Map.of(current.urlToFileReferences)
+        ..removeWhere((key, _) => removedFiles.contains(key)),
+      lectureIdToLectureDetailsReferences: Map.of(
+        current.lectureIdToLectureDetailsReferences,
+      )..removeWhere((key, _) => lecturesIds.contains(key)),
+      courseIdToFirstDownloadAt: Map.of(current.courseIdToFirstDownloadAt)
+        ..remove(event.courseId),
     );
     emit(_pruneEmptyMetadata(nextState));
   }
@@ -241,15 +264,18 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     final references = source.urlToFileReferences;
 
     bool lectureHasDownloads(LectureDetailsModel lecture) {
-      final hasFile = lecture.files?.any(
+      final hasFile =
+          lecture.files?.any(
             (file) => file.fileUrl != null && references[file.fileUrl] != null,
           ) ??
           false;
-      final hasVideo = lecture.videos?.any(
+      final hasVideo =
+          lecture.videos?.any(
             (video) => video.id != null && references[video.id] != null,
           ) ??
           false;
-      final hasQuestion = lecture.questions?.any(
+      final hasQuestion =
+          lecture.questions?.any(
             (question) =>
                 question.imageUrl != null &&
                 references[question.imageUrl] != null,
@@ -260,8 +286,9 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
 
     lectures.removeWhere((_, lecture) => !lectureHasDownloads(lecture));
     courses.removeWhere(
-      (_, course) =>
-          !(course.lectures ?? []).any((lecture) => lectures.containsKey(lecture.id)),
+      (_, course) => !(course.lectures ?? []).any(
+        (lecture) => lectures.containsKey(lecture.id),
+      ),
     );
     return source.copyWith(
       courseIdToCourseDetailsReferences: courses,
@@ -292,36 +319,56 @@ class MyDownloadsBloc extends HydratedBloc<MyDownloadsEvent, MyDownloadsState> {
     emit(MyDownloadsState(ownerUserId: event.userId));
   }
 
-  FutureOr<void> _onDeleteCoursesWhichAreExpired(
+  /// Whether this session already received the server's list of active
+  /// courses (and so the current subscription dates).
+  bool _serverCoursesFresh = false;
+
+  /// Overridden in tests.
+  @visibleForTesting
+  static Future<bool> Function() isOffline =
+      HelperFunctions.lostInternetConnection;
+
+  Future<void> _onDeleteCoursesWhichAreExpired(
     DeleteCoursesWhichAreExpired event,
     Emitter<MyDownloadsState> emit,
-  ) {
-    Map<String, CourseDetailsModel> references = Map.of(
-      state.courseIdToCourseDetailsReferences,
-    );
-
-    List<CourseModel> courses = List.of(state.courses);
-    references.forEach((k, v) {
-      final course = courses.firstWhereOrNull((item) => item.id == k);
-      final remove =
-          ((v.subscriptionExpiresAt != null &&
-                  !DateTime.now()
-                      .difference(v.subscriptionExpiresAt!)
-                      .isNegative) ||
-              (v.details?.expiresAt != null &&
-                  !DateTime.now()
-                      .difference(v.details!.expiresAt!)
-                      .isNegative)) ||
-          (course != null &&
-              course.freeCourseExpirationAt != null &&
-              course.isFree == true &&
-              DateTime.now()
-                      .difference(course.freeCourseExpirationAt!)
-                      .inDays >=
-                  30);
-      if (remove) {
-        add(DeleteEveryThingRelatedToCourse(k));
+  ) async {
+    final now = DateTime.now();
+    final firstDownloads = Map.of(state.courseIdToFirstDownloadAt);
+    final expired = <String>[];
+    final awaitingRenewalCheck = <String>[];
+    state.courseIdToCourseDetailsReferences.forEach((courseId, course) {
+      // Courses downloaded before this date was recorded start their two
+      // months now.
+      firstDownloads.putIfAbsent(courseId, () => now);
+      final active = state.courses.firstWhereOrNull(
+        (item) => item.id == courseId,
+      );
+      if (!DownloadedCourseExpiry.shouldDelete(
+        course: course,
+        firstDownloadedAt: firstDownloads[courseId],
+        renewedSubscriptionExpiresAt: active?.subscriptionExpiresAt,
+        now: now,
+      )) {
+        return;
+      }
+      if (DownloadedCourseExpiry.endsWithSubscription(course, now)) {
+        awaitingRenewalCheck.add(courseId);
+      } else {
+        expired.add(courseId);
       }
     });
+    if (firstDownloads.length != state.courseIdToFirstDownloadAt.length) {
+      emit(state.copyWith(courseIdToFirstDownloadAt: firstDownloads));
+    }
+    // A saved subscription date may be older than a renewal: wait for the
+    // server's list, unless there is no connection to get it.
+    if (awaitingRenewalCheck.isNotEmpty &&
+        (_serverCoursesFresh || await isOffline())) {
+      expired.addAll(awaitingRenewalCheck);
+    }
+    for (final courseId in expired) {
+      debugPrint('[Downloads] removing expired course $courseId');
+      add(DeleteEveryThingRelatedToCourse(courseId));
+    }
   }
 }

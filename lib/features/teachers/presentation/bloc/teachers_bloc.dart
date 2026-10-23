@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:coursaty_student_and_teacher/core/models/pagination_model.dart';
+import 'package:coursaty_student_and_teacher/core/models/revenue_invoice_model.dart';
 import 'package:coursaty_student_and_teacher/core/use_case/use_case.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_affilations_model.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_details_model.dart';
@@ -273,7 +274,7 @@ class TeachersBloc extends Bloc<TeachersEvent, TeachersState> {
     Emitter<TeachersState> emit,
   ) async {
     emit(state.copyWith(getRevenues: Status.loading));
-    final res = await getRevenueUsecase(NoParams());
+    final res = await getRevenueUsecase(event.period);
     res.fold(
       (l) => emit(
         state.copyWith(getRevenues: Status.failure, errorMessage: l.message),

@@ -23,10 +23,8 @@ void main() {
     await tester.pumpWidget(
       ValueListenableBuilder<int>(
         valueListenable: dependenciesGeneration,
-        builder: (context, _, child) => BlocProvider.value(
-          value: GetIt.I<_CounterCubit>(),
-          child: child!,
-        ),
+        builder: (context, _, child) =>
+            BlocProvider.value(value: GetIt.I<_CounterCubit>(), child: child!),
         child: Directionality(
           textDirection: TextDirection.ltr,
           child: Builder(
@@ -52,7 +50,10 @@ void main() {
 
     expect(find.text('value 2'), findsOneWidget);
     expect(
-      identical(BlocProvider.of<_CounterCubit>(innerContext), GetIt.I<_CounterCubit>()),
+      identical(
+        BlocProvider.of<_CounterCubit>(innerContext),
+        GetIt.I<_CounterCubit>(),
+      ),
       isTrue,
     );
 
