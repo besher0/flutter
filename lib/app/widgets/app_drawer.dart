@@ -528,7 +528,7 @@ class _AppDrawerState extends State<AppDrawer> {
                                 15.verticalSpace,
                               ],
                               Text(
-                                'Version 2.1.1',
+                                'Version 2.2.1',
                                 style: GoogleFonts.cairo(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,
