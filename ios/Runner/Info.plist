@@ -87,6 +87,8 @@
 	<string>This app needs permission to save downloaded files and media to your device.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs access to the microphone to record videos for course content.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app uses your location while you take photos so images added to your profile or course content can include where they were taken.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>CFBundleLocalizations</key>
