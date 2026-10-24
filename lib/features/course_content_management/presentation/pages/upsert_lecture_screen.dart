@@ -11,6 +11,7 @@ import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
 class AddOrUpdateLectureScreen extends StatefulWidget {
   const AddOrUpdateLectureScreen({
@@ -156,7 +157,7 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
                     controller: _sortOrderController,
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.done,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    inputFormatters: [AsciiDigitsFormatter()],
                   ),
 
                   const SizedBox(height: 40),

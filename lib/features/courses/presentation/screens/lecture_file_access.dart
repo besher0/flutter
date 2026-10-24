@@ -13,6 +13,22 @@ bool isLectureFileLocked({
       (!isFree && !activeCourseIds.contains(courseId));
 }
 
+/// Same rule as the lecture screen's lock icon on a video.
+bool isLectureVideoLocked({
+  required Video video,
+  required String courseId,
+  required bool isCourseFree,
+  required bool isGuest,
+  required Iterable<String> activeCourseIds,
+}) {
+  final isFree = isCourseFree || (video.isFree ?? false);
+  return video.id == null ||
+      video.locked == true ||
+      (isGuest
+          ? !(video.isFree ?? false)
+          : (!isFree && !activeCourseIds.contains(courseId)));
+}
+
 bool canOpenLectureFileAsGuest({
   required FileElement file,
   required bool isCourseFree,

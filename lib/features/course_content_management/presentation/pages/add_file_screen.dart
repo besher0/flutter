@@ -15,6 +15,7 @@ import '../../../../core/common/helper/show_message.dart';
 import '../../../../core/utils/extensions/build_context.dart';
 import '../../../courses/presentation/widgets/course_free_checkbox.dart';
 import '../bloc/course_content_management_bloc.dart';
+import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
 class AddFileScreen extends StatefulWidget {
   const AddFileScreen({
@@ -90,7 +91,7 @@ class _AddFileScreenState extends State<AddFileScreen> {
                         minLines: 1,
                         controller: sortOrder,
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
+                          AsciiDigitsFormatter(),
                         ],
                       ),
                       15.verticalSpace,

@@ -1,7 +1,5 @@
 import 'dart:io';
-import 'dart:math' as math;
 
-import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
 
 /// Pinch-to-zoom state for the video picture.
@@ -32,9 +30,9 @@ class VideoZoom {
 class VideoZoomController extends ValueNotifier<VideoZoom> {
   VideoZoomController({this.maxScale = 4}) : super(VideoZoom.identity);
 
-  /// The zoom copy is drawn from the player's video texture, which is how
-  /// better_player renders on Android. On iOS it renders through a platform
-  /// view (UiKitView) that cannot be redrawn this way, so zoom is Android only.
+  /// better_player renders through a Flutter texture on Android, which scales
+  /// cleanly. On iOS it renders through a platform view (UiKitView), so zoom
+  /// is Android only.
   static bool get isSupported => Platform.isAndroid;
 
   final double maxScale;
@@ -83,6 +81,8 @@ class VideoZoomController extends ValueNotifier<VideoZoom> {
 /// Wraps the player (inline or full screen) and turns pinch / pan gestures
 /// into [VideoZoomController] updates. Single-finger drags only pan while the
 /// picture is zoomed, so taps, the seek bar and page scrolling keep working.
+/// A double tap resets a zoomed picture (only then, so it never delays the
+/// player's own taps).
 class VideoZoomGestureLayer extends StatelessWidget {
   const VideoZoomGestureLayer({
     super.key,
@@ -102,89 +102,109 @@ class VideoZoomGestureLayer extends StatelessWidget {
             ? Offset.zero
             : Offset(point.dx / size.width, point.dy / size.height);
 
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onScaleStart: (details) =>
-              controller.startGesture(normalize(details.localFocalPoint)),
-          onScaleUpdate: (details) {
-            if (details.pointerCount < 2 && !controller.value.isZoomed) return;
-            controller.updateGesture(
-              gestureScale: details.pointerCount < 2 ? 1 : details.scale,
-              normalizedFocal: normalize(details.localFocalPoint),
-            );
-          },
-          onScaleEnd: (_) => controller.endGesture(),
+        return ValueListenableBuilder<VideoZoom>(
+          valueListenable: controller,
           child: child,
+          builder: (context, zoom, child) => GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onDoubleTap: zoom.isZoomed ? controller.reset : null,
+            onScaleStart: (details) =>
+                controller.startGesture(normalize(details.localFocalPoint)),
+            onScaleUpdate: (details) {
+              if (details.pointerCount < 2 && !controller.value.isZoomed) {
+                return;
+              }
+              controller.updateGesture(
+                gestureScale: details.pointerCount < 2 ? 1 : details.scale,
+                normalizedFocal: normalize(details.localFocalPoint),
+              );
+            },
+            onScaleEnd: (_) => controller.endGesture(),
+            child: child,
+          ),
         );
       },
     );
   }
 }
 
-/// Drawn through `BetterPlayerConfiguration.overlay`, i.e. above the video
-/// layer and below the controls. While zoomed it paints a transformed copy of
-/// the video texture over the original picture; the controls stay unscaled.
-class VideoZoomOverlay extends StatelessWidget {
-  const VideoZoomOverlay({super.key, required this.zoomController});
+/// Scales and pans the player itself while zoomed: a single video texture is
+/// on screen.
+///
+/// ⚠️ The zoom used to paint a second, transformed `Texture` of the player's
+/// texture id over the picture. Sampling one video texture twice per frame
+/// made Android's renderer tear the picture into black, stair-stepped blocks
+/// while pinching. The player's controls would be scaled too, so the player
+/// hides them while zoomed.
+///
+/// The child keeps the same place in the tree whether zoomed or not (identity
+/// transform at 1x), so the player is never rebuilt by a zoom change.
+class VideoZoomTransform extends StatelessWidget {
+  const VideoZoomTransform({
+    super.key,
+    required this.controller,
+    required this.child,
+  });
 
-  final VideoZoomController zoomController;
+  final VideoZoomController controller;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: ValueListenableBuilder<VideoZoom>(
-        valueListenable: zoomController,
-        builder: (context, zoom, _) {
-          // Same provider in the inline and the full-screen player.
-          final video = BetterPlayerController.of(
-            context,
-          ).videoPlayerController;
-          // better_player_plus marks textureId @visibleForTesting, but it is
-          // exactly what its Android view renders (`Texture(textureId)`) and
-          // there is no public alternative. Pinned by pubspec.lock (1.2.1).
-          // ignore: invalid_use_of_visible_for_testing_member
-          final textureId = video?.textureId;
-          final videoSize = video?.value.size;
-          if (!zoom.isZoomed ||
-              textureId == null ||
-              videoSize == null ||
-              videoSize.isEmpty) {
-            return const SizedBox.shrink();
-          }
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final viewport = constraints.biggest;
-              final transform = Matrix4.identity()
-                ..translateByDouble(
-                  zoom.offset.dx * viewport.width,
-                  zoom.offset.dy * viewport.height,
-                  0,
-                  1,
-                )
-                ..scaleByDouble(zoom.scale, zoom.scale, 1, 1);
-              return ColoredBox(
-                color: Colors.black,
-                child: ClipRect(
-                  child: Transform(
-                    transform: transform,
-                    // Same fit as the player's own video layer (BoxFit.contain).
-                    child: SizedBox.expand(
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: SizedBox(
-                          width: math.max(1, videoSize.width),
-                          height: math.max(1, videoSize.height),
-                          child: Texture(textureId: textureId),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewport = constraints.biggest;
+        return ValueListenableBuilder<VideoZoom>(
+          valueListenable: controller,
+          child: child,
+          builder: (context, zoom, player) => ClipRect(
+            child: Transform(
+              transform: zoomTransform(zoom, viewport),
+              child: player,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Translation then scale, with the offset given as a fraction of [viewport].
+  @visibleForTesting
+  static Matrix4 zoomTransform(VideoZoom zoom, Size viewport) {
+    if (!zoom.isZoomed || !viewport.isFinite) return Matrix4.identity();
+    return Matrix4.identity()
+      ..translateByDouble(
+        zoom.offset.dx * viewport.width,
+        zoom.offset.dy * viewport.height,
+        0,
+        1,
+      )
+      ..scaleByDouble(zoom.scale, zoom.scale, 1, 1);
+  }
+}
+
+/// Shown while zoomed, above the zoomed picture and unscaled: the player's own
+/// controls are hidden then, and pinching out is not obvious to everyone.
+class VideoZoomResetButton extends StatelessWidget {
+  const VideoZoomResetButton({super.key, required this.controller});
+
+  final VideoZoomController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<VideoZoom>(
+      valueListenable: controller,
+      builder: (context, zoom, _) => zoom.isZoomed
+          ? Material(
+              color: Colors.black54,
+              shape: const CircleBorder(),
+              child: IconButton(
+                tooltip: 'إلغاء التكبير',
+                icon: const Icon(Icons.zoom_out, color: Colors.white),
+                onPressed: controller.reset,
+              ),
+            )
+          : const SizedBox.shrink(),
     );
   }
 }

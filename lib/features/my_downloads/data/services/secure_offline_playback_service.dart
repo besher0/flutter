@@ -6,6 +6,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/secure_video_models.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/decrypted_segment_cache.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/encrypted_hls_download_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/offline_license_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_device_key_service.dart';
@@ -155,6 +156,17 @@ class SecureOfflinePlaybackService {
 
     final token = _randomToken();
     _logLocalPlaylist(manifest);
+    final playbackManifest = manifest;
+    final segmentsByIndex = {
+      for (final item in playbackManifest.segments) item.index: item,
+    };
+    final segmentCache = DecryptedSegmentCache((index) async {
+      final bytes = await _downloadService.decryptSegment(
+        playbackManifest,
+        segmentsByIndex[index]!,
+      );
+      return bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
+    });
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     late StreamSubscription<HttpRequest> subscription;
     subscription = server.listen((request) async {
@@ -199,13 +211,7 @@ class SecureOfflinePlaybackService {
         if (request.uri.pathSegments.length == 3 &&
             request.uri.pathSegments[1] == 'segment') {
           final index = int.tryParse(request.uri.pathSegments[2]);
-          EncryptedSegmentMetadata? segment;
-          for (final item in manifest!.segments) {
-            if (item.index == index) {
-              segment = item;
-              break;
-            }
-          }
+          final segment = segmentsByIndex[index];
           if (segment == null || !segment.completed) {
             responseStarted = true;
             response.statusCode = HttpStatus.notFound;
@@ -213,24 +219,17 @@ class SecureOfflinePlaybackService {
             responseCompleted = true;
             return;
           }
-          final bytes = await _downloadService.decryptSegment(
-            manifest,
-            segment,
-          );
-          final decryptedSha256 = await _downloadService.sha256Hex(bytes);
-          final sha256Match =
-              segment.originalSha256.isEmpty ||
-              segment.originalSha256 == decryptedSha256;
+          // AES-GCM decryption already fails on any altered byte, so the
+          // extra SHA-256 pass over every segment is not repeated here.
+          final bytes = await segmentCache.get(segment.index);
+          final next = segmentsByIndex[segment.index + 1];
+          if (next != null && next.completed) {
+            segmentCache.prefetch(next.index);
+          }
           final lengthMatch =
               segment.originalLength == 0 ||
               segment.originalLength == bytes.length;
-          developer.log(
-            'segment=${segment.localName} originalLength=${segment.originalLength} '
-            'decryptedLength=${bytes.length} sha256Match=$sha256Match '
-            'lengthMatch=$lengthMatch',
-            name: 'SecureOfflinePlaybackService',
-          );
-          if (!sha256Match || !lengthMatch) {
+          if (!lengthMatch) {
             response.statusCode = HttpStatus.internalServerError;
             await response.close();
             responseCompleted = true;
@@ -259,7 +258,7 @@ class SecureOfflinePlaybackService {
               name: 'SecureOfflinePlaybackService',
             );
             response.add(
-              Uint8List.fromList(bytes.sublist(parsed.start, parsed.end + 1)),
+              Uint8List.sublistView(bytes, parsed.start, parsed.end + 1),
             );
           } else {
             response.statusCode = HttpStatus.ok;
@@ -270,7 +269,7 @@ class SecureOfflinePlaybackService {
               'bytes=${bytes.length}',
               name: 'SecureOfflinePlaybackService',
             );
-            response.add(Uint8List.fromList(bytes));
+            response.add(bytes);
           }
           await response.close();
           responseCompleted = true;
@@ -305,6 +304,7 @@ class SecureOfflinePlaybackService {
         'http://127.0.0.1:${server.port}/$token/playlist.m3u8',
       ),
       close: () async {
+        segmentCache.clear();
         await subscription.cancel();
         await server.close(force: true);
       },

@@ -18,12 +18,17 @@ class MyDownloadsState {
   /// use (or see) them.
   final String? ownerUserId;
 
+  /// First download of each course on this device: free courses are removed
+  /// two months after it.
+  final Map<String, DateTime> courseIdToFirstDownloadAt;
+
   MyDownloadsState({
     this.ownerUserId,
     this.courses = const [],
     this.urlToFileReferences = const {},
     this.courseIdToCourseDetailsReferences = const {},
     this.lectureIdToLectureDetailsReferences = const {},
+    this.courseIdToFirstDownloadAt = const {},
   });
 
   MyDownloadsState copyWith({
@@ -32,6 +37,7 @@ class MyDownloadsState {
     final Map<String, CourseDetailsModel>? courseIdToCourseDetailsReferences,
     final Map<String, LectureDetailsModel>? lectureIdToLectureDetailsReferences,
     final String? ownerUserId,
+    final Map<String, DateTime>? courseIdToFirstDownloadAt,
   }) {
     return MyDownloadsState(
       ownerUserId: ownerUserId ?? this.ownerUserId,
@@ -43,6 +49,8 @@ class MyDownloadsState {
       lectureIdToLectureDetailsReferences:
           lectureIdToLectureDetailsReferences ??
           this.lectureIdToLectureDetailsReferences,
+      courseIdToFirstDownloadAt:
+          courseIdToFirstDownloadAt ?? this.courseIdToFirstDownloadAt,
     );
   }
 
@@ -70,12 +78,12 @@ class MyDownloadsState {
     }
 
     return copyWith(
-      urlToFileReferences: {
-        ...urlToFileReferences,
-        fileUrl: localFilePath,
-      },
+      urlToFileReferences: {...urlToFileReferences, fileUrl: localFilePath},
       courseIdToCourseDetailsReferences: courses,
       lectureIdToLectureDetailsReferences: lectures,
+      courseIdToFirstDownloadAt: courseIdToFirstDownloadAt.containsKey(courseId)
+          ? null
+          : {...courseIdToFirstDownloadAt, courseId: DateTime.now()},
     );
   }
 

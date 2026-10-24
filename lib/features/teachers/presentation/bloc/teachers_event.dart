@@ -7,7 +7,11 @@ class GetLikedTeachersEvent extends TeachersEvent {}
 
 class GetTeachersEvent extends TeachersEvent {}
 
-class GetRevenuesEvent extends TeachersEvent {}
+class GetRevenuesEvent extends TeachersEvent {
+  final RevenuePeriod period;
+
+  GetRevenuesEvent({this.period = RevenuePeriod.allTime});
+}
 
 class GetWithdrawalsEvent extends TeachersEvent {
   final bool reset;

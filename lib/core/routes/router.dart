@@ -61,7 +61,7 @@ class GRouter {
       if (state.fullPath?.isEmpty ?? true) {
         return _config.applicationRoutes.splash;
       }
-      if (!SubscriptionFeatureFlags.showLegacySubscriptionMethods &&
+      if (!SubscriptionFeatureFlags.showPointsOfSale &&
           (state.matchedLocation == _config.applicationRoutes.pointsOfSale ||
               state.matchedLocation ==
                   _config.applicationRoutes.pointOfSaleDetails)) {
@@ -79,9 +79,10 @@ class GRouter {
       GoRoute(
         path: _config.applicationRoutes.splash,
         pageBuilder: (context, state) {
-          final bool isSimulator =
-              !DeviceInfoService.isRealDevice ||
-              (MediaQuery.sizeOf(context).width > 650 && kIsAndroid);
+          // ⚠️ A screen wider than 650 used to count as an emulator too, which
+          // refused every 8–10" tablet ("run the app on a real device").
+          // Emulators are recognised by DeviceInfoService alone.
+          final bool isSimulator = !DeviceInfoService.isRealDevice;
           final bool rooted = CheckDeviceRootService.isDeviceHasRoot;
           // final bool outDated = false;
           //DateTime.now().difference(DateTime(2026, 5, 25)).inDays > 3;

@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -45,7 +46,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       appBar: TitleAppBar(title: 'اشتراكاتي', onBellTap: _onBellTap),
       body: SafeArea(
         child: DefaultTabController(
-          length: 3,
+          // The purchase-requests tab is a payment flow: hidden on an iPhone
+          // whose admin setting hides paid content.
+          length: PaidContentPolicy.hidePaid ? 2 : 3,
           child: Column(
             children: [
               const SizedBox(height: 8),
@@ -69,10 +72,10 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   borderSide: BorderSide(color: AppColors.secondary, width: 2),
                   insets: const EdgeInsets.symmetric(horizontal: 40),
                 ),
-                tabs: const [
-                  Tab(text: 'اهتماماتي'),
-                  Tab(text: 'الفعالة'),
-                  Tab(text: 'المنتهية'),
+                tabs: [
+                  if (!PaidContentPolicy.hidePaid) const Tab(text: 'اهتماماتي'),
+                  const Tab(text: 'الفعالة'),
+                  const Tab(text: 'المنتهية'),
                 ],
               ),
 
@@ -89,7 +92,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     return TabBarView(
                       physics: AlwaysScrollableScrollPhysics(),
                       children: [
-                        const InterestsTab(),
+                        if (!PaidContentPolicy.hidePaid) const InterestsTab(),
                         // ✅ Active Tab
                         state.getActiveCourses.isLoading || state.isDeleting
                             ? Center(child: CoursatyAppLoader())

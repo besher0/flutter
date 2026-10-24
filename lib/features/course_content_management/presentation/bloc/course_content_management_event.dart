@@ -36,6 +36,9 @@ class UpsertVideoEvent extends CourseContentManagementEvent {
   UpsertVideoEvent(this.params, {required this.courseId});
 }
 
+/// The teacher stopped the video upload in progress.
+class CancelVideoUploadEvent extends CourseContentManagementEvent {}
+
 class VideoSelectedEvent extends CourseContentManagementEvent {
   final XFile? file;
 

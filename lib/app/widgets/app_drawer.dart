@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/chip_widget.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/you_are_guest_dialog.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
@@ -293,6 +294,9 @@ class _AppDrawerState extends State<AppDrawer> {
                       flex: 10,
                       child: ListView(
                         children: [
+                          // Code activation is a purchase: hidden on an iPhone
+                          // whose admin setting hides paid content.
+                          if (!PaidContentPolicy.hidePaid)
                           BlocConsumer<AppBloc, AppState>(
                             listener: (context, state) {},
                             builder: (context, state) {
@@ -330,8 +334,7 @@ class _AppDrawerState extends State<AppDrawer> {
                               );
                             },
                           ),
-                          if (SubscriptionFeatureFlags
-                              .showLegacySubscriptionMethods)
+                          if (SubscriptionFeatureFlags.showPointsOfSale)
                             _DrawerItem(
                               icon: AppAssets.iconCategory,
                               iconColor: Theme.of(context).colorScheme.primary,
@@ -525,7 +528,7 @@ class _AppDrawerState extends State<AppDrawer> {
                                 15.verticalSpace,
                               ],
                               Text(
-                                'Version 2.0.0',
+                                'Version 2.2.1',
                                 style: GoogleFonts.cairo(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,

@@ -17,6 +17,7 @@ import '../../../../app/widgets/custom_choose_file_button.dart';
 import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../bloc/auth_bloc.dart';
+import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key, required this.isForTeacher});
@@ -149,7 +150,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
                   inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
+                    AsciiDigitsFormatter(),
                     LengthLimitingTextInputFormatter(10),
                   ],
                   validator: _validatePhone,

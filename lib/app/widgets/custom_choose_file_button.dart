@@ -37,7 +37,21 @@ class CustomChooseFileButton extends StatefulWidget {
 class _CustomChooseFileButtonState extends ThemeState<CustomChooseFileButton> {
   final ImagePicker _picker = ImagePicker();
 
+  /// The picker copies the chosen file before returning it, which takes a
+  /// while for a large video; the button shows that it is working meanwhile.
+  bool _picking = false;
+
   Future<void> _pickFile() async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      await _pickFileNow();
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  Future<void> _pickFileNow() async {
     widget.choosedFile.value = null;
 
     final XFile? file;
@@ -101,6 +115,31 @@ class _CustomChooseFileButtonState extends ThemeState<CustomChooseFileButton> {
                     ValueListenableBuilder<XFile?>(
                       valueListenable: widget.choosedFile,
                       builder: (context, file, _) {
+                        if (_picking) {
+                          return Container(
+                            width: 1.sw - 150,
+                            padding: EdgeInsets.all(5),
+                            child: Row(
+                              children: [
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                8.horizontalSpace,
+                                Flexible(
+                                  child: Text(
+                                    widget.usedForImage || widget.usedForFile
+                                        ? "جارٍ تجهيز الملف…"
+                                        : "جارٍ تجهيز الفيديو من الذاكرة…",
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.cairo(fontSize: 14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
                         return Container(
                           width: 1.sw - 150,
                           padding: EdgeInsets.all(5),

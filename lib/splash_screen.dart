@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/app/widgets/app_update_gate.dart';
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
@@ -36,6 +37,8 @@ class _SplashScreenState extends State<SplashScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleDeepLinks();
+      // Admin-controlled updates: checked now and when the app comes back.
+      AppUpdateGate.start();
     });
   }
 
