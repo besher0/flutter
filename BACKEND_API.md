@@ -128,6 +128,11 @@ Rules (all verified):
   `200 video/mp4`.
 - `GET /advertisements?universityId=…` **excludes global ads** (`universityId: null`). Fetch unfiltered
   and keep global + current-university ads.
+- `PATCH /advertisements/{id}` takes every create field (`universityId`, `collegeId`, `departmentId`,
+  `title`, `imageUrl`, `fullScreen_imageUrl`, `videoUrl`, `helperLink`). Since 2026-10-24 (branch
+  `fix/ads-edit-all-fields`) **`null` clears** the media fields too; the admin sends all of them, so an
+  image ad turned into a video ad loses its images. The student app shows `videoUrl` first on the banner
+  and `fullScreen_imageUrl` first in the preview, so a stale field would win.
 - `GET /admins/users-directory?type=student&search=` matches **name, university number and phone**
   (swagger says name only). For `type=teacher` it matches **name only** — the backend cannot search
   teachers by phone. There is **no parameter to choose the search field**; isolating one is client-side
