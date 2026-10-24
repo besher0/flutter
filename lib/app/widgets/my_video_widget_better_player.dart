@@ -13,6 +13,7 @@ import 'package:coursaty_student_and_teacher/features/courses/presentation/widge
 import 'package:coursaty_student_and_teacher/features/home/presentation/bloc/home_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/secure_video_models.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/models/video_security_errors.dart';
+import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/online_playback_proxy.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/secure_offline_playback_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_access_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_device_key_service.dart';
@@ -20,6 +21,9 @@ import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_model.dart';
 import 'package:flutter/material.dart';
 import 'package:better_player_plus/better_player_plus.dart';
+// Drawn above the zoomed picture instead of inside the scaled player.
+// ignore: implementation_imports
+import 'package:better_player_plus/src/controls/better_player_material_controls.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -99,6 +103,10 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       GetIt.I<SecureOfflinePlaybackService>();
   SecureOfflinePlaybackSession? _offlineSession;
   PlaybackSessionResponse? _onlineSession;
+
+  /// Online playback goes through this local proxy so a session renewal
+  /// never reloads the player (see [OnlinePlaybackProxy]).
+  OnlinePlaybackProxy? _onlineProxy;
   Timer? _renewalTimer;
   bool _renewingPlaybackSession = false;
   bool _hasRefreshedForCurrentError = false;
@@ -117,6 +125,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       final source = await _resolveSource();
       if (!mounted) {
         await _offlineSession?.close();
+        await _onlineProxy?.close();
         return;
       }
       betterPlayerDataSource = BetterPlayerDataSource(
@@ -134,9 +143,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
             DeviceOrientation.landscapeLeft,
             DeviceOrientation.landscapeRight,
           ],
-          controlsConfiguration: BetterPlayerControlsConfiguration(
-            progressBarPlayedColor: Theme.of(context).colorScheme.primary,
-          ),
+          controlsConfiguration: _controlsConfiguration,
           fit: BoxFit.contain,
           autoPlay: false,
           looping: false,
@@ -170,7 +177,29 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     }
     final session = await _createOnlineSessionWithReplacement();
     _onlineSession = session;
-    return _sourceFor(session);
+    return _throughProxy(await _sourceFor(session));
+  }
+
+  /// Points the proxy at [source] (starting it on first use) and returns the
+  /// local URL the player opens. If the proxy cannot start, the player reads
+  /// the stream directly as before.
+  Future<_PlaybackSource> _throughProxy(_PlaybackSource source) async {
+    final upstream = Uri.parse(source.url);
+    try {
+      final proxy = _onlineProxy;
+      if (proxy == null) {
+        _onlineProxy = await OnlinePlaybackProxy.start(
+          upstream: upstream,
+          headers: source.headers,
+        );
+      } else {
+        proxy.updateUpstream(upstream, source.headers);
+      }
+      return _PlaybackSource(_onlineProxy!.localUrlFor(upstream).toString());
+    } catch (error) {
+      log('playback proxy unavailable: ${error.runtimeType}');
+      return source;
+    }
   }
 
   /// Honors the quality the user picked by selecting that HLS variant. The
@@ -320,27 +349,33 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     _renewingPlaybackSession = true;
     try {
       final controller = betterPlayerController;
-      final wasPlaying = controller.isPlaying() ?? false;
-      final position =
-          await controller.videoPlayerController?.position ?? Duration.zero;
-      final speed = controller.videoPlayerController?.value.speed ?? 1.0;
       final session = await _renewOnlineSession();
       if (!mounted) return;
       _onlineSession = session;
-      final source = await _sourceFor(session);
+      final source = await _throughProxy(await _sourceFor(session));
       if (!mounted) return;
-      await controller.setupDataSource(
-        BetterPlayerDataSource(
+      // ⚠️ The proxy now sends the renewed session with every request, so the
+      // player keeps going untouched. `setupDataSource` made better_player
+      // remove the video until the next play event: a black flash at every
+      // renewal (every few minutes). A reload is only needed after a failed
+      // request stopped the player, or if the stream URL itself changed.
+      if (!proactive || source.url != betterPlayerDataSource.url) {
+        final wasPlaying = controller.isPlaying() ?? false;
+        final position =
+            await controller.videoPlayerController?.position ?? Duration.zero;
+        final speed = controller.videoPlayerController?.value.speed ?? 1.0;
+        betterPlayerDataSource = BetterPlayerDataSource(
           BetterPlayerDataSourceType.network,
           source.url,
           videoFormat: BetterPlayerVideoFormat.hls,
           headers: source.headers,
-        ),
-      );
-      await controller.setSpeed(speed);
-      await controller.seekTo(position);
-      if (wasPlaying) {
-        controller.play();
+        );
+        await controller.setupDataSource(betterPlayerDataSource);
+        await controller.setSpeed(speed);
+        await controller.seekTo(position);
+        if (wasPlaying) {
+          controller.play();
+        }
       }
       _scheduleRenewal();
     } on DeviceReplacementRequiredException {
@@ -384,35 +419,57 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     await _renewPlayback(proactive: false);
   }
 
-  /// Pinch-to-zoom around the player (inline and full screen). The player
-  /// itself is scaled; its controls are hidden while zoomed (see
-  /// [_onZoomChanged]) and a reset button floats above the picture.
+  /// Where zoom is supported, better_player draws no controls inside the
+  /// player ([BetterPlayerTheme.custom] with an empty builder): the player is
+  /// scaled while zoomed, and its controls would be scaled and pushed off
+  /// screen with it. [_zoomable] draws the same material controls above the
+  /// zoomed picture instead, so they stay usable at any zoom.
+  BetterPlayerControlsConfiguration get _controlsConfiguration =>
+      BetterPlayerControlsConfiguration(
+        progressBarPlayedColor: Theme.of(context).colorScheme.primary,
+        playerTheme: VideoZoomController.isSupported
+            ? BetterPlayerTheme.custom
+            : null,
+        customControlsBuilder: VideoZoomController.isSupported
+            ? (_, _, _) => const SizedBox.shrink()
+            : null,
+      );
+
+  /// Pinch-to-zoom around the player (inline and full screen). Only the
+  /// picture is scaled; the controls sit above it at their normal size, and a
+  /// reset button shows while zoomed. The gesture layer wraps both, so a pinch
+  /// on the controls still zooms and a tap still reaches them.
   Widget _zoomable(Widget player) {
     if (!VideoZoomController.isSupported) return player;
     return Stack(
       children: [
         VideoZoomGestureLayer(
           controller: _zoomController,
-          child: VideoZoomTransform(controller: _zoomController, child: player),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              VideoZoomTransform(controller: _zoomController, child: player),
+              BetterPlayerControllerProvider(
+                controller: betterPlayerController,
+                child: BetterPlayerMaterialControls(
+                  onControlsVisibilityChanged: (_) {},
+                  controlsConfiguration:
+                      betterPlayerController.betterPlayerControlsConfiguration,
+                ),
+              ),
+            ],
+          ),
         ),
         Positioned(
           top: 8,
-          left: 8,
-          child: VideoZoomResetButton(controller: _zoomController),
+          left: 0,
+          right: 0,
+          child: Center(
+            child: VideoZoomResetButton(controller: _zoomController),
+          ),
         ),
       ],
     );
-  }
-
-  bool _controlsHiddenForZoom = false;
-
-  /// Zoomed controls would be scaled and pushed off screen, so they are hidden
-  /// while the picture is zoomed and come back (on tap) once it is reset.
-  void _onZoomChanged() {
-    final zoomed = _zoomController.value.isZoomed;
-    if (zoomed == _controlsHiddenForZoom || !initialized) return;
-    _controlsHiddenForZoom = zoomed;
-    betterPlayerController.setControlsEnabled(!zoomed);
   }
 
   /// Same page as better_player's default full-screen route, plus pinch zoom.
@@ -446,12 +503,6 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _zoomController.addListener(_onZoomChanged);
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     init();
@@ -467,6 +518,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       betterPlayerController.dispose();
     }
     _offlineSession?.close();
+    _onlineProxy?.close();
     super.dispose();
   }
 

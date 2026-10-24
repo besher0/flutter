@@ -196,6 +196,13 @@ withdrawals, `dashboard/*`) are the ones this app consumes.
   on every request. Downloads use `download-session` + an offline license. Qualities come from
   `uploads/videos/{id}/resolutions`, `playlistResolutions` first. Players hold a wake lock
   (`app/widgets/playback_wakelock.dart`).
+- Online playback goes through a loopback proxy (`my_downloads/data/services/online_playback_proxy.dart`):
+  the player opens one local URL for the whole viewing and a session renewal only swaps the proxy's
+  upstream token/header. ⚠️ Never renew by calling `setupDataSource` while playing — better_player hides
+  the video until the next play event, which was the black flash every ~4 minutes (signed URLs live
+  300 s). Pinch zoom (Android) scales only the picture; better_player draws no controls inside the
+  player (`BetterPlayerTheme.custom` + empty builder) and `_zoomable` draws `BetterPlayerMaterialControls`
+  above the zoomed picture.
 - Besides the unit tests, the practical way to validate a change against the real backend is the same
   one used in the admin project: have the user log in and save the token, then drive the app's real
   data sources from a throwaway `test/zz_tmp_*.dart` (Dio + token in headers) and delete it afterwards.
