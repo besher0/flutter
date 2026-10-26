@@ -92,10 +92,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final isStudent = _prefsRepository.isStudent;
     final pages = (isStudent
         ? [
-            HomeContent(openSearch: openSearch),
-            CoursesScreen(currentSelectedCategory: currentSelectedCategory),
-            SubscriptionsScreen(),
-            DownloadsScreen(),
+            for (final tab in studentTabs())
+              switch (tab) {
+                StudentTab.home => HomeContent(openSearch: openSearch),
+                StudentTab.courses => CoursesScreen(
+                  currentSelectedCategory: currentSelectedCategory,
+                ),
+                StudentTab.subscriptions => SubscriptionsScreen(),
+                StudentTab.downloads => DownloadsScreen(),
+              },
           ]
         : [
             TeacherHomePage(
@@ -108,6 +113,9 @@ class _HomeScreenState extends State<HomeScreen> {
             TeacherCoursesPage(),
             TeacherProfile(),
           ]);
+    // The paid-content setting can change while the app is open (the server is
+    // asked again after start), which removes or adds a tab.
+    if (_navIndex >= pages.length) _navIndex = pages.length - 1;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, __) async {

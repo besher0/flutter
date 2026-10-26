@@ -8,7 +8,8 @@ import 'url_routes.dart';
 
 /// Whether the iPhone app shows anything about paid content: prices, buy and
 /// subscribe buttons, code activation, QR payment, purchase requests, points
-/// of sale, and lessons (videos, files, questions) shown as locked.
+/// of sale, the «اشتراكاتي» tab, and lessons (videos, files, questions) shown
+/// as locked.
 ///
 /// An admin decides (`GET system-settings/app-config` →
 /// `iosPaidContentVisible`). Other platforms always show paid content, and

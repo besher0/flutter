@@ -2,8 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/common/constant/configuration/paid_content_policy.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
+
+/// The student's bottom tabs, in order. The bar and the pages are both built
+/// from [studentTabs], so a hidden tab never shifts one against the other.
+enum StudentTab { home, courses, subscriptions, downloads }
+
+/// «اشتراكاتي» is hidden with the rest of the paid content (iPhone, while the
+/// admin hides it).
+List<StudentTab> studentTabs({bool? hidePaid}) => [
+  StudentTab.home,
+  StudentTab.courses,
+  if (!(hidePaid ?? PaidContentPolicy.hidePaid)) StudentTab.subscriptions,
+  StudentTab.downloads,
+];
 
 class CoursatyBottomNavBar extends StatelessWidget {
   const CoursatyBottomNavBar({
@@ -47,26 +61,29 @@ class CoursatyBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = isStudent
         ? [
-            _buildItem(
-              label: 'الرئيسية',
-              iconPath: AppAssets.iconHome,
-              context: context,
-            ),
-            _buildItem(
-              label: 'الكورسات',
-              iconPath: AppAssets.iconLayers,
-              context: context,
-            ),
-            _buildItem(
-              label: 'اشتراكاتي',
-              iconPath: AppAssets.iconDocument,
-              context: context,
-            ),
-            _buildItem(
-              label: 'التنزيلات',
-              iconPath: AppAssets.iconDownload,
-              context: context,
-            ),
+            for (final tab in studentTabs())
+              switch (tab) {
+                StudentTab.home => _buildItem(
+                  label: 'الرئيسية',
+                  iconPath: AppAssets.iconHome,
+                  context: context,
+                ),
+                StudentTab.courses => _buildItem(
+                  label: 'الكورسات',
+                  iconPath: AppAssets.iconLayers,
+                  context: context,
+                ),
+                StudentTab.subscriptions => _buildItem(
+                  label: 'اشتراكاتي',
+                  iconPath: AppAssets.iconDocument,
+                  context: context,
+                ),
+                StudentTab.downloads => _buildItem(
+                  label: 'التنزيلات',
+                  iconPath: AppAssets.iconDownload,
+                  context: context,
+                ),
+              },
           ]
         : [
             _buildItem(
