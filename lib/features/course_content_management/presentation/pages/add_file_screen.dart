@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
@@ -94,13 +95,17 @@ class _AddFileScreenState extends State<AddFileScreen> {
                           AsciiDigitsFormatter(),
                         ],
                       ),
-                      15.verticalSpace,
-                      IsFreeCourseTile(
-                        isFreeNotifier: isFree,
-                        title: "الملف مجاني",
-                        description:
-                            "عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الملف مجاناً",
-                      ),
+                      // Hidden with paid content (iPhone): a new file stays
+                      // paid and an edited one keeps its current setting.
+                      if (!PaidContentPolicy.hidePaid) ...[
+                        15.verticalSpace,
+                        IsFreeCourseTile(
+                          isFreeNotifier: isFree,
+                          title: "الملف مجاني",
+                          description:
+                              "عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الملف مجاناً",
+                        ),
+                      ],
                       // if (widget.fileElement == null) ...{
                       10.verticalSpace,
                       CustomChooseFileButton(

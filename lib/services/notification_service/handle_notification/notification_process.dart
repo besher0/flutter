@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'dart:developer';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -81,7 +82,7 @@ class NotificationProcess {
         ..add(GetMyInActiveCourses());
       final isRejected = message.data['status'] == 'REJECTED';
       final adminNote = message.data['adminNote']?.toString().trim();
-      if (fromForeground && isRejected) {
+      if (fromForeground && isRejected && !PaidContentPolicy.hidePaid) {
         showMessage(
           adminNote == null || adminNote.isEmpty
               ? 'تم رفض طلب الاشتراك. يمكنك مراجعة تفاصيل الدفع والمحاولة مجددًا.'

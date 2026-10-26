@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/design/constant_design.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
@@ -181,28 +182,30 @@ class _TeacherProfileState extends State<TeacherProfile> {
                     ),
                   ],
                 ),
-                15.verticalSpace,
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ButtonItem(
-                        onTap: () {
-                          context.pushPage(TeacherRevenueScreen());
-                        },
-                        title: "إيراداتي",
+                if (!PaidContentPolicy.hidePaid) ...[
+                  15.verticalSpace,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ButtonItem(
+                          onTap: () {
+                            context.pushPage(TeacherRevenueScreen());
+                          },
+                          title: "إيراداتي",
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: _ButtonItem(
-                        onTap: () {
-                          context.pushPage(TeacherWithdrawalsScreen());
-                        },
-                        title: "سحوباتي",
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: _ButtonItem(
+                          onTap: () {
+                            context.pushPage(TeacherWithdrawalsScreen());
+                          },
+                          title: "سحوباتي",
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
                 15.verticalSpace,
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

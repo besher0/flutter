@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'dart:developer';
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/revenue_widgets.dart';
@@ -60,7 +61,7 @@ class _TeacherCourseDetailsPageState extends State<TeacherCourseDetailsPage> {
       appBar: TitleAppBar(title: "تفاصيل الكورس"),
       body: SafeArea(
         child: DefaultTabController(
-          length: 3,
+          length: PaidContentPolicy.hidePaid ? 2 : 3,
           child: Column(
             children: [
               _CourseTabs(),
@@ -95,7 +96,8 @@ class _TeacherCourseDetailsPageState extends State<TeacherCourseDetailsPage> {
                           },
                           courseId: widget.courseId,
                         ),
-                        _RevenueTab(courseId: widget.courseId),
+                        if (!PaidContentPolicy.hidePaid)
+                          _RevenueTab(courseId: widget.courseId),
                       ],
                     ),
                   );
@@ -129,10 +131,10 @@ class _CourseTabs extends StatelessWidget {
         borderSide: BorderSide(color: AppColors.secondary, width: 2),
         insets: const EdgeInsets.symmetric(horizontal: 40),
       ),
-      tabs: const [
-        Tab(text: 'تفاصيل'),
-        Tab(text: 'المحاضرات'),
-        Tab(text: 'ايرادات'),
+      tabs: [
+        const Tab(text: 'تفاصيل'),
+        const Tab(text: 'المحاضرات'),
+        if (!PaidContentPolicy.hidePaid) const Tab(text: 'ايرادات'),
       ],
     );
   }

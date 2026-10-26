@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -376,41 +377,46 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
             readOnly: widget.courseDetailsModel != null,
           ),
           10.verticalSpace,
-          CoursatyTextField(
-            label: 'سعر الكورس',
-            hint: 'سعر الكورس',
-            validator: _numberValidator,
-            controller: price,
-            readOnly: widget.courseDetailsModel != null,
-          ),
-          10.verticalSpace,
-          CoursatyTextField(
-            label: 'السعر بعد الخصم (اختياري)',
-            hint: 'السعر بعد الخصم (اختياري)',
-            controller: priceAfterDiscount,
-            readOnly: widget.courseDetailsModel != null,
-          ),
-          10.verticalSpace,
-          // CoursatyTextField(
-          //   label: 'مدة للكورس',
-          //   hint: 'مدة للكورس',
-          //   validator: _floatNumberValidator,
-          //   controller: duration,
-          // ),
-          // 10.verticalSpace,
-          IsFreeCourseTile(
-            isFreeNotifier: isFreeNotifier,
-            enabled: widget.courseDetailsModel == null,
-          ),
-          10.verticalSpace,
-          // Editable on create and edit: only controls what students see.
-          IsFreeCourseTile(
-            isFreeNotifier: isPriceVisibleNotifier,
-            title: 'إظهار سعر الكورس',
-            description:
-                'عند إلغاء هذا الخيار يُخفى سعر الكورس وسعر الخصم والسعر النهائي عن الطلاب',
-          ),
-          10.verticalSpace,
+          // Price and free/visible switches are hidden with paid content
+          // (iPhone). Editing resends the stored values; a new course is sent
+          // with price 0 and is priced by the admin when approving it.
+          if (!PaidContentPolicy.hidePaid) ...[
+            CoursatyTextField(
+              label: 'سعر الكورس',
+              hint: 'سعر الكورس',
+              validator: _numberValidator,
+              controller: price,
+              readOnly: widget.courseDetailsModel != null,
+            ),
+            10.verticalSpace,
+            CoursatyTextField(
+              label: 'السعر بعد الخصم (اختياري)',
+              hint: 'السعر بعد الخصم (اختياري)',
+              controller: priceAfterDiscount,
+              readOnly: widget.courseDetailsModel != null,
+            ),
+            10.verticalSpace,
+            // CoursatyTextField(
+            //   label: 'مدة للكورس',
+            //   hint: 'مدة للكورس',
+            //   validator: _floatNumberValidator,
+            //   controller: duration,
+            // ),
+            // 10.verticalSpace,
+            IsFreeCourseTile(
+              isFreeNotifier: isFreeNotifier,
+              enabled: widget.courseDetailsModel == null,
+            ),
+            10.verticalSpace,
+            // Editable on create and edit: only controls what students see.
+            IsFreeCourseTile(
+              isFreeNotifier: isPriceVisibleNotifier,
+              title: 'إظهار سعر الكورس',
+              description:
+                  'عند إلغاء هذا الخيار يُخفى سعر الكورس وسعر الخصم والسعر النهائي عن الطلاب',
+            ),
+            10.verticalSpace,
+          ],
           if (widget.courseDetailsModel?.course?.imageUrl == null)
             CustomChooseFileButton(
               usedForImage: true,
@@ -512,10 +518,14 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
                           //   showMessage("الرجاء إرفاق تاريخ انتهاء الكورس");
                           //   return;
                           // }
-                          int priceBefore = int.parse(price.text);
-                          int priceAfter = priceAfterDiscount.text.isEmpty
+                          // Empty when the price fields are hidden.
+                          int priceBefore =
+                              int.tryParse(price.text.trim()) ?? 0;
+                          int priceAfter =
+                              priceAfterDiscount.text.trim().isEmpty
                               ? priceBefore
-                              : int.parse(priceAfterDiscount.text);
+                              : int.tryParse(priceAfterDiscount.text.trim()) ??
+                                    priceBefore;
                           double percent = priceBefore == 0
                               ? 0
                               : (((priceBefore - priceAfter) * 100) /

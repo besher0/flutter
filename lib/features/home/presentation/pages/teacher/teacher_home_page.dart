@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
@@ -51,13 +52,15 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                RevenueHeroCard(
-                  monthName: state.teacherSummaryResponseModel!.monthNumber
-                      .toString(),
-                  total: state.teacherSummaryResponseModel!.monthlyEarnings
-                      .toString(),
-                ),
-                const SizedBox(height: 12),
+                if (!PaidContentPolicy.hidePaid) ...[
+                  RevenueHeroCard(
+                    monthName: state.teacherSummaryResponseModel!.monthNumber
+                        .toString(),
+                    total: state.teacherSummaryResponseModel!.monthlyEarnings
+                        .toString(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Column(
                   children: [
                     Row(

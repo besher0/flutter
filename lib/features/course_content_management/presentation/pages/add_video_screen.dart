@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/custom_choose_file_button.dart';
@@ -278,13 +279,17 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                         controller: sortOrder,
                         inputFormatters: [AsciiDigitsFormatter()],
                       ),
-                      10.verticalSpace,
-                      IsFreeCourseTile(
-                        isFreeNotifier: isFree,
-                        title: "الفيديو مجاني",
-                        description:
-                            "عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الفيديو مجاناً",
-                      ),
+                      // Hidden with paid content (iPhone): a new video stays
+                      // paid and an edited one keeps its current setting.
+                      if (!PaidContentPolicy.hidePaid) ...[
+                        10.verticalSpace,
+                        IsFreeCourseTile(
+                          isFreeNotifier: isFree,
+                          title: "الفيديو مجاني",
+                          description:
+                              "عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الفيديو مجاناً",
+                        ),
+                      ],
                       10.verticalSpace,
                       // if (!widget.isForEdit) ...{
                       CustomChooseFileButton(
