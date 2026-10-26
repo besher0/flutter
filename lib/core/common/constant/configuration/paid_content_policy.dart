@@ -8,11 +8,14 @@ import 'url_routes.dart';
 
 /// Whether the iPhone app shows anything about paid content: prices, buy and
 /// subscribe buttons, code activation, QR payment, purchase requests, points
-/// of sale, and lessons (videos, files, questions) shown as locked.
+/// of sale, the «اشتراكاتي» tab, and lessons (videos, files, questions) shown
+/// as locked.
 ///
 /// An admin decides (`GET system-settings/app-config` →
-/// `iosPaidContentVisible`). Other platforms always show paid content, and
-/// teacher-only screens are not affected. Until the server has answered once,
+/// `iosPaidContentVisible`). Other platforms always show paid content. On the
+/// teacher side it also hides earnings (home revenue card, revenue and
+/// withdrawals, course revenue tab) and the price and free switches when
+/// creating or editing courses, videos and files. Until the server has answered once,
 /// the iPhone hides it: the safe state for App Store review. The last answer is
 /// kept so the app starts in the right state offline.
 abstract final class PaidContentPolicy {

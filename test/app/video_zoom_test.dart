@@ -1,4 +1,5 @@
 import 'package:coursaty_student_and_teacher/app/widgets/video_zoom.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -173,6 +174,80 @@ void main() {
       await tester.pump();
       expect(tester.state(find.byType(_Player)), same(state));
       expect(find.byType(Texture), findsNothing);
+    });
+  });
+
+  // The player's controls are drawn above the zoomed picture (as in
+  // MyVideoWidgetBetterPlayer._zoomable), so they keep their size and place at
+  // any zoom, still take taps, and a pinch over them still zooms.
+  group('controls above the zoomed picture', () {
+    Future<(VideoZoomController, List<String>)> pump(WidgetTester tester) async {
+      final zoom = VideoZoomController();
+      final taps = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 400,
+              height: 225,
+              child: VideoZoomGestureLayer(
+                controller: zoom,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    VideoZoomTransform(controller: zoom, child: const _Player()),
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: TextButton(
+                        key: const Key('play'),
+                        onPressed: () => taps.add('play'),
+                        child: const Text('play'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      return (zoom, taps);
+    }
+
+    testWidgets('stay unscaled and tappable while zoomed', (tester) async {
+      final (zoom, taps) = await pump(tester);
+      final before = tester.getRect(find.byKey(const Key('play')));
+
+      zoom.value = const VideoZoom(scale: 3, offset: Offset(-1, -1));
+      await tester.pump();
+      expect(tester.getRect(find.byKey(const Key('play'))), before);
+
+      // While zoomed a double tap resets the zoom, so a single tap lands once
+      // the double-tap window has passed (the player's controls wait for
+      // their own double tap the same way).
+      await tester.tap(find.byKey(const Key('play')));
+      await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 50));
+      expect(taps, ['play']);
+      expect(zoom.value.scale, 3);
+    });
+
+    testWidgets('a pinch over the controls still zooms the picture', (tester) async {
+      final (zoom, _) = await pump(tester);
+      final center = tester.getCenter(find.byKey(const Key('play')));
+
+      final a = await tester.startGesture(center - const Offset(20, 0));
+      final b = await tester.startGesture(center + const Offset(20, 0), pointer: 2);
+      await tester.pump();
+      for (var i = 0; i < 10; i++) {
+        await a.moveBy(const Offset(-8, 0));
+        await b.moveBy(const Offset(8, 0));
+        await tester.pump();
+      }
+      await a.up();
+      await b.up();
+      await tester.pump();
+
+      expect(zoom.value.scale, greaterThan(2));
     });
   });
 }

@@ -75,7 +75,9 @@
 - **iPhone paid content (same branch).** `GET /system-settings/app-config` (public) →
   `{iosPaidContentVisible}` (default false); admins `PATCH` it. The ST app's `PaidContentPolicy.hidePaid`
   (iOS only, cached, hidden until the server answers) hides prices, subscribe/QR/code activation,
-  purchase requests, points of sale and locked videos/files/questions. Teacher screens are unaffected.
+  purchase requests, points of sale, the student's «اشتراكاتي» tab and locked videos/files/questions;
+  for teachers, earnings (revenue card, revenue, withdrawals, course revenue tab) and the price/free
+  fields of courses, videos and files (a new course is sent with price 0; the admin prices it).
 - **Second student device id (same branch).** Login/sign-up also send `loginDeviceAltId` (hashed
   Widevine id, independent of the signing key). Stored as `User.loginDeviceAltId`; when
   `loginDeviceId` changes but this matches, the binding moves to the new id (a store install after an

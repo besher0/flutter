@@ -1,6 +1,7 @@
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/screens/lecture_file_access.dart';
+import 'package:coursaty_student_and_teacher/features/home/presentation/widgets/bottom_nav_bar.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -8,6 +9,20 @@ void main() {
     expect(PaidContentPolicy.isHidden(isIOS: true, iosVisible: false), isTrue);
     expect(PaidContentPolicy.isHidden(isIOS: true, iosVisible: true), isFalse);
     expect(PaidContentPolicy.isHidden(isIOS: false, iosVisible: false), isFalse);
+  });
+
+  test('the My Subscriptions tab leaves with the paid content', () {
+    expect(studentTabs(hidePaid: false), [
+      StudentTab.home,
+      StudentTab.courses,
+      StudentTab.subscriptions,
+      StudentTab.downloads,
+    ]);
+    expect(studentTabs(hidePaid: true), [
+      StudentTab.home,
+      StudentTab.courses,
+      StudentTab.downloads,
+    ]);
   });
 
   test('Android tests never hide paid content', () {

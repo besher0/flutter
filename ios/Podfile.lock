@@ -11,8 +11,6 @@ PODS:
     - IOSSecuritySuite
   - DTTJailbreakDetection (0.4.0)
   - Flutter (1.0.0)
-  - fluttertoast (0.0.2):
-    - Flutter
   - GCDWebServer (3.5.4):
     - GCDWebServer/Core (= 3.5.4)
   - GCDWebServer/Core (3.5.4)
@@ -53,7 +51,6 @@ DEPENDENCIES:
   - better_player_plus (from `.symlinks/plugins/better_player_plus/ios`)
   - device_safety_info (from `.symlinks/plugins/device_safety_info/ios`)
   - Flutter (from `Flutter`)
-  - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
   - get_thumbnail_video (from `.symlinks/plugins/get_thumbnail_video/ios`)
   - no_screenshot (from `.symlinks/plugins/no_screenshot/ios`)
   - root_checker_plus (from `.symlinks/plugins/root_checker_plus/ios`)
@@ -76,8 +73,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/device_safety_info/ios"
   Flutter:
     :path: Flutter
-  fluttertoast:
-    :path: ".symlinks/plugins/fluttertoast/ios"
   get_thumbnail_video:
     :path: ".symlinks/plugins/get_thumbnail_video/ios"
   no_screenshot:
@@ -91,7 +86,6 @@ SPEC CHECKSUMS:
   device_safety_info: 3a276abcf937b3dd43679c044e04a6f6ebdf3229
   DTTJailbreakDetection: 5e356c5badc17995f65a83ed9483f787a0057b71
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
-  fluttertoast: 2c67e14dce98bbdb200df9e1acf610d7a6264ea1
   GCDWebServer: 2c156a56c8226e2d5c0c3f208a3621ccffbe3ce4
   get_thumbnail_video: 1a754d46b860dffefcc57b7290a43089cd5d7e58
   HLSCachingReverseProxyServer: 59935e1e0244ad7f3375d75b5ef46e8eb26ab181
