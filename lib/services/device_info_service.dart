@@ -173,13 +173,39 @@ class DeviceInfoService {
   /// blocking on their own.
   static const Set<String> weakEmulatorSignals = {'fingerprint'};
 
+  /// Native signals that each have an innocent explanation on a real device:
+  /// an Intel tablet has an x86 CPU, and some cheap tablets have no
+  /// accelerometer. A PC emulator shows several together (an x86 CPU under a
+  /// hypervisor, usually without a real motion sensor), so it takes two
+  /// different ones to refuse a device. `abi:x86` and `cpu:x86` are the same
+  /// fact seen twice.
+  static const Map<String, String> circumstantialEmulatorSignals = {
+    'abi:x86': 'x86',
+    'cpu:x86': 'x86',
+    'cpu:hypervisor': 'hypervisor',
+    'sensor:no-accelerometer': 'no-accelerometer',
+  };
+
+  /// ⚠️ Any single native signal used to refuse the device, so a real tablet
+  /// with no accelerometer (or an Intel CPU) got the "run the app on a real
+  /// device" page. Definite traces (QEMU properties, emulator files, emulator
+  /// hardware/model names, emulated sensors, a check that could not run)
+  /// still refuse on their own.
   @visibleForTesting
   static bool isPhysicalAndroid({
     required List<String> emulatorSignals,
     required bool knownEmulatorModel,
-  }) =>
-      emulatorSignals.every(weakEmulatorSignals.contains) &&
-      !knownEmulatorModel;
+  }) {
+    if (knownEmulatorModel) return false;
+    final facts = <String>{};
+    for (final signal in emulatorSignals) {
+      if (weakEmulatorSignals.contains(signal)) continue;
+      final fact = circumstantialEmulatorSignals[signal];
+      if (fact == null) return false;
+      facts.add(fact);
+    }
+    return facts.length < 2;
+  }
 
   /// Why this device was refused, shown on the refusal page so a wrongly
   /// refused device can be reported (e.g. "cpu:hypervisor, model").

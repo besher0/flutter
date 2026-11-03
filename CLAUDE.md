@@ -196,13 +196,25 @@ withdrawals, `dashboard/*`) are the ones this app consumes.
   on every request. Downloads use `download-session` + an offline license. Qualities come from
   `uploads/videos/{id}/resolutions`, `playlistResolutions` first. Players hold a wake lock
   (`app/widgets/playback_wakelock.dart`).
-- Online playback goes through a loopback proxy (`my_downloads/data/services/online_playback_proxy.dart`):
-  the player opens one local URL for the whole viewing and a session renewal only swaps the proxy's
-  upstream token/header. ⚠️ Never renew by calling `setupDataSource` while playing — better_player hides
-  the video until the next play event, which was the black flash every ~4 minutes (signed URLs live
-  300 s). Pinch zoom (Android) scales only the picture; better_player draws no controls inside the
-  player (`BetterPlayerTheme.custom` + empty builder) and `_zoomable` draws `BetterPlayerMaterialControls`
-  above the zoomed picture.
+- Online playback goes through a loopback proxy (`my_downloads/data/services/online_playback_proxy.dart`)
+  that runs **in its own isolate** (every segment byte passes through it; on the UI isolate that made the
+  player feel heavy). The player opens one local URL for the whole viewing and a session renewal only
+  swaps the proxy's upstream token/header (`await updateUpstream`). ⚠️ Never renew by calling
+  `setupDataSource` while playing — better_player hides the video until the next play event, which was
+  the black flash every ~4 minutes (signed URLs live 300 s).
+- Player performance rules (`app/widgets/my_video_widget_better_player.dart`): the controller is a
+  `SmoothSeekBetterPlayerController` (`smooth_seek_controller.dart`) — better_player's progress bars seek
+  on every drag update (~60/s), so seeks are merged (one at a time, ≥300 ms apart, ending at the last
+  position). Every data source carries `_buffering` (max 50 s ahead): better_player's default max buffer
+  is ~109 minutes, which let ExoPlayer hold ~130 MB in Java heap and could close the app (OOM).
+- Pinch zoom (Android and iOS) scales only the picture; better_player draws no controls inside the
+  player (`BetterPlayerTheme.custom` + empty builder) and `_zoomable` draws the platform's controls
+  (`BetterPlayerMaterialControls` / `BetterPlayerCupertinoControls`) above it. A small reset button sits
+  at the top right while zoomed (below the cupertino top bar on iOS). iOS zoom transforms a platform
+  view (UiKitView) and has not been checked on an iPhone yet.
+- Real-device gate (`services/device_info_service.dart`): an Android device is refused for one definite
+  emulator trace, or for two different circumstantial signals (x86 CPU, hypervisor flag, no
+  accelerometer). Each of those alone exists on real tablets.
 - Besides the unit tests, the practical way to validate a change against the real backend is the same
   one used in the admin project: have the user log in and save the token, then drive the app's real
   data sources from a throwaway `test/zz_tmp_*.dart` (Dio + token in headers) and delete it afterwards.

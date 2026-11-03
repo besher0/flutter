@@ -45,16 +45,48 @@ void main() {
     test('a PC emulator reporting isPhysicalDevice=true is still refused', () {
       // e.g. BlueStacks / LDPlayer / WSA: x86 CPU under a hypervisor.
       expect(decide(signals: ['abi:x86', 'cpu:hypervisor']), isFalse);
-      expect(decide(signals: ['sensor:no-accelerometer']), isFalse);
+      expect(
+        decide(signals: ['abi:x86', 'cpu:x86', 'sensor:no-accelerometer']),
+        isFalse,
+      );
+      expect(
+        decide(signals: ['cpu:hypervisor', 'sensor:no-accelerometer']),
+        isFalse,
+      );
+    });
+
+    test('a definite emulator trace refuses on its own', () {
+      for (final signal in [
+        'prop:qemu',
+        'file:/dev/qemu_pipe',
+        'hardware',
+        'model',
+        'sensor:emulated',
+      ]) {
+        expect(decide(signals: [signal]), isFalse, reason: signal);
+      }
+      expect(decide(knownModel: true), isFalse);
     });
 
     test('a check that could not run fails closed', () {
       expect(decide(signals: ['check-failed']), isFalse);
     });
 
+    // These real tablets used to get "run the app on a real device".
+    test('a tablet without an accelerometer passes', () {
+      expect(decide(signals: ['sensor:no-accelerometer']), isTrue);
+      expect(
+        decide(signals: ['sensor:no-accelerometer', 'fingerprint']),
+        isTrue,
+      );
+    });
+
+    test('an Intel (x86) tablet passes', () {
+      expect(decide(signals: ['abi:x86', 'cpu:x86']), isTrue);
+    });
+
     test('an unbranded tablet with a "generic" build fingerprint passes', () {
       expect(decide(signals: ['fingerprint']), isTrue);
-      expect(decide(signals: ['fingerprint', 'cpu:hypervisor']), isFalse);
     });
 
     test('emulator names are matched as whole words of the build fields', () {

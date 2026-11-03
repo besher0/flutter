@@ -19,9 +19,12 @@ import 'package:coursaty_student_and_teacher/features/my_downloads/data/services
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_device_key_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 // Drawn above the zoomed picture instead of inside the scaled player.
+// ignore: implementation_imports
+import 'package:better_player_plus/src/controls/better_player_cupertino_controls.dart';
 // ignore: implementation_imports
 import 'package:better_player_plus/src/controls/better_player_material_controls.dart';
 import 'package:dio/dio.dart';
@@ -40,6 +43,7 @@ import '../../core/storage/prefs_repository.dart';
 import '../../core/theme/app_colors.dart';
 import 'chip_widget.dart';
 import 'playback_wakelock.dart';
+import 'smooth_seek_controller.dart';
 import 'video_zoom.dart';
 
 class MyVideoWidgetBetterPlayer extends StatefulWidget {
@@ -128,14 +132,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         await _onlineProxy?.close();
         return;
       }
-      betterPlayerDataSource = BetterPlayerDataSource(
-        BetterPlayerDataSourceType.network,
-        source.url,
-        videoFormat: BetterPlayerVideoFormat.hls,
-        headers: source.headers,
-      );
+      betterPlayerDataSource = _dataSourceFor(source);
 
-      betterPlayerController = BetterPlayerController(
+      betterPlayerController = SmoothSeekBetterPlayerController(
         BetterPlayerConfiguration(
           autoDetectFullscreenDeviceOrientation: true,
           deviceOrientationsAfterFullScreen: [DeviceOrientation.portraitUp],
@@ -167,6 +166,28 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     }
   }
 
+  /// ⚠️ better_player's default buffer allows 6,553,600 ms (about 109
+  /// minutes), so ExoPlayer kept downloading up to its byte cap (about 130 MB
+  /// of video held in Java heap arrays). On phones with a small heap that ends
+  /// in an OutOfMemoryError — the app closes without a message — and the GC
+  /// pressure makes playback and seeking feel heavy. 50 s ahead is plenty for
+  /// smooth playback and a few tens of MB even at 1080p.
+  static const _buffering = BetterPlayerBufferingConfiguration(
+    minBufferMs: 20000,
+    maxBufferMs: 50000,
+    bufferForPlaybackMs: 2500,
+    bufferForPlaybackAfterRebufferMs: 5000,
+  );
+
+  BetterPlayerDataSource _dataSourceFor(_PlaybackSource source) =>
+      BetterPlayerDataSource(
+        BetterPlayerDataSourceType.network,
+        source.url,
+        videoFormat: BetterPlayerVideoFormat.hls,
+        headers: source.headers,
+        bufferingConfiguration: _buffering,
+      );
+
   Future<_PlaybackSource> _resolveSource() async {
     if (widget.filePath != null) {
       _offlineSession = await _secureOfflinePlaybackService.start(
@@ -193,7 +214,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
           headers: source.headers,
         );
       } else {
-        proxy.updateUpstream(upstream, source.headers);
+        // Waits for the proxy isolate to switch, so a reload started next
+        // never reaches the old credentials.
+        await proxy.updateUpstream(upstream, source.headers);
       }
       return _PlaybackSource(_onlineProxy!.localUrlFor(upstream).toString());
     } catch (error) {
@@ -364,12 +387,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         final position =
             await controller.videoPlayerController?.position ?? Duration.zero;
         final speed = controller.videoPlayerController?.value.speed ?? 1.0;
-        betterPlayerDataSource = BetterPlayerDataSource(
-          BetterPlayerDataSourceType.network,
-          source.url,
-          videoFormat: BetterPlayerVideoFormat.hls,
-          headers: source.headers,
-        );
+        betterPlayerDataSource = _dataSourceFor(source);
         await controller.setupDataSource(betterPlayerDataSource);
         await controller.setSpeed(speed);
         await controller.seekTo(position);
@@ -422,8 +440,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
   /// Where zoom is supported, better_player draws no controls inside the
   /// player ([BetterPlayerTheme.custom] with an empty builder): the player is
   /// scaled while zoomed, and its controls would be scaled and pushed off
-  /// screen with it. [_zoomable] draws the same material controls above the
-  /// zoomed picture instead, so they stay usable at any zoom.
+  /// screen with it. [_zoomable] draws the platform's usual controls (material
+  /// on Android, cupertino on iOS) above the zoomed picture instead, so they
+  /// stay usable at any zoom.
   BetterPlayerControlsConfiguration get _controlsConfiguration =>
       BetterPlayerControlsConfiguration(
         progressBarPlayedColor: Theme.of(context).colorScheme.primary,
@@ -451,25 +470,37 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
               VideoZoomTransform(controller: _zoomController, child: player),
               BetterPlayerControllerProvider(
                 controller: betterPlayerController,
-                child: BetterPlayerMaterialControls(
-                  onControlsVisibilityChanged: (_) {},
-                  controlsConfiguration:
-                      betterPlayerController.betterPlayerControlsConfiguration,
-                ),
+                child: _platformControls(),
               ),
             ],
           ),
         ),
+        // Top right. The material top bar keeps its buttons on the left in
+        // this RTL layout; the cupertino one has its full-screen button at the
+        // top right, so on iOS the zoom button sits just below that bar.
         Positioned(
-          top: 8,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: VideoZoomResetButton(controller: _zoomController),
-          ),
+          top: isIOS ? 52 : 6,
+          right: 6,
+          child: VideoZoomResetButton(controller: _zoomController),
         ),
       ],
     );
+  }
+
+  static bool get isIOS => defaultTargetPlatform == TargetPlatform.iOS;
+
+  Widget _platformControls() {
+    final configuration =
+        betterPlayerController.betterPlayerControlsConfiguration;
+    return isIOS
+        ? BetterPlayerCupertinoControls(
+            onControlsVisibilityChanged: (_) {},
+            controlsConfiguration: configuration,
+          )
+        : BetterPlayerMaterialControls(
+            onControlsVisibilityChanged: (_) {},
+            controlsConfiguration: configuration,
+          );
   }
 
   /// Same page as better_player's default full-screen route, plus pinch zoom.

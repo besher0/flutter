@@ -30,10 +30,10 @@ class VideoZoom {
 class VideoZoomController extends ValueNotifier<VideoZoom> {
   VideoZoomController({this.maxScale = 4}) : super(VideoZoom.identity);
 
-  /// better_player renders through a Flutter texture on Android, which scales
-  /// cleanly. On iOS it renders through a platform view (UiKitView), so zoom
-  /// is Android only.
-  static bool get isSupported => Platform.isAndroid;
+  /// better_player renders through a Flutter texture on Android and a
+  /// platform view (UiKitView) on iOS; Flutter applies the zoom's transform
+  /// and clip to both.
+  static bool get isSupported => Platform.isAndroid || Platform.isIOS;
 
   final double maxScale;
 
@@ -183,25 +183,45 @@ class VideoZoomTransform extends StatelessWidget {
   }
 }
 
-/// Shown while zoomed, above the zoomed picture and unscaled: the player's own
-/// controls are hidden then, and pinching out is not obvious to everyone.
+/// Shown while zoomed, above the zoomed picture and unscaled: pinching out is
+/// not obvious to everyone. Small, so it hides little of the picture; the tap
+/// target stays [tapTarget] wide.
 class VideoZoomResetButton extends StatelessWidget {
   const VideoZoomResetButton({super.key, required this.controller});
 
   final VideoZoomController controller;
+
+  static const double size = 30;
+  static const double tapTarget = 40;
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<VideoZoom>(
       valueListenable: controller,
       builder: (context, zoom, _) => zoom.isZoomed
-          ? Material(
-              color: Colors.black54,
-              shape: const CircleBorder(),
-              child: IconButton(
-                tooltip: 'إلغاء التكبير',
-                icon: const Icon(Icons.zoom_out, color: Colors.white),
-                onPressed: controller.reset,
+          ? Tooltip(
+              message: 'إلغاء التكبير',
+              child: InkResponse(
+                onTap: controller.reset,
+                radius: tapTarget / 2,
+                child: SizedBox.square(
+                  dimension: tapTarget,
+                  child: Center(
+                    child: Container(
+                      width: size,
+                      height: size,
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.zoom_out,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             )
           : const SizedBox.shrink(),
