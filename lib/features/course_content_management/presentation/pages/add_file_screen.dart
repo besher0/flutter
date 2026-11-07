@@ -11,12 +11,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/widgets/custom_choose_file_button.dart';
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../core/common/helper/show_message.dart';
 import '../../../../core/utils/extensions/build_context.dart';
 import '../../../courses/presentation/widgets/course_free_checkbox.dart';
 import '../bloc/course_content_management_bloc.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class AddFileScreen extends StatefulWidget {
   const AddFileScreen({
@@ -126,18 +126,19 @@ class _AddFileScreenState extends State<AddFileScreen> {
                   listenWhen: (p, c) => p.upsertLecture != c.upsertLecture,
                   listener: (context, state) {
                     if (state.upsertLecture.isFailed) {
+                      AppHaptics.error();
                       showMessage(state.errorMessage);
                     }
                     if (state.upsertLecture.isSuccess) {
+                      AppHaptics.success();
                       context.pop();
                     }
                   },
                   builder: (context, state) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: state.upsertLecture.isLoading
-                          ? CoursatyAppLoader()
-                          : CoursatyPrimaryButton(
+                      child: CoursatyPrimaryButton(
+                              isLoading: state.upsertLecture.isLoading,
                               label: widget.fileElement == null
                                   ? 'إضافة'
                                   : "تعديل",

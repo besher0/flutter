@@ -1,7 +1,6 @@
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_dropdown.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -12,6 +11,8 @@ import 'package:coursaty_student_and_teacher/features/teachers/data/model/teache
 import 'package:coursaty_student_and_teacher/features/teachers/presentation/bloc/teachers_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class AddNotificationPage extends StatefulWidget {
   const AddNotificationPage({super.key});
@@ -86,7 +87,7 @@ class _AddNotificationPageState extends State<AddNotificationPage> {
 
                   builder: (context, state) {
                     if (state.affiliationsStatus.isLoading) {
-                      return Center(child: CoursatyAppLoader());
+                      return const FormFieldSkeleton(labelWidth: 70);
                     }
 
                     final affiliations = state.affiliations ?? [];
@@ -211,41 +212,41 @@ class _AddNotificationPageState extends State<AddNotificationPage> {
 
                   listener: (context, state) {
                     if (state.addNotificationsStatus.isFailed) {
+                      AppHaptics.error();
                       showMessage(state.errorMessage);
                     }
 
                     if (state.addNotificationsStatus.isSuccess) {
+                      AppHaptics.success();
                       context.pop();
                     }
                   },
 
                   builder: (context, state) {
-                    return state.addNotificationsStatus.isLoading
-                        ? CoursatyAppLoader()
-                        : CoursatyPrimaryButton(
-                            label: 'إرسال',
+                    return CoursatyPrimaryButton(
+                      isLoading: state.addNotificationsStatus.isLoading,
+                      label: 'إرسال',
 
-                            onPressed: () {
-                              if (_globalKey.currentState!.validate()) {
-                                BlocProvider.of<NotificationsBloc>(context).add(
-                                  AddNotificationEvent(
-                                    params: AddNotificationParams(
-                                      title: title.text,
-                                      description: description.text,
-                                      collegeId: collegeController.text,
-                                      link: link.text.trim().isEmpty
-                                          ? null
-                                          : link.text.trim(),
-                                      departmentId:
-                                          departmentController.text.isEmpty
-                                          ? null
-                                          : departmentController.text,
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
+                      onPressed: () {
+                        if (_globalKey.currentState!.validate()) {
+                          BlocProvider.of<NotificationsBloc>(context).add(
+                            AddNotificationEvent(
+                              params: AddNotificationParams(
+                                title: title.text,
+                                description: description.text,
+                                collegeId: collegeController.text,
+                                link: link.text.trim().isEmpty
+                                    ? null
+                                    : link.text.trim(),
+                                departmentId: departmentController.text.isEmpty
+                                    ? null
+                                    : departmentController.text,
+                              ),
+                            ),
                           );
+                        }
+                      },
+                    );
                   },
                 ),
 

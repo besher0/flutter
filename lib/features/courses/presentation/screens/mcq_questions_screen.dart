@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/question_info_dialog.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/zoomable_image.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -15,6 +14,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/widgets/title_app_bar.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class McqQuestionsScreen extends StatefulWidget {
   const McqQuestionsScreen({
@@ -46,17 +48,42 @@ class _McqQuestionsScreenState extends State<McqQuestionsScreen> {
   ScreenCaptureLease? _captureLease;
 
   void _checkAllAnswers() {
+    var right = 0;
+    var wrong = 0;
     setState(() {
       for (int groupIndex = 0; groupIndex < questions.length; groupIndex++) {
         final key = '$groupIndex-0';
 
         /// check only answered questions
         if (_answers.containsKey(key)) {
-          _checkedQuestions.add(key);
+          // Only answers this tap reveals count for the feedback.
+          if (_checkedQuestions.add(key)) {
+            if (_isCorrect(questions[groupIndex], _answers[key])) {
+              right++;
+            } else {
+              wrong++;
+            }
+          }
         }
       }
     });
+    // One haptic for the whole check: all right, all wrong, or mixed.
+    if (right > 0 && wrong == 0) {
+      AppHaptics.success();
+    } else if (wrong > 0 && right == 0) {
+      AppHaptics.error();
+    } else if (right > 0 && wrong > 0) {
+      AppHaptics.warning();
+    } else {
+      // Nothing new to check: just acknowledge the press.
+      AppHaptics.lightTap();
+    }
   }
+
+  static bool _isCorrect(QuestionModel question, String? optionId) =>
+      optionId != null &&
+      (question.options?.any((o) => o.id == optionId && o.isCorrect == true) ??
+          false);
 
   @override
   void initState() {
@@ -72,6 +99,7 @@ class _McqQuestionsScreenState extends State<McqQuestionsScreen> {
   }
 
   void _clearAllAnswers() {
+    AppHaptics.lightTap();
     setState(() {
       _answers.clear();
       _checkedQuestions.clear();
@@ -180,16 +208,26 @@ class _McqQuestionsScreenState extends State<McqQuestionsScreen> {
                           widget.onEdit?.call(question);
                         },
                   onChanged: (key, value) {
+                    // Selection feedback only when the choice changes.
+                    if (_answers[key] == value) return;
+                    AppHaptics.selection();
                     setState(() {
                       _answers[key] = value;
                     });
                   },
                   onCheckQuestion: (key) {
+                    // Feedback once, from the evaluated answer, and only
+                    // when this tap reveals it (not on an already checked
+                    // question).
+                    if (_checkedQuestions.contains(key)) return;
+                    final correct = _isCorrect(question, _answers[key]);
                     setState(() {
                       _checkedQuestions.add(key);
                     });
+                    correct ? AppHaptics.success() : AppHaptics.error();
                   },
                   onResetQuestion: (key) {
+                    AppHaptics.lightTap();
                     setState(() {
                       _checkedQuestions.remove(key);
                       _answers.remove(key);
@@ -372,7 +410,12 @@ class _QuestionCardState extends State<_QuestionCard> {
                     .urlToFileReferences[url];
 
                 return downloadState.downloadingStatus[url] == true
-                    ? CoursatyAppLoader()
+                    // Same 48 box as the download button it replaces.
+                    ? const SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Center(child: InlineLoader(size: 20)),
+                      )
                     : path == null
                     ? IconButton(
                         onPressed: () {
@@ -424,44 +467,47 @@ class _QuestionCardState extends State<_QuestionCard> {
                   fontWeight = FontWeight.w700;
                 }
 
-                return InkWell(
-                  onTap: () => widget.onSelected(e.id!),
-                  child: Container(
-                    height: 40.h,
-                    margin: const EdgeInsets.symmetric(
-                      vertical: 8,
-                      horizontal: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      border: Border.all(color: borderColor),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        15.horizontalSpace,
+                return AppPressScale(
+                  scale: PressScale.card,
+                  child: InkWell(
+                    onTap: () => widget.onSelected(e.id!),
+                    child: Container(
+                      height: 40.h,
+                      margin: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border.all(color: borderColor),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          15.horizontalSpace,
 
-                        Icon(
-                          selected
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_off,
-                          size: 20,
-                          color: textColor,
-                        ),
+                          Icon(
+                            selected
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            size: 20,
+                            color: textColor,
+                          ),
 
-                        const SizedBox(width: 8),
+                          const SizedBox(width: 8),
 
-                        Expanded(
-                          child: Text(
-                            e.optionText!,
-                            style: GoogleFonts.cairo(
-                              fontSize: 13,
-                              color: textColor,
-                              fontWeight: fontWeight,
+                          Expanded(
+                            child: Text(
+                              e.optionText!,
+                              style: GoogleFonts.cairo(
+                                fontSize: 13,
+                                color: textColor,
+                                fontWeight: fontWeight,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -610,7 +656,16 @@ class _QuestionCardState extends State<_QuestionCard> {
                                         .isLoading &&
                                     state.currentlyDeletingQuestionsIds
                                         .contains(widget.question.id)
-                                ? CoursatyAppLoader(color: Colors.white)
+                                ? FittedBox(
+                              fit: BoxFit.scaleDown,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: InlineLoader(
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
+                                  ),
+                                )
                                 : InkWell(
                                     onTap: () {
                                       showDialog<bool>(
@@ -655,6 +710,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                                                   backgroundColor: Colors.red,
                                                 ),
                                                 onPressed: () {
+                                                  AppHaptics.warning();
                                                   widget.onDelete?.call();
                                                   Navigator.pop(context);
                                                 },

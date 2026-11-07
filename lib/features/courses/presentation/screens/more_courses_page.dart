@@ -7,12 +7,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:injectable_generator/utils.dart';
 
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/routes/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/courses_bloc.dart';
 import '../widgets/course_card.dart';
+import '../widgets/course_skeletons.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
 
 class MoreCoursesPage extends StatefulWidget {
   const MoreCoursesPage({
@@ -60,19 +61,27 @@ class _MoreCoursesPageState extends State<MoreCoursesPage> {
                       ?.courses ??
                   [];
               if (courses.isEmpty && state.coursesWithFiltering.isLoading) {
-                return SizedBox(
-                  height: 1.sh - 200,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [CoursatyAppLoader()],
+                return Expanded(
+                  child: CourseListSkeleton(
+                    padding: HWEdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 15,
+                    ),
+                    spacing: 15.h,
                   ),
                 );
               }
 
               return NotificationListener<ScrollNotification>(
                 onNotification: (scrollInfo) {
-                  if (scrollInfo.metrics.pixels >=
-                      (0.7 * scrollInfo.metrics.maxScrollExtent)) {
+                  final current = context
+                      .read<CoursesBloc>()
+                      .state
+                      .coursesWithFiltering;
+                  if (!current.isLoading &&
+                      !current.hasReachedMax &&
+                      scrollInfo.metrics.pixels >=
+                          (0.7 * scrollInfo.metrics.maxScrollExtent)) {
                     _getCoursesWithFiltering();
                   }
                   return false;
@@ -148,7 +157,7 @@ class _MoreCoursesPageState extends State<MoreCoursesPage> {
                       ?.courses ??
                   [];
               if (courses.isNotEmpty && state.coursesWithFiltering.isLoading) {
-                return Center(child: CoursatyAppLoader());
+                return const ListEndLoader();
               }
               return SizedBox.shrink();
             },

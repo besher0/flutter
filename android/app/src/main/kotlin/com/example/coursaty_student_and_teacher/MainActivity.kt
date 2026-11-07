@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import android.view.HapticFeedbackConstants
 import com.google.android.play.core.integrity.IntegrityManagerFactory
 import com.google.android.play.core.integrity.StandardIntegrityManager
 import io.flutter.embedding.android.FlutterActivity
@@ -82,6 +83,28 @@ class MainActivity : FlutterActivity() {
                     }.start()
                     "getEmulatorSignals" -> result.success(EmulatorSignals.collect(applicationContext))
                     else -> result.notImplemented()
+                }
+            }
+
+        // Notification-style haptics for AppHaptics (success / error). Android
+        // 11+ has dedicated CONFIRM / REJECT effects; older versions (and
+        // "warning") answer false and the Dart side plays its own pattern.
+        // performHapticFeedback honours the system touch-feedback setting.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "coursaty/haptics")
+            .setMethodCallHandler { call, result ->
+                val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    when (call.method) {
+                        "success" -> HapticFeedbackConstants.CONFIRM
+                        "error" -> HapticFeedbackConstants.REJECT
+                        else -> null
+                    }
+                } else {
+                    null
+                }
+                if (effect == null) {
+                    result.success(false)
+                } else {
+                    result.success(window?.decorView?.performHapticFeedback(effect) ?: false)
                 }
             }
 

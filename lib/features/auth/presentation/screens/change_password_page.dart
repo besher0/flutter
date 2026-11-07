@@ -1,6 +1,5 @@
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
 import 'package:coursaty_student_and_teacher/features/auth/domain/use_case/change_password_usecase.dart';
@@ -9,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../bloc/auth_bloc.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key});
@@ -127,6 +127,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     listenWhen: (p, c) => p.changePassword != c.changePassword,
                     listener: (context, state) {
                       if (state.changePassword.isSuccess) {
+                        AppHaptics.success();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -140,6 +141,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       }
 
                       if (state.changePassword.isFailed) {
+                        AppHaptics.error();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -152,51 +154,50 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     },
                     buildWhen: (p, c) => p.changePassword != c.changePassword,
                     builder: (context, state) {
-                      return state.changePassword.isLoading
-                          ? Center(child: CoursatyAppLoader())
-                          : CoursatyPrimaryButton(
-                              label: "حفظ",
-                              onPressed: () {
-                                if (!_didFillAnything) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        "يرجى تعبئة الحقول المطلوبة",
-                                        style: GoogleFonts.cairo(),
-                                      ),
-                                    ),
-                                  );
-
-                                  return;
-                                }
-
-                                if (_formKey.currentState!.validate()) {
-                                  if (currentPasswordController.text ==
-                                      passwordController.text) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          "كلمة المرور الجديدة يجب أن تكون مختلفة عن الحالية",
-                                          style: GoogleFonts.cairo(),
-                                        ),
-                                      ),
-                                    );
-
-                                    return;
-                                  }
-
-                                  BlocProvider.of<AuthBloc>(context).add(
-                                    ChangePasswordEvent(
-                                      params: ChangePasswordParams(
-                                        currentPassword:
-                                            currentPasswordController.text,
-                                        newPassword: passwordController.text,
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
+                      return CoursatyPrimaryButton(
+                        isLoading: state.changePassword.isLoading,
+                        label: "حفظ",
+                        onPressed: () {
+                          if (!_didFillAnything) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "يرجى تعبئة الحقول المطلوبة",
+                                  style: GoogleFonts.cairo(),
+                                ),
+                              ),
                             );
+
+                            return;
+                          }
+
+                          if (_formKey.currentState!.validate()) {
+                            if (currentPasswordController.text ==
+                                passwordController.text) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    "كلمة المرور الجديدة يجب أن تكون مختلفة عن الحالية",
+                                    style: GoogleFonts.cairo(),
+                                  ),
+                                ),
+                              );
+
+                              return;
+                            }
+
+                            BlocProvider.of<AuthBloc>(context).add(
+                              ChangePasswordEvent(
+                                params: ChangePasswordParams(
+                                  currentPassword:
+                                      currentPasswordController.text,
+                                  newPassword: passwordController.text,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                      );
                     },
                   ),
 

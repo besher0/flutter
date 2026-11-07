@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -16,6 +15,7 @@ import '../../app/widgets/coursaty_button.dart';
 import '../../core/common/constant/design/app_assets.dart';
 import '../../core/common/helper/show_message.dart';
 import '../../core/theme/app_colors.dart';
+import '../../app/widgets/loading_indicator/inline_loader.dart';
 
 class _OnboardingPage {
   const _OnboardingPage({required this.title, required this.subtitle});
@@ -163,49 +163,52 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         }
                       },
                       builder: (context, state) {
-                        return state.getOrCreateGuest.isLoading
-                            ? Center(child: CoursatyAppLoader())
-                            : InkWell(
-                                onTap: () {
+                        final loading = state.getOrCreateGuest.isLoading;
+                        return InkWell(
+                          onTap: loading
+                              ? null
+                              : () {
                                   BlocProvider.of<AuthBloc>(
                                     context,
                                   ).add(GetGuestEvent());
                                 },
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  spacing: 10,
-                                  children: [
-                                    Text(
-                                      'أكمل التصفّح كزائر',
-                                      style: GoogleFonts.cairo(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: context.colorScheme.primary,
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: HWEdgeInsets.all(3),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Icon(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            spacing: 10,
+                            children: [
+                              Text(
+                                'أكمل التصفّح كزائر',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: context.colorScheme.primary,
+                                ),
+                              ),
+                              Container(
+                                padding: HWEdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: loading
+                                      ? const InlineLoader(size: 12)
+                                      : Icon(
                                           Icons.arrow_forward_ios,
                                           size: 12,
                                           color: Theme.of(
                                             context,
                                           ).colorScheme.primary,
                                         ),
-                                      ),
-                                    ),
-                                  ],
                                 ),
-                              );
+                              ),
+                            ],
+                          ),
+                        );
                       },
                     ),
                     const SizedBox(height: 24),

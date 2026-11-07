@@ -4,6 +4,7 @@ import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'skeleton/skeleton.dart';
 
 class ZoomableImage extends StatelessWidget {
   final String imageUrl;
@@ -49,10 +50,8 @@ class ZoomableImage extends StatelessWidget {
                   height: height,
                   width: width,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => const SizedBox(
-                    height: 150,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
+                  placeholder: (_, __) =>
+                      ImageSkeleton(width: width, height: height),
                   errorWidget: (_, __, ___) => const Icon(Icons.error),
                 )
               : Container(

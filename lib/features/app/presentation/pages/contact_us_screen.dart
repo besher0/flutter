@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/design/app_assets.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
@@ -11,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/routes/router.dart';
 import '../bloc/app_bloc.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 class ContactUsScreen extends StatefulWidget {
   const ContactUsScreen({super.key});
@@ -95,8 +95,30 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: BlocBuilder<AppBloc, AppState>(
               builder: (context, state) {
-                return state.getCustomerService.isLoading
-                    ? CoursatyAppLoader()
+                // Skeleton only for the first load; a refresh keeps the cards.
+                return state.getCustomerService.isLoading &&
+                        state.customerServiceModel == null
+                    ? AppShimmer(
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < 5; i++)
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 14),
+                                child: SkeletonCard(
+                                  height: 81,
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: Row(
+                                    children: [
+                                      SkeletonBox(width: 40, height: 40),
+                                      SizedBox(width: 14),
+                                      SkeletonText(fontSize: 14, width: 110),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      )
                     : RefreshIndicator(
                         onRefresh: () async {
                           BlocProvider.of<AppBloc>(

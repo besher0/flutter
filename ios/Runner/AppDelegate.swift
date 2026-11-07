@@ -15,6 +15,39 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CoursatyBackgroundDownloads") {
       BackgroundDownloadTask.register(with: registrar)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CoursatyHaptics") {
+      NotificationHaptics.register(with: registrar)
+    }
+  }
+}
+
+/// Notification-style haptics for AppHaptics (success / warning / error)
+/// through UINotificationFeedbackGenerator. iOS applies the user's System
+/// Haptics setting itself.
+final class NotificationHaptics {
+  static func register(with registrar: FlutterPluginRegistrar) {
+    let channel = FlutterMethodChannel(
+      name: "coursaty/haptics",
+      binaryMessenger: registrar.messenger()
+    )
+    channel.setMethodCallHandler { call, result in
+      let type: UINotificationFeedbackGenerator.FeedbackType
+      switch call.method {
+      case "success":
+        type = .success
+      case "warning":
+        type = .warning
+      case "error":
+        type = .error
+      default:
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let generator = UINotificationFeedbackGenerator()
+      generator.prepare()
+      generator.notificationOccurred(type)
+      result(true)
+    }
   }
 }
 

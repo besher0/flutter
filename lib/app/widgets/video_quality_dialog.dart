@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/courses_bloc.dart';
@@ -7,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/common/helper/helper_functions.dart';
+import 'skeleton/skeleton.dart';
 
 Future<String?> showVideoQualityDialog(
   BuildContext context, {
@@ -52,7 +52,23 @@ Future<String?> showVideoQualityDialog(
                         )
                         .toList();
                     return state.getResolutions.isLoading
-                        ? CoursatyAppLoader()
+                        // Same rows as the quality options below.
+                        ? AppShimmer(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (var i = 0; i < 3; i++)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: SkeletonBox(
+                                      height: 60,
+                                      width: double.infinity,
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          )
                         : state.getResolutions.isFailed
                         ? Center(
                             child: TryAgainWidget(

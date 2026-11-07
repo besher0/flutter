@@ -1,5 +1,4 @@
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/list_extensions.dart';
@@ -15,6 +14,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../courses/presentation/widgets/course_card.dart';
 import '../../../../norifications/presentation/widgets/notification_tile.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/home_skeletons.dart';
 
 class TeacherHomePage extends StatefulWidget {
   const TeacherHomePage({super.key, required this.goToCourses});
@@ -34,9 +34,13 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
             p.getTeacherSummary != c.getTeacherSummary ||
             p.counterToForceUpdate != c.counterToForceUpdate,
         builder: (context, state) {
-          if (state.getTeacherSummary.isLoading ||
-              state.getTeacherSummary.isInit) {
-            return Center(child: CoursatyAppLoader());
+          // Skeleton only for the first load; a refresh keeps the cards.
+          final hasSummary = state.teacherSummaryResponseModel != null;
+          if (state.getTeacherSummary.isInit ||
+              (state.getTeacherSummary.isLoading && !hasSummary)) {
+            return TeacherHomeSkeleton(
+              showEarnings: !PaidContentPolicy.hidePaid,
+            );
           }
           if (state.getTeacherSummary.isFailed) {
             return TryAgainWidget(

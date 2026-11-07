@@ -3,13 +3,23 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_colors.dart';
+import 'loading_indicator/inline_loader.dart';
 
 class ChipWidget extends StatelessWidget {
-  const ChipWidget({this.text, required this.iconPath, this.iconColor});
+  const ChipWidget({
+    this.text,
+    required this.iconPath,
+    this.iconColor,
+    this.isLoading = false,
+  });
 
   final String? text;
   final String iconPath;
   final Color? iconColor;
+
+  /// Shows a small spinner in place of the icon (same size), e.g. while a
+  /// like is being sent.
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -22,11 +32,18 @@ class ChipWidget extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SvgPicture.asset(
-            iconPath,
-            height: 12.5,
-            color: iconColor ?? AppColors.primaryDarkActive,
-          ),
+          if (isLoading)
+            InlineLoader(
+              size: 12.5,
+              strokeWidth: 1.5,
+              color: iconColor ?? AppColors.primaryDarkActive,
+            )
+          else
+            SvgPicture.asset(
+              iconPath,
+              height: 12.5,
+              color: iconColor ?? AppColors.primaryDarkActive,
+            ),
           if (text != null) ...{
             const SizedBox(width: 5),
             Flexible(

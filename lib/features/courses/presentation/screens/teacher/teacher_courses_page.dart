@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../../core/common/constant/design/app_assets.dart';
 import '../../../../../core/routes/router.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -13,6 +12,9 @@ import '../../../../../core/utils/responsive_padding.dart';
 import '../../../../home/presentation/widgets/section_header.dart';
 import '../../widgets/course_card.dart';
 import '../../widgets/empty_courses.dart';
+import '../../widgets/course_skeletons.dart';
+import '../../../../../app/widgets/loading_indicator/inline_loader.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 
 class TeacherCoursesPage extends StatefulWidget {
   const TeacherCoursesPage({super.key});
@@ -36,6 +38,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
         child: Column(
           children: [
             TabBar(
+              onTap: (_) => tabTapHaptic(context),
               indicatorColor: AppColors.secondary,
               labelColor: AppColors.secondary,
               unselectedLabelColor: AppColors.greyNormal,
@@ -85,8 +88,17 @@ class _TabBarViewItem extends StatelessWidget {
       children: [
         NotificationListener<ScrollNotification>(
           onNotification: (scrollInfo) {
-            if (scrollInfo.metrics.pixels >=
-                (0.7 * scrollInfo.metrics.maxScrollExtent)) {
+            final state = context.read<CoursesBloc>().state;
+            final current = forActive
+                ? state.teacherActiveCourses
+                : state.teacherExpiredCourses;
+            // Only the vertical list pages (the course rows scroll
+            // horizontally), and never while a page is loading.
+            if (scrollInfo.metrics.axis == Axis.vertical &&
+                !current.isLoading &&
+                !current.hasReachedMax &&
+                scrollInfo.metrics.pixels >=
+                    (0.7 * scrollInfo.metrics.maxScrollExtent)) {
               BlocProvider.of<CoursesBloc>(
                 context,
               ).add(GetTeacherCourses(getActive: forActive));
@@ -109,7 +121,15 @@ class _TabBarViewItem extends StatelessWidget {
                     (state.teacherExpiredCourses.items.isEmpty &&
                         state.teacherExpiredCourses.isLoading &&
                         !forActive)) {
-                  return Center(child: CoursatyAppLoader());
+                  return const Expanded(
+                    child: SingleChildScrollView(
+                      physics: NeverScrollableScrollPhysics(),
+                      child: CoursesByYearSectionsSkeleton(
+                        rowHeight: 260,
+                        cardHeight: 230,
+                      ),
+                    ),
+                  );
                 }
                 final years =
                     (forActive
@@ -218,7 +238,7 @@ class _TabBarViewItem extends StatelessWidget {
                 (state.teacherExpiredCourses.items.isNotEmpty &&
                     state.teacherExpiredCourses.isLoading &&
                     !forActive)) {
-              return Center(child: CoursatyAppLoader());
+              return const ListEndLoader();
             }
             return SizedBox.shrink();
           },

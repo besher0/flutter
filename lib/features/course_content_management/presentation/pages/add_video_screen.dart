@@ -2,7 +2,6 @@ import 'package:coursaty_student_and_teacher/core/common/constant/configuration/
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/custom_choose_file_button.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/my_video_widget_better_player.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
@@ -27,6 +26,8 @@ import '../../../courses/presentation/widgets/course_free_checkbox.dart';
 import '../../../courses/presentation/widgets/video_segement_item.dart';
 import '../widgets/upsert_video_segment_dialog.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class AddVideoScreen extends StatefulWidget {
   const AddVideoScreen({
@@ -173,88 +174,96 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                               p.upsertVideoSegment != c.upsertVideoSegment,
                           listener: (context, state) {
                             if (state.upsertVideoSegment.isFailed) {
+                              AppHaptics.error();
                               showMessage(state.errorMessage);
                             }
                           },
                           builder: (context, state) {
-                            return state.upsertVideoSegment.isLoading
-                                ? Center(child: CoursatyAppLoader())
-                                : state.videoSegments.isEmpty
-                                ? SizedBox.shrink()
-                                : SizedBox(
-                                    height: 100,
-                                    child: ListView.separated(
-                                      itemCount: state.videoSegments.length,
-                                      shrinkWrap: true,
-                                      scrollDirection: Axis.horizontal,
-                                      separatorBuilder: (context, index) {
-                                        return Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            10.verticalSpace,
-                                            Divider(
-                                              color: AppColors.secondary
-                                                  .withValues(alpha: 0.1),
-                                              indent: 22.w,
-                                              endIndent: 22.w,
-                                              height: 0,
-                                            ),
-                                            10.verticalSpace,
-                                          ],
-                                        );
-                                      },
-                                      itemBuilder: (context, index) {
-                                        Segment p = state.videoSegments[index];
-                                        return VideoSegementItem(
-                                          index: index,
-                                          segment: p,
-                                          onEdit: () async {
-                                            final segment =
-                                                await showUpsertSegmentDialog(
-                                                  context,
-                                                  initialSegment: p,
-                                                );
-                                            if (segment != null &&
-                                                context.mounted) {
+                            // Saving a segment keeps the list on screen.
+                            final saving = state.upsertVideoSegment.isLoading;
+                            return state.videoSegments.isEmpty
+                                ? (saving
+                                      ? const ListEndLoader()
+                                      : SizedBox.shrink())
+                                : BusyOverlay(
+                                    busy: saving,
+                                    child: SizedBox(
+                                      height: 100,
+                                      child: ListView.separated(
+                                        itemCount: state.videoSegments.length,
+                                        shrinkWrap: true,
+                                        scrollDirection: Axis.horizontal,
+                                        separatorBuilder: (context, index) {
+                                          return Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              10.verticalSpace,
+                                              Divider(
+                                                color: AppColors.secondary
+                                                    .withValues(alpha: 0.1),
+                                                indent: 22.w,
+                                                endIndent: 22.w,
+                                                height: 0,
+                                              ),
+                                              10.verticalSpace,
+                                            ],
+                                          );
+                                        },
+                                        itemBuilder: (context, index) {
+                                          Segment p =
+                                              state.videoSegments[index];
+                                          return VideoSegementItem(
+                                            index: index,
+                                            segment: p,
+                                            onEdit: () async {
+                                              final segment =
+                                                  await showUpsertSegmentDialog(
+                                                    context,
+                                                    initialSegment: p,
+                                                  );
+                                              if (segment != null &&
+                                                  context.mounted) {
+                                                BlocProvider.of<
+                                                      CourseContentManagementBloc
+                                                    >(context)
+                                                    .add(
+                                                      UpsertVideoSegmentEvent(
+                                                        UpsertVideoSegmentParams(
+                                                          videoId:
+                                                              widget.video!.id!,
+                                                          segmentId: p.id!,
+                                                          endSeconds: segment
+                                                              .endSeconds,
+                                                          startSeconds: segment
+                                                              .startSeconds!,
+                                                          segmentName: segment
+                                                              .segmentName!,
+                                                          sortOrder:
+                                                              segment.sortOrder,
+                                                        ),
+                                                      ),
+                                                    );
+                                              }
+                                            },
+                                            onDelete: () {
                                               BlocProvider.of<
                                                     CourseContentManagementBloc
                                                   >(context)
                                                   .add(
-                                                    UpsertVideoSegmentEvent(
-                                                      UpsertVideoSegmentParams(
-                                                        videoId:
-                                                            widget.video!.id!,
-                                                        segmentId: p.id!,
-                                                        endSeconds:
-                                                            segment.endSeconds,
-                                                        startSeconds: segment
-                                                            .startSeconds!,
-                                                        segmentName: segment
-                                                            .segmentName!,
-                                                        sortOrder:
-                                                            segment.sortOrder,
-                                                      ),
+                                                    DeleteVideoSegmentsEvent(
+                                                      params:
+                                                          DeleteVideoSegmentParams(
+                                                            videoId: widget
+                                                                .video!
+                                                                .id!,
+                                                            segmentId: p.id!,
+                                                          ),
                                                     ),
                                                   );
-                                            }
-                                          },
-                                          onDelete: () {
-                                            BlocProvider.of<
-                                                  CourseContentManagementBloc
-                                                >(context)
-                                                .add(
-                                                  DeleteVideoSegmentsEvent(
-                                                    params:
-                                                        DeleteVideoSegmentParams(
-                                                          videoId:
-                                                              widget.video!.id!,
-                                                          segmentId: p.id!,
-                                                        ),
-                                                  ),
-                                                );
-                                          },
-                                        );
-                                      },
+                                            },
+                                          );
+                                        },
+                                      ),
                                     ),
                                   );
                           },
@@ -311,9 +320,11 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                   listenWhen: (p, c) => p.upsertLecture != c.upsertLecture,
                   listener: (context, state) {
                     if (state.upsertLecture.isFailed) {
+                      AppHaptics.error();
                       showMessage(state.errorMessage);
                     }
                     if (state.upsertLecture.isSuccess) {
+                      AppHaptics.success();
                       BlocProvider.of<CoursesBloc>(context).add(
                         GetLectureDetailsEvent(
                           lectureId: widget.lectureId,
@@ -361,10 +372,9 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                               icon: const Icon(Icons.close),
                               label: const Text("إلغاء الرفع"),
                             ),
-                          } else if (state.upsertLecture.isLoading)
-                            CoursatyAppLoader()
-                          else
+                          } else
                             CoursatyPrimaryButton(
+                              isLoading: state.upsertLecture.isLoading,
                               label: !widget.isForEdit ? 'إضافة' : "تعديل",
                               onPressed: () => _submit(context, state),
                             ),

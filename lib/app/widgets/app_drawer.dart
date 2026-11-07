@@ -22,8 +22,10 @@ import '../../features/app/presentation/bloc/app_bloc.dart';
 import '../../features/auth/presentation/screens/create_guest_screen.dart';
 import 'activate_code_dialog.dart';
 import 'delete_account_dialog.dart';
-import 'loading_indicator/coursaty_app_loader.dart';
 import 'logout_confirmation_dialog.dart';
+import 'loading_indicator/inline_loader.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -297,27 +299,29 @@ class _AppDrawerState extends State<AppDrawer> {
                           // Code activation is a purchase: hidden on an iPhone
                           // whose admin setting hides paid content.
                           if (!PaidContentPolicy.hidePaid)
-                          BlocConsumer<AppBloc, AppState>(
-                            listener: (context, state) {},
-                            builder: (context, state) {
-                              return state.scanCode.isLoading
-                                  ? CoursatyAppLoader()
-                                  : _DrawerItem(
-                                      icon: AppAssets.iconScanCose,
-                                      iconColor: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                      title: 'تفعيل كود',
-                                      onTap: () async {
-                                        if (prefsRepository.isGuest) {
-                                          showGuestContentDialog(context);
-                                          return;
-                                        }
-                                        showActivateCode(context);
-                                      },
-                                    );
-                            },
-                          ),
+                            BlocConsumer<AppBloc, AppState>(
+                              listener: (context, state) {},
+                              builder: (context, state) {
+                                // The activation itself runs in the code dialog,
+                                // which shows its progress; here only a second
+                                // dialog is prevented while a code is checked.
+                                return _DrawerItem(
+                                  icon: AppAssets.iconScanCose,
+                                  iconColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
+                                  title: 'تفعيل كود',
+                                  onTap: () async {
+                                    if (state.scanCode.isLoading) return;
+                                    if (prefsRepository.isGuest) {
+                                      showGuestContentDialog(context);
+                                      return;
+                                    }
+                                    showActivateCode(context);
+                                  },
+                                );
+                              },
+                            ),
                           _DrawerItem(
                             icon: AppAssets.iconCategory,
                             iconColor: Theme.of(context).colorScheme.primary,
@@ -466,69 +470,69 @@ class _AppDrawerState extends State<AppDrawer> {
                                   buildWhen: (p, c) =>
                                       p.authStatus != c.authStatus,
                                   builder: (context, state) {
-                                    return state.authStatus.isLoading
-                                        ? CoursatyAppLoader()
-                                        : Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                            ),
-                                            child: SizedBox(
-                                              width: double.infinity,
-                                              height: 40,
-                                              child: OutlinedButton(
-                                                onPressed: () async {
+                                    final loading = state.authStatus.isLoading;
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      child: SizedBox(
+                                        width: double.infinity,
+                                        height: 40,
+                                        child: OutlinedButton(
+                                          onPressed: loading
+                                              ? null
+                                              : () async {
                                                   _showDeleteAccountConfirm(
                                                     context,
                                                   );
                                                 },
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: Theme.of(
-                                                    context,
-                                                  ).colorScheme.onSurface,
-                                                  side: BorderSide(
-                                                    color: Theme.of(
-                                                      context,
-                                                    ).colorScheme.primary,
-                                                    width: 1,
-                                                  ),
-                                                  backgroundColor:
-                                                      Colors.transparent,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                  ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                            side: BorderSide(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                              width: 1,
+                                            ),
+                                            backgroundColor: Colors.transparent,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              if (loading)
+                                                const InlineLoader(size: 18)
+                                              else
+                                                const Icon(
+                                                  Icons.delete_outline,
+                                                  size: 18,
                                                 ),
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.delete_outline,
-                                                      size: 18,
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Text(
-                                                      "حذف الحساب",
-                                                      style: GoogleFonts.cairo(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        height: 1.4,
-                                                      ),
-                                                    ),
-                                                  ],
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                "حذف الحساب",
+                                                style: GoogleFonts.cairo(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  height: 1.4,
                                                 ),
                                               ),
-                                            ),
-                                          );
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
                                   },
                                 ),
                                 15.verticalSpace,
                               ],
                               Text(
-                                'Version 2.2.2',
+                                'Version 2.2.3',
                                 style: GoogleFonts.cairo(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,
@@ -620,40 +624,49 @@ class _ThemeTogglePreviewState extends State<_ThemeTogglePreview> {
           ),
           margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: GestureDetector(
-            onTap: () {
-              BlocProvider.of<AppBloc>(context).add(ChangeThemeEvent());
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                CircleAvatar(
-                  radius: 15,
-                  backgroundColor: state.isThemeLight
-                      ? Theme.of(context).colorScheme.onPrimary
-                      : Theme.of(context).colorScheme.primary,
-                  child: SvgPicture.asset(
-                    AppAssets.iconSun,
-                    color: !state.isThemeLight
-                        ? Theme.of(context).colorScheme.onPrimary
-                        : Theme.of(context).colorScheme.primary,
-                    height: 15,
-                  ),
+          child: Semantics(
+            button: true,
+            toggled: !state.isThemeLight,
+            label: 'الوضع الداكن',
+            child: AppPressScale(
+              scale: PressScale.icon,
+              child: GestureDetector(
+                onTap: () {
+                  AppHaptics.selection();
+                  BlocProvider.of<AppBloc>(context).add(ChangeThemeEvent());
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CircleAvatar(
+                      radius: 15,
+                      backgroundColor: state.isThemeLight
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : Theme.of(context).colorScheme.primary,
+                      child: SvgPicture.asset(
+                        AppAssets.iconSun,
+                        color: !state.isThemeLight
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : Theme.of(context).colorScheme.primary,
+                        height: 15,
+                      ),
+                    ),
+                    CircleAvatar(
+                      radius: 15,
+                      backgroundColor: !state.isThemeLight
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : Theme.of(context).colorScheme.primary,
+                      child: SvgPicture.asset(
+                        AppAssets.iconMoon,
+                        color: state.isThemeLight
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : Theme.of(context).colorScheme.primary,
+                        height: 15,
+                      ),
+                    ),
+                  ],
                 ),
-                CircleAvatar(
-                  radius: 15,
-                  backgroundColor: !state.isThemeLight
-                      ? Theme.of(context).colorScheme.onPrimary
-                      : Theme.of(context).colorScheme.primary,
-                  child: SvgPicture.asset(
-                    AppAssets.iconMoon,
-                    color: state.isThemeLight
-                        ? Theme.of(context).colorScheme.onPrimary
-                        : Theme.of(context).colorScheme.primary,
-                    height: 15,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         );

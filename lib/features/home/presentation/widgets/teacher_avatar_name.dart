@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 /// Compact teacher item for horizontal list: circular avatar + name.
 /// Matches Figma Frame 2147225141 (e.g. 91:5551).
@@ -34,17 +35,10 @@ class TeacherAvatarName extends StatelessWidget {
                 width: 69,
                 height: 69,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
+                placeholder: (_, __) => const ImageSkeleton(
                   width: 69,
                   height: 69,
-                  color: AppColors.primaryLightTrack,
-                  child: const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
+                  shape: BoxShape.circle,
                 ),
                 errorWidget: (_, __, ___) => Container(
                   width: 69,

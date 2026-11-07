@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/revenue_widgets.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
@@ -12,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../data/model/teacher_revenue_model.dart';
+import '../widgets/teachers_skeletons.dart';
 
 class TeacherRevenueScreen extends StatefulWidget {
   const TeacherRevenueScreen({super.key});
@@ -22,6 +22,10 @@ class TeacherRevenueScreen extends StatefulWidget {
 
 class _TeacherRevenueScreenState extends State<TeacherRevenueScreen> {
   RevenuePeriod _period = RevenuePeriod.allTime;
+
+  /// Period of the report on screen (null until one loads here), so a new
+  /// period shows a skeleton while a refresh of the same one keeps it.
+  RevenuePeriod? _reportPeriod;
 
   @override
   void initState() {
@@ -56,16 +60,31 @@ class _TeacherRevenueScreenState extends State<TeacherRevenueScreen> {
               child: BlocBuilder<TeachersBloc, TeachersState>(
                 buildWhen: (p, c) => p.getRevenues != c.getRevenues,
                 builder: (context, state) {
-                  if (state.getRevenues.isLoading) {
-                    return Center(child: CoursatyAppLoader());
-                  }
                   final model = state.teacherRevenueModel;
+                  if (state.getRevenues.isSuccess) _reportPeriod = _period;
+                  final hasReport = model != null && _reportPeriod == _period;
+                  if (!hasReport && !state.getRevenues.isFailed) {
+                    return const RevenueReportSkeleton();
+                  }
                   if (state.getRevenues.isFailed || model == null) {
                     return Center(child: TryAgainWidget(onPress: _load));
                   }
-                  return RefreshIndicator(
-                    onRefresh: () async => _load(),
-                    child: _RevenueReport(model: model, period: _period),
+                  // A refresh keeps the report on screen with a thin progress
+                  // bar until the new one arrives.
+                  return Stack(
+                    children: [
+                      RefreshIndicator(
+                        onRefresh: () async => _load(),
+                        child: _RevenueReport(model: model, period: _period),
+                      ),
+                      if (state.getRevenues.isLoading)
+                        const Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: LinearProgressIndicator(minHeight: 2),
+                        ),
+                    ],
                   );
                 },
               ),

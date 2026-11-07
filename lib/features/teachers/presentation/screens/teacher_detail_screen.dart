@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/empty_courses.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/teacher_empty_courses.dart';
@@ -23,6 +22,9 @@ import '../../../../core/storage/prefs_repository.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/extensions/int.dart';
 import '../../../courses/presentation/widgets/course_card.dart';
+import '../widgets/teachers_skeletons.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class TeacherDetailScreen extends StatefulWidget {
   const TeacherDetailScreen({
@@ -68,7 +70,7 @@ class _TeacherDetailScreenState extends State<TeacherDetailScreen> {
           builder: (context, state) {
             if (state.teacherCourses.items.isEmpty &&
                 state.teacherCourses.isLoading) {
-              return Center(child: CoursatyAppLoader());
+              return const TeacherDetailSkeleton();
             }
             return RefreshIndicator(
               onRefresh: () async {
@@ -82,59 +84,64 @@ class _TeacherDetailScreenState extends State<TeacherDetailScreen> {
                   context,
                 ).add(GetLikedTeachersEvent());
               },
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _ProfileRow(
-                      id: state.teacherDetails?.id ?? '',
-                      name: state.teacherDetails?.name ?? '',
-                      avatarUrl: state.teacherDetails?.image,
-                      coursesCount: (state.teacherDetails?.coursesCount ?? 0)
-                          .toString(),
-                    ),
-                    15.verticalSpace,
-                    if (state.teacherDetails?.description != null) ...{
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (scrollInfo) {
+                  final current = context.read<TeachersBloc>().state;
+                  final teacherId = current.teacherDetails?.id;
+                  if (teacherId != null &&
+                      current.teacherCourses.items.isNotEmpty &&
+                      !current.teacherCourses.isLoading &&
+                      !current.teacherCourses.hasReachedMax &&
+                      scrollInfo.metrics.pixels >=
+                          (0.7 * scrollInfo.metrics.maxScrollExtent)) {
+                    BlocProvider.of<TeachersBloc>(
+                      context,
+                    ).add(GetTeacherDetailsEvent(teacherId: teacherId));
+                  }
+                  return false;
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ProfileRow(
+                        id: state.teacherDetails?.id ?? '',
+                        name: state.teacherDetails?.name ?? '',
+                        avatarUrl: state.teacherDetails?.image,
+                        coursesCount: (state.teacherDetails?.coursesCount ?? 0)
+                            .toString(),
+                      ),
+                      15.verticalSpace,
+                      if (state.teacherDetails?.description != null) ...{
+                        Divider(height: 1, color: AppColors.primaryLightTrack),
+                        15.verticalSpace,
+                        _AboutSection(
+                          aboutText: state.teacherDetails?.description ?? '',
+                          instagram: state.teacherDetails?.instagramUrl,
+                        ),
+                        15.verticalSpace,
+                      },
                       Divider(height: 1, color: AppColors.primaryLightTrack),
                       15.verticalSpace,
-                      _AboutSection(
-                        aboutText: state.teacherDetails?.description ?? '',
-                        instagram: state.teacherDetails?.instagramUrl,
-                      ),
-                      15.verticalSpace,
-                    },
-                    Divider(height: 1, color: AppColors.primaryLightTrack),
-                    15.verticalSpace,
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        'الكورسات التي يقدمها المُدرِّس',
-                        style: GoogleFonts.cairo(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.primary,
-                          height: 1.4,
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          'الكورسات التي يقدمها المُدرِّس',
+                          style: GoogleFonts.cairo(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.primary,
+                            height: 1.4,
+                          ),
                         ),
                       ),
-                    ),
-                    15.verticalSpace,
-                    state.teacherCourses.items.isEmpty
-                        ? TeacherEmptyCourses()
-                        : NotificationListener<ScrollNotification>(
-                            onNotification: (scrollInfo) {
-                              if (scrollInfo.metrics.pixels >=
-                                  (0.7 * scrollInfo.metrics.maxScrollExtent)) {
-                                BlocProvider.of<TeachersBloc>(context).add(
-                                  GetTeacherDetailsEvent(
-                                    teacherId: state.teacherDetails!.id!,
-                                  ),
-                                );
-                              }
-                              return false;
-                            },
-                            child: ListView.builder(
+                      15.verticalSpace,
+                      state.teacherCourses.items.isEmpty
+                          ? TeacherEmptyCourses()
+                          : ListView.builder(
                               shrinkWrap: true,
                               itemCount: state.teacherCourses.items.length,
                               physics: NeverScrollableScrollPhysics(),
@@ -186,14 +193,13 @@ class _TeacherDetailScreenState extends State<TeacherDetailScreen> {
                                 );
                               },
                             ),
-                          ),
-                    10.verticalSpace,
-                    if (state.teacherCourses.items.isNotEmpty &&
-                        state.teacherCourses.isLoading) ...{
-                      Center(child: CoursatyAppLoader()),
-                    },
-                    15.verticalSpace,
-                  ],
+                      if (state.teacherCourses.items.isNotEmpty &&
+                          state.teacherCourses.isLoading)
+                        const ListEndLoader()
+                      else
+                        25.verticalSpace,
+                    ],
+                  ),
                 ),
               ),
             );
@@ -269,15 +275,18 @@ class _ProfileRow extends StatelessWidget {
                     bool isLiked = state.likedTeachers.any(
                       (item) => item.id == id,
                     );
-                    return (state.interactionsStatus[id]?.isLoading ??
-                            false || state.getMyLikedTeachers.isLoading)
-                        ? CoursatyAppLoader()
-                        : InkWell(
-                            onTap: () {
+                    final isLoading =
+                        (state.interactionsStatus[id]?.isLoading ??
+                        false || state.getMyLikedTeachers.isLoading);
+                    return InkWell(
+                      onTap: isLoading
+                          ? null
+                          : () {
                               if (GetIt.I<PrefsRepository>().isGuest) {
                                 showGuestContentDialog(context);
                                 return;
                               }
+                              AppHaptics.selection();
                               if (!isLiked) {
                                 BlocProvider.of<TeachersBloc>(
                                   context,
@@ -288,15 +297,16 @@ class _ProfileRow extends StatelessWidget {
                                 ).add(UnLikeTeacherEvent(teacherId: id));
                               }
                             },
-                            child: ChipWidget(
-                              text: (state.teacherDetails?.likesCount ?? 0)
-                                  .toString(),
-                              iconPath: isLiked
-                                  ? AppAssets.iconHeartFilled
-                                  : AppAssets.iconHeart,
-                              iconColor: const Color(0xFFC61F1F),
-                            ),
-                          );
+                      child: ChipWidget(
+                        text: (state.teacherDetails?.likesCount ?? 0)
+                            .toString(),
+                        iconPath: isLiked
+                            ? AppAssets.iconHeartFilled
+                            : AppAssets.iconHeart,
+                        iconColor: const Color(0xFFC61F1F),
+                        isLoading: isLoading,
+                      ),
+                    );
                   },
                 ),
               ],

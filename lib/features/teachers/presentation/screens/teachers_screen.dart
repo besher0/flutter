@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/presentation/widgets/teachers_grid.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +7,7 @@ import '../../../../app/widgets/title_app_bar.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/teachers_bloc.dart';
 import '../widgets/teacher_card.dart';
+import '../widgets/teachers_skeletons.dart';
 
 class TeachersScreen extends StatefulWidget {
   const TeachersScreen({super.key});
@@ -46,8 +46,10 @@ class _TeachersScreenState extends State<TeachersScreen> {
                     p.likedTeachers != c.likedTeachers ||
                     p.getTeachersStatus != c.getTeachersStatus,
                 builder: (context, state) {
-                  if (state.getTeachersStatus.isLoading) {
-                    return Center(child: CoursatyAppLoader());
+                  // Skeleton only while there is nothing to show yet.
+                  if (state.getTeachersStatus.isLoading &&
+                      (state.teachers?.teachers ?? []).isEmpty) {
+                    return const Expanded(child: TeachersGridSkeleton());
                   }
                   return Expanded(
                     child: TeachersGrid(

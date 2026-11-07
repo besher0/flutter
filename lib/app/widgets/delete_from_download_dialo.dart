@@ -16,6 +16,8 @@ import '../../core/theme/app_colors.dart';
 import '../../features/course_content_management/presentation/bloc/course_content_management_bloc.dart';
 import '../../features/my_downloads/presentation/bloc/downloading_media/downloading_media_bloc.dart';
 import '../../features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
+import '../../services/haptics/app_haptics.dart';
+import 'interaction/app_pressable.dart';
 
 void deleteCourse(BuildContext context, String courseId) {
   showDialog<void>(
@@ -91,62 +93,68 @@ class DeleteFromDownloadDialo extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFC61F1F),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0x40C61F1F),
-                      offset: const Offset(0, 3),
-                      blurRadius: 8,
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
+              AppPressScale(
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFC61F1F),
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () async {
-                      onConfirmed.call();
-                    },
-                    child: Center(
-                      child: Text(
-                        'حذف',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0x40C61F1F),
+                        offset: const Offset(0, 3),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () async {
+                        // Destructive: a warning pulse on confirm.
+                        AppHaptics.warning();
+                        onConfirmed.call();
+                      },
+                      child: Center(
+                        child: Text(
+                          'حذف',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.onPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
-              Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: AppColors.greyLight,
-                  border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.12),
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
+              AppPressScale(
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: AppColors.greyLight,
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.12),
+                    ),
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Center(
-                      child: Text(
-                        'رجوع',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: AppColors.greyDark,
-                              fontWeight: FontWeight.w700,
-                            ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Center(
+                        child: Text(
+                          'رجوع',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: AppColors.greyDark,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
                       ),
                     ),
                   ),

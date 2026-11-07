@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/presentation/bloc/teachers_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
 
 class TeacherCard extends StatelessWidget {
   const TeacherCard({
@@ -49,13 +50,10 @@ class TeacherCard extends StatelessWidget {
                 width: 100,
                 height: 100,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
+                placeholder: (_, __) => const ImageSkeleton(
                   width: 100,
                   height: 100,
-                  color: AppColors.primaryLightTrack,
-                  child: const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                  shape: BoxShape.circle,
                 ),
                 errorWidget: (_, __, ___) => Container(
                   width: 100,
@@ -96,15 +94,15 @@ class TeacherCard extends StatelessWidget {
                     bool isLiked = state.likedTeachers.any(
                       (item) => item.id == id,
                     );
-                    return (state.interactionsStatus[id]?.isLoading ?? false)
-                        ? CoursatyAppLoader()
-                        : _Chip(
-                            text: likesCount,
-                            iconPath: isLiked
-                                ? AppAssets.iconHeartFilled
-                                : AppAssets.iconHeart,
-                            iconColor: const Color(0xFFC61F1F),
-                          );
+                    return _Chip(
+                      text: likesCount,
+                      iconPath: isLiked
+                          ? AppAssets.iconHeartFilled
+                          : AppAssets.iconHeart,
+                      iconColor: const Color(0xFFC61F1F),
+                      isLoading:
+                          state.interactionsStatus[id]?.isLoading ?? false,
+                    );
                   },
                 ),
               ],
@@ -118,11 +116,17 @@ class TeacherCard extends StatelessWidget {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.text, required this.iconPath, this.iconColor});
+  const _Chip({
+    required this.text,
+    required this.iconPath,
+    this.iconColor,
+    this.isLoading = false,
+  });
 
   final String text;
   final String iconPath;
   final Color? iconColor;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -145,11 +149,18 @@ class _Chip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 5),
-          SvgPicture.asset(
-            iconPath,
-            height: 12.5,
-            color: iconColor ?? AppColors.primaryDarkActive,
-          ),
+          if (isLoading)
+            InlineLoader(
+              size: 12.5,
+              strokeWidth: 1.5,
+              color: iconColor ?? AppColors.primaryDarkActive,
+            )
+          else
+            SvgPicture.asset(
+              iconPath,
+              height: 12.5,
+              color: iconColor ?? AppColors.primaryDarkActive,
+            ),
         ],
       ),
     );

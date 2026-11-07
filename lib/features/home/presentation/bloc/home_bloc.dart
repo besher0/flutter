@@ -174,14 +174,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (_prefsRepository.isGuest) {
       return;
     }
-    emit(state.copyWith(getActiveCourses: Status.loading));
+    emit(state.copyWith(getInActiveCourses: Status.loading));
     if ((await HelperFunctions.lostInternetConnection())) {
       emit(
-        state.copyWith(getActiveCourses: Status.loaded, inActiveCourses: []),
+        state.copyWith(getInActiveCourses: Status.loaded, inActiveCourses: []),
       );
       return;
     }
-    emit(state.copyWith(getInActiveCourses: Status.loading));
     final res = await getMyCoursesUsecase(false);
     res.fold(
       (l) => emit(

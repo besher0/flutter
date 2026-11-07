@@ -1,8 +1,10 @@
+import 'dart:math';
+import 'package:coursaty_student_and_teacher/features/study_progress/presentation/widgets/studied_toggle.dart';
+import 'package:coursaty_student_and_teacher/features/study_progress/data/study_progress_store.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'dart:io';
 
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/subscribe_to_course.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
@@ -36,6 +38,8 @@ import '../widgets/content_item.dart';
 import '../widgets/image_header.dart';
 import 'mcq_questions_screen.dart';
 import 'lecture_file_access.dart';
+import '../widgets/course_skeletons.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 
 class LectureDetailsScreen extends StatefulWidget {
   const LectureDetailsScreen({
@@ -104,209 +108,239 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
             );
           },
         ),
-        body: SafeArea(
-          child: NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) {
-              return [
-                SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      BlocBuilder<CoursesBloc, CoursesState>(
-                        buildWhen: (p, c) =>
-                            p.getLectureDetails != c.getLectureDetails,
-                        builder: (context, state) {
-                          if (state.getLectureDetails.isLoading) {
-                            return Center(child: CoursatyAppLoader());
-                          }
+        // The lecture's full video list (as the server sends it) is what
+        // "studied" is measured against, online and in the downloads.
+        body: BlocListener<CoursesBloc, CoursesState>(
+          listenWhen: (p, c) => p.getLectureDetails != c.getLectureDetails,
+          listener: (context, state) {
+            if (!state.getLectureDetails.isSuccess) return;
+            final videos = state.lectureDetailsModel?.videos;
+            if (videos == null) return;
+            StudyProgressStore.instance.rememberLectureVideos(
+              widget.lectureId,
+              [for (final video in videos) ?video.id],
+            );
+          },
+          child: SafeArea(
+            child: NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        BlocBuilder<CoursesBloc, CoursesState>(
+                          buildWhen: (p, c) =>
+                              p.getLectureDetails != c.getLectureDetails,
+                          builder: (context, state) {
+                            if (state.getLectureDetails.isLoading) {
+                              return const LectureDetailsHeaderSkeleton();
+                            }
 
-                          if (state.getLectureDetails.isFailed) {
-                            return Center(
-                              child: TryAgainWidget(onPress: _fetchData),
-                            );
-                          }
+                            if (state.getLectureDetails.isFailed) {
+                              return Center(
+                                child: TryAgainWidget(onPress: _fetchData),
+                              );
+                            }
 
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ImageHeader(
-                                image:
-                                    state.lectureDetailsModel?.courseImageUrl ??
-                                    '',
-                              ),
-                              15.verticalSpace,
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ImageHeader(
+                                  image:
+                                      state
+                                          .lectureDetailsModel
+                                          ?.courseImageUrl ??
+                                      '',
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.lectureName,
-                                      overflow: TextOverflow.visible,
-                                      maxLines: 2,
-                                      style: GoogleFonts.cairo(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                    ),
-
-                                    if (state
-                                            .lectureDetailsModel
-                                            ?.lecture
-                                            ?.description !=
-                                        null) ...[
-                                      15.verticalSpace,
-
-                                      Row(
-                                        children: [
-                                          Text(
-                                            'عن المحاضرة',
-                                            style: GoogleFonts.cairo(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w700,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.primary,
-                                            ),
-                                          ),
-                                          // BlocBuilder<
-                                          //   DownloadingMediaBloc,
-                                          //   DownloadingMediaState
-                                          // >(
-                                          //   buildWhen: (p, c) =>
-                                          //       p.currentDownloadingTasks !=
-                                          //       c.currentDownloadingTasks,
-                                          //   builder: (context, state) {
-                                          //     return state.currentDownloadingTasks > 0
-                                          //         ? CoursatyAppLoader()
-                                          //         : Padding(
-                                          //             padding:
-                                          //                 HWEdgeInsetsDirectional.only(
-                                          //                   start: 10,
-                                          //                 ),
-                                          //             child: InkWell(
-                                          //               splashColor: Colors.transparent,
-                                          //               highlightColor:
-                                          //                   Colors.transparent,
-                                          //               onTap: _downloadAll,
-                                          //               child: SvgPicture.asset(
-                                          //                 AppAssets.iconDownload2,
-                                          //                 height: 25,
-                                          //                 colorFilter: ColorFilter.mode(
-                                          //                   Theme.of(
-                                          //                     context,
-                                          //                   ).colorScheme.primary,
-                                          //                   BlendMode.srcIn,
-                                          //                 ),
-                                          //               ),
-                                          //             ),
-                                          //           );
-                                          //   },
-                                          // ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
+                                15.verticalSpace,
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
                                       Text(
-                                        state
-                                                .lectureDetailsModel
-                                                ?.lecture
-                                                ?.description ??
-                                            '',
+                                        widget.lectureName,
+                                        overflow: TextOverflow.visible,
+                                        maxLines: 2,
                                         style: GoogleFonts.cairo(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w400,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
                                           color: Theme.of(
                                             context,
-                                          ).colorScheme.onSurface,
-                                          height: 1.8,
+                                          ).colorScheme.primary,
                                         ),
                                       ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
+                                      LectureStudyProgress(
+                                        lectureId: widget.lectureId,
+                                      ),
 
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: TabBarDelegate(
-                    TabBar(
-                      controller: _tabs,
-                      labelColor: AppColors.secondary,
-                      unselectedLabelColor: AppColors.greyNormal,
-                      indicatorColor: AppColors.secondary,
-                      dividerColor: AppColors.secondary.withValues(alpha: 0.1),
-                      labelStyle: GoogleFonts.cairo(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      tabs: const [
-                        Tab(text: 'ملفات'),
-                        Tab(text: 'فيديوهات'),
-                        Tab(text: 'أتمتات'),
+                                      if (state
+                                              .lectureDetailsModel
+                                              ?.lecture
+                                              ?.description !=
+                                          null) ...[
+                                        15.verticalSpace,
+
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'عن المحاضرة',
+                                              style: GoogleFonts.cairo(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w700,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
+                                              ),
+                                            ),
+                                            // BlocBuilder<
+                                            //   DownloadingMediaBloc,
+                                            //   DownloadingMediaState
+                                            // >(
+                                            //   buildWhen: (p, c) =>
+                                            //       p.currentDownloadingTasks !=
+                                            //       c.currentDownloadingTasks,
+                                            //   builder: (context, state) {
+                                            //     return state.currentDownloadingTasks > 0
+                                            //         ? CoursatyAppLoader()
+                                            //         : Padding(
+                                            //             padding:
+                                            //                 HWEdgeInsetsDirectional.only(
+                                            //                   start: 10,
+                                            //                 ),
+                                            //             child: InkWell(
+                                            //               splashColor: Colors.transparent,
+                                            //               highlightColor:
+                                            //                   Colors.transparent,
+                                            //               onTap: _downloadAll,
+                                            //               child: SvgPicture.asset(
+                                            //                 AppAssets.iconDownload2,
+                                            //                 height: 25,
+                                            //                 colorFilter: ColorFilter.mode(
+                                            //                   Theme.of(
+                                            //                     context,
+                                            //                   ).colorScheme.primary,
+                                            //                   BlendMode.srcIn,
+                                            //                 ),
+                                            //               ),
+                                            //             ),
+                                            //           );
+                                            //   },
+                                            // ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          state
+                                                  .lectureDetailsModel
+                                                  ?.lecture
+                                                  ?.description ??
+                                              '',
+                                          style: GoogleFonts.cairo(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w400,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                            height: 1.8,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
-                ),
-              ];
-            },
-            body: BlocBuilder<CoursesBloc, CoursesState>(
-              builder: (context, state) {
-                if (state.getLectureDetails.isLoading) {
-                  return Center(child: CoursatyAppLoader());
-                }
-                final files = state.lectureDetailsModel?.files ?? [];
-                final videos = state.lectureDetailsModel?.videos ?? [];
-                return TabBarView(
-                  controller: _tabs,
-                  children: [
-                    _FilesTab(
-                      courseId: widget.courseId,
-                      refresh: () {
-                        _fetchData();
-                        _fetchActiveCourses();
-                      },
-                      courseDetailsModel: state.courseDetailsModel,
-                      lectureDetailsModel: state.lectureDetailsModel,
-                      files: files,
-                      isCourseFree: widget.isCourseFree,
+
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: TabBarDelegate(
+                      TabBar(
+                        onTap: (_) => tabTapHaptic(context, controller: _tabs),
+                        controller: _tabs,
+                        labelColor: AppColors.secondary,
+                        unselectedLabelColor: AppColors.greyNormal,
+                        indicatorColor: AppColors.secondary,
+                        dividerColor: AppColors.secondary.withValues(
+                          alpha: 0.1,
+                        ),
+                        labelStyle: GoogleFonts.cairo(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        tabs: const [
+                          Tab(text: 'ملفات'),
+                          Tab(text: 'فيديوهات'),
+                          Tab(text: 'أتمتات'),
+                        ],
+                      ),
                     ),
-                    _VideosTab(
-                      courseId: widget.courseId,
-                      refresh: () {
-                        _fetchData();
-                        _fetchActiveCourses();
-                      },
-                      videos: videos,
-                      isCourseFree: widget.isCourseFree,
-                      courseDetailsModel: state.courseDetailsModel,
-                      lectureDetailsModel: state.lectureDetailsModel,
-                    ),
-                    _McqTab(
-                      courseId: widget.courseId,
-                      refresh: () {
-                        _fetchData();
-                        _fetchActiveCourses();
-                      },
-                      isCourseFree: widget.isCourseFree,
-                      courseDetailsModel: state.courseDetailsModel,
-                      lectureDetailsModel: state.lectureDetailsModel,
-                      questions: state.lectureDetailsModel?.questions ?? [],
-                    ),
-                  ],
-                );
+                  ),
+                ];
               },
+              body: BlocBuilder<CoursesBloc, CoursesState>(
+                builder: (context, state) {
+                  if (state.getLectureDetails.isLoading) {
+                    return TabBarView(
+                      controller: _tabs,
+                      children: const [
+                        ContentListSkeleton(),
+                        ContentListSkeleton(),
+                        McqTabSkeleton(),
+                      ],
+                    );
+                  }
+                  final files = state.lectureDetailsModel?.files ?? [];
+                  final videos = state.lectureDetailsModel?.videos ?? [];
+                  return TabBarView(
+                    controller: _tabs,
+                    children: [
+                      _FilesTab(
+                        courseId: widget.courseId,
+                        refresh: () {
+                          _fetchData();
+                          _fetchActiveCourses();
+                        },
+                        courseDetailsModel: state.courseDetailsModel,
+                        lectureDetailsModel: state.lectureDetailsModel,
+                        files: files,
+                        isCourseFree: widget.isCourseFree,
+                      ),
+                      _VideosTab(
+                        courseId: widget.courseId,
+                        refresh: () {
+                          _fetchData();
+                          _fetchActiveCourses();
+                        },
+                        videos: videos,
+                        isCourseFree: widget.isCourseFree,
+                        courseDetailsModel: state.courseDetailsModel,
+                        lectureDetailsModel: state.lectureDetailsModel,
+                      ),
+                      _McqTab(
+                        courseId: widget.courseId,
+                        refresh: () {
+                          _fetchData();
+                          _fetchActiveCourses();
+                        },
+                        isCourseFree: widget.isCourseFree,
+                        courseDetailsModel: state.courseDetailsModel,
+                        lectureDetailsModel: state.lectureDetailsModel,
+                        questions: state.lectureDetailsModel?.questions ?? [],
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -357,7 +391,8 @@ class _FilesTab extends StatelessWidget {
                 }
 
                 // iPhone with paid content hidden: locked files are not shown.
-                final viewerIsGuest = GetIt.I<PrefsRepository>().isGuest ||
+                final viewerIsGuest =
+                    GetIt.I<PrefsRepository>().isGuest ||
                     GetIt.I<PrefsRepository>().token == null;
                 final shownFiles = PaidContentPolicy.hidePaid
                     ? files
@@ -374,8 +409,10 @@ class _FilesTab extends StatelessWidget {
                           )
                           .toList()
                     : files;
+                // Lock state depends on the subscriptions: show the rows'
+                // shape until they are known.
                 return state.getActiveCourses.isLoading
-                    ? CoursatyAppLoader()
+                    ? ContentListSkeleton(count: min(shownFiles.length, 6))
                     : RefreshIndicator(
                         onRefresh: () async {
                           refresh();
@@ -449,7 +486,8 @@ class _FilesTab extends StatelessWidget {
                                       downloadUrl: url,
                                       fileName: shownFiles[i].fileName,
                                       courseId: courseId,
-                                      lectureId: lectureDetailsModel?.lecture?.id,
+                                      lectureId:
+                                          lectureDetailsModel?.lecture?.id,
                                       courseDetailsModel: courseDetailsModel,
                                       lectureDetailsModel: lectureDetailsModel,
                                     ),
@@ -488,8 +526,8 @@ class _FilesTab extends StatelessWidget {
                                               width: 30.r,
                                               child: FittedBox(
                                                 child: ProgressIndicatorWidget(
-                                                  percent:
-                                                      downloadState.downloadingProcesses[url],
+                                                  percent: downloadState
+                                                      .downloadingProcesses[url],
                                                   backGroundColor:
                                                       AppColors.greyNormal,
                                                   textColor: Theme.of(
@@ -514,8 +552,8 @@ class _FilesTab extends StatelessWidget {
                                                       CancelDownloadEvent(
                                                         fileUrl: url!,
                                                         fileType: 'file',
-                                                        fileName:
-                                                            shownFiles[i].fileName,
+                                                        fileName: shownFiles[i]
+                                                            .fileName,
                                                       ),
                                                     );
                                               },
@@ -597,7 +635,8 @@ class _VideosTab extends StatelessWidget {
                 }
 
                 // iPhone with paid content hidden: locked videos are not shown.
-                final viewerIsGuest = GetIt.I<PrefsRepository>().isGuest ||
+                final viewerIsGuest =
+                    GetIt.I<PrefsRepository>().isGuest ||
                     GetIt.I<PrefsRepository>().token == null;
                 final shownVideos = PaidContentPolicy.hidePaid
                     ? videos
@@ -615,7 +654,7 @@ class _VideosTab extends StatelessWidget {
                           .toList()
                     : videos;
                 return state.getActiveCourses.isLoading
-                    ? CoursatyAppLoader()
+                    ? ContentListSkeleton(count: min(shownVideos.length, 6))
                     : RefreshIndicator(
                         onRefresh: () async {
                           refresh();
@@ -634,7 +673,8 @@ class _VideosTab extends StatelessWidget {
                             final isGuest =
                                 prefs.isGuest || prefs.token == null;
                             final isFree =
-                                isCourseFree || (shownVideos[i].isFree ?? false);
+                                isCourseFree ||
+                                (shownVideos[i].isFree ?? false);
                             print(myDownloadState.urlToFileReferences);
                             bool isLocked =
                                 url == null ||
@@ -695,7 +735,8 @@ class _VideosTab extends StatelessWidget {
                                           courseId: courseId,
                                           quality: quality,
                                           fromNetwork: !videoExist,
-                                          isFree: shownVideos[i].isFree ?? false,
+                                          isFree:
+                                              shownVideos[i].isFree ?? false,
                                           courseDetailsModel:
                                               courseDetailsModel,
                                           lectureDetailsModel:
@@ -711,6 +752,9 @@ class _VideosTab extends StatelessWidget {
                                 }
                               },
                               actions: [
+                                // Only a video the student can watch can be
+                                // marked as studied.
+                                if (!isLocked) VideoStudiedToggle(videoId: url),
                                 if ((shownVideos[i].isFree ?? false) ||
                                     videoExist) ...{
                                   SvgPicture.asset(
@@ -742,8 +786,8 @@ class _VideosTab extends StatelessWidget {
                                               width: 30.r,
                                               child: FittedBox(
                                                 child: ProgressIndicatorWidget(
-                                                  percent:
-                                                      downloadState.downloadingProcesses[url],
+                                                  percent: downloadState
+                                                      .downloadingProcesses[url],
                                                   backGroundColor:
                                                       AppColors.greyNormal,
                                                   textColor: Theme.of(
@@ -761,8 +805,8 @@ class _VideosTab extends StatelessWidget {
                                                       CancelDownloadEvent(
                                                         fileUrl: url!,
                                                         fileType: 'video',
-                                                        fileName:
-                                                            shownVideos[i].videoName,
+                                                        fileName: shownVideos[i]
+                                                            .videoName,
                                                       ),
                                                     );
                                               },
@@ -797,11 +841,12 @@ class _VideosTab extends StatelessWidget {
                                                         downloadUrl: url,
                                                         quality: quality,
                                                         fileType: 'video',
-                                                        fileName:
-                                                            shownVideos[i].videoName,
+                                                        fileName: shownVideos[i]
+                                                            .videoName,
                                                         courseId: courseId,
                                                         lectureId:
-                                                            shownVideos[i].lectureId,
+                                                            shownVideos[i]
+                                                                .lectureId,
                                                         courseDetailsModel:
                                                             courseDetailsModel,
                                                         lectureDetailsModel:
@@ -935,32 +980,30 @@ class _McqTab extends StatelessWidget {
                             showMessage("اكتمل التحميل");
                           },
                           builder: (context, state) {
-                            return state.currentDownloadingImagesTasks > 0
-                                ? CoursatyAppLoader()
-                                : CoursatyPrimaryButton(
-                                    label: "تحميل الأتمتات",
-                                    onPressed: () {
-                                      if (GetIt.I<PrefsRepository>().isGuest) {
-                                        showGuestContentDialog(context);
-                                        return;
-                                      }
-                                      if (!isCourseFree &&
-                                          !context
-                                              .read<HomeBloc>()
-                                              .state
-                                              .activeCourses
-                                              .any(
-                                                (item) => item.id == courseId,
-                                              )) {
-                                        showSubscribeToCourseDialog(
-                                          context,
-                                          courseId: courseId,
-                                        );
-                                        return;
-                                      }
-                                      _download(context);
-                                    },
+                            return CoursatyPrimaryButton(
+                              isLoading:
+                                  state.currentDownloadingImagesTasks > 0,
+                              label: "تحميل الأتمتات",
+                              onPressed: () {
+                                if (GetIt.I<PrefsRepository>().isGuest) {
+                                  showGuestContentDialog(context);
+                                  return;
+                                }
+                                if (!isCourseFree &&
+                                    !context
+                                        .read<HomeBloc>()
+                                        .state
+                                        .activeCourses
+                                        .any((item) => item.id == courseId)) {
+                                  showSubscribeToCourseDialog(
+                                    context,
+                                    courseId: courseId,
                                   );
+                                  return;
+                                }
+                                _download(context);
+                              },
+                            );
                           },
                         );
                 },

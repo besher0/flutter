@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/widgets/chip_widget.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 class CourseCard extends StatelessWidget {
   const CourseCard({
@@ -27,6 +28,8 @@ class CourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      borderRadius: BorderRadius.circular(10),
+
       onTap: onTap,
       child: Container(
         width: 0.8.sw,
@@ -49,7 +52,10 @@ class CourseCard extends StatelessWidget {
                   imageUrl: imageUrl,
                   width: 1.sw,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => _placeholder(),
+                  placeholder: (_, __) => ImageSkeleton(
+                    width: 1.sw,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   errorWidget: (_, __, ___) => _placeholder(),
                 ),
               ),

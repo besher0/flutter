@@ -4,10 +4,40 @@ Notable changes to the Coursaty student & teacher (ST) app. Newest first.
 
 ## 2026-11-03 — branch `fix/player-stability-tablet-zoom`
 
+### Added
+- **Studied videos (online and downloads).** A video can be marked as studied from its card and
+  from the video page (top bar), in online courses and in downloads. The mark is a wavy-edged seal
+  that springs in, fills amber, draws a check and bursts sparkles. A lecture shows «مدروسة» (lecture
+  lists and lecture page) only once **all** its videos are studied, downloaded or not; until then the
+  lecture page shows «درست X من Y فيديو». Stored locally per account (`StudyProgressStore`), shared by
+  online and downloads, and kept when a download is deleted.
+- **iOS universal links.** Added the missing Associated Domains entitlement and the server's
+  `apple-app-site-association`; removed an invalid `https` custom URL scheme from `Info.plist`.
+- Fixed: the downloaded lecture page filtered the saved lecture's own file/video lists in place, so
+  the downloads state lost the videos that were not downloaded.
+- Course page links (Telegram channel, Instagram page, teacher's group) are now a plain icon + label
+  (`CourseLinkTile`) instead of coloured buttons with an arrow, with a new vector Telegram logo
+  (`assets/icons/telegram_logo.svg`).
+- Fixed in passing: a downloaded video card could show another video's name when some of the
+  lecture's videos were not downloaded.
+- **Crash reporting** with Firebase Crashlytics: native crashes (incl. Android NDK), uncaught Dart
+  errors, and player breadcrumbs/handled errors. Off in debug builds; only the role is attached.
+
+### Build
+- Flutter SDK 3.47.9 (matches `pubspec.lock`); Gradle wrapper 8.12 → 8.14.3; Android Gradle Plugin
+  8.9.1 → 8.11.1 (required by Flutter 3.47); Crashlytics Gradle plugin 3.0.6.
+
+### Changed
+- Course pages (online and downloaded): the teacher's Instagram button and the Telegram group button
+  are replaced by «قناة التلجرام» (t.me/coursaty_application), «صفحة الإنستجرام» (Coursaty's page) and
+  «غروب المناقشة مع الأستاذ» (the course's `telegramUrl`, same access rules as before).
+
 ### Fixed
-- **Real tablets refused as emulators.** A single circumstantial signal (no accelerometer, or an
-  Intel x86 CPU) showed «يرجى تشغيل التطبيق على جهاز حقيقي». Android now needs one definite emulator
-  trace, or two different circumstantial signals, to refuse a device.
+- **Real devices refused as emulators.** «يرجى تشغيل التطبيق على جهاز حقيقي» now shows only on
+  emulators: Android refuses on proof of an emulator (emulator build/files/properties, an x86 VM, or a
+  QEMU trace inside one), never on hints real devices share (no accelerometer, Intel CPU, generic
+  fingerprint, QEMU leftovers, a failed check). Chromebooks are allowed. The native check now reports
+  every emulator file it finds and whether the device is a Chromebook.
 - **Heavy seeking.** better_player's progress bar seeked on every drag update (~60/s); seeks are now
   merged (`SmoothSeekBetterPlayerController`): one at a time, at least 300 ms apart, always ending
   at the last position.

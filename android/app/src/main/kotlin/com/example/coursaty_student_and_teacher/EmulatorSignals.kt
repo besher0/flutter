@@ -26,7 +26,20 @@ object EmulatorSignals {
         runCheck(signals) { checkFiles(it) }
         runCheck(signals) { checkCpu(it) }
         runCheck(signals) { checkSensors(context, it) }
+        runCheck(signals) { checkChromebook(context, it) }
         return signals
+    }
+
+    /**
+     * A Chromebook runs Android apps in a virtual machine (x86 CPU with the
+     * hypervisor flag), which looks like a PC emulator but is a real device.
+     */
+    private fun checkChromebook(context: Context, signals: MutableList<String>) {
+        val packageManager = context.packageManager
+        if (packageManager.hasSystemFeature("org.chromium.arc") ||
+            packageManager.hasSystemFeature("org.chromium.arc.device_management")) {
+            signals.add("device:chromebook")
+        }
     }
 
     private fun runCheck(signals: MutableList<String>, check: (MutableList<String>) -> Unit) {
@@ -103,7 +116,9 @@ object EmulatorSignals {
     )
 
     private fun checkFiles(signals: MutableList<String>) {
-        emulatorFiles.firstOrNull { File(it).exists() }?.let { signals.add("file:$it") }
+        // Every file found: a QEMU leftover that some real images carry must
+        // not hide an emulator's own file behind it.
+        emulatorFiles.filter { File(it).exists() }.forEach { signals.add("file:$it") }
     }
 
     private fun checkCpu(signals: MutableList<String>) {

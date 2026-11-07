@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/theme/app_colors.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -11,6 +10,7 @@ import 'package:intl/intl.dart';
 
 import '../../data/model/teacher_affilations_model.dart';
 import 'add_affiliation_screen.dart';
+import '../widgets/teachers_skeletons.dart';
 
 class TeacherAffiliationsScreen extends StatefulWidget {
   const TeacherAffiliationsScreen({super.key});
@@ -49,8 +49,9 @@ class _TeacherAffiliationsScreenState extends State<TeacherAffiliationsScreen> {
         builder: (context, state) {
           final affiliations = state.affiliations ?? [];
 
-          return state.affiliationsStatus.isLoading
-              ? Center(child: CoursatyAppLoader())
+          // Skeleton only for the first load; a refresh keeps the list.
+          return state.affiliationsStatus.isLoading && affiliations.isEmpty
+              ? const AffiliationListSkeleton()
               : affiliations.isEmpty
               ? Center(
                   child: Text(

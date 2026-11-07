@@ -13,13 +13,14 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:injectable_generator/utils.dart';
 
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../app/widgets/title_app_bar.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/routes/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../home/presentation/widgets/section_header.dart';
 import '../widgets/empty_courses.dart';
+import '../widgets/course_skeletons.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key, required this.currentSelectedCategory});
@@ -68,7 +69,10 @@ class _CoursesScreenState extends State<CoursesScreen> {
                             return Padding(
                               padding: const EdgeInsets.only(left: 10),
                               child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+
                                 onTap: () {
+                                  if (!isSelected) AppHaptics.selection();
                                   widget.currentSelectedCategory.value =
                                       category.id!;
                                   _getCoursesWithFiltering(reset: true);
@@ -138,13 +142,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
 
                             if (state.coursesWithFiltering.items.isEmpty &&
                                 state.coursesWithFiltering.isLoading) {
-                              return SizedBox(
-                                height: 1.sh - 300,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [CoursatyAppLoader()],
-                                ),
-                              );
+                              return const CoursesByYearSectionsSkeleton();
                             }
                             List<YearElement> years = List.of(
                               state.coursesWithFiltering.items,

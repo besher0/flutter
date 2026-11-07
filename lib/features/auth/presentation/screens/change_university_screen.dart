@@ -10,9 +10,12 @@ import 'package:get_it/get_it.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/widgets/coursaty_dropdown.dart';
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import '../../../../app/widgets/interaction/app_pressable.dart';
+import '../../../../services/haptics/app_haptics.dart';
 
 class ChangeUniversityScreen extends StatefulWidget {
   const ChangeUniversityScreen({super.key, required this.isForChangeYear});
@@ -105,7 +108,13 @@ class _ChangeUniversityScreenState extends State<ChangeUniversityScreen> {
                     BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, state) {
                         return !state.getUniversities.isSuccess
-                            ? Center(child: CoursatyAppLoader())
+                            ? FieldLoadingPlaceholder(
+                                labelWidth: 60,
+                                failed: state.getUniversities.isFailed,
+                                onRetry: () => BlocProvider.of<AuthBloc>(
+                                  context,
+                                ).add(GetUniversitiesEvent()),
+                              )
                             : CoursatyDropdown<String>(
                                 label: 'الجامعة',
                                 hint: 'الجامعة',
@@ -143,7 +152,17 @@ class _ChangeUniversityScreenState extends State<ChangeUniversityScreen> {
                           return SizedBox.shrink();
                         } else {
                           return !state.getColleges.isSuccess
-                              ? CoursatyAppLoader()
+                              ? FieldLoadingPlaceholder(
+                                  labelWidth: 50,
+                                  failed: state.getColleges.isFailed,
+                                  onRetry: () =>
+                                      BlocProvider.of<AuthBloc>(context).add(
+                                        GetCollegesEvent(
+                                          universityId:
+                                              universityController.text,
+                                        ),
+                                      ),
+                                )
                               : CoursatyDropdown<String>(
                                   label: 'الكلية',
                                   hint: 'الكلية',
@@ -181,7 +200,16 @@ class _ChangeUniversityScreenState extends State<ChangeUniversityScreen> {
                         return state.getDepartments.isInit
                             ? SizedBox.shrink()
                             : !state.getDepartments.isSuccess
-                            ? CoursatyAppLoader()
+                            ? FieldLoadingPlaceholder(
+                                labelWidth: 50,
+                                failed: state.getDepartments.isFailed,
+                                onRetry: () =>
+                                    BlocProvider.of<AuthBloc>(context).add(
+                                      GetDepartmentsEvent(
+                                        collegeId: collegeController.text,
+                                      ),
+                                    ),
+                              )
                             : state.departmentsResponseModel.isNullOrEmpty
                             ? SizedBox.shrink()
                             : CoursatyDropdown<String>(
@@ -216,7 +244,16 @@ class _ChangeUniversityScreenState extends State<ChangeUniversityScreen> {
                       return state.getYears.isInit
                           ? SizedBox.shrink()
                           : !state.getYears.isSuccess
-                          ? CoursatyAppLoader()
+                          ? FieldLoadingPlaceholder(
+                              labelWidth: 50,
+                              failed: state.getYears.isFailed,
+                              onRetry: () =>
+                                  BlocProvider.of<AuthBloc>(context).add(
+                                    GetAcademicYearsEvent(
+                                      collegeId: collegeController.text,
+                                    ),
+                                  ),
+                            )
                           : CoursatyDropdown<String>(
                               label: 'السنة',
                               hint: 'السنة',
@@ -247,10 +284,12 @@ class _ChangeUniversityScreenState extends State<ChangeUniversityScreen> {
                   BlocBuilder<AuthBloc, AuthState>(
                     buildWhen: (p, c) => p.updateStudent != c.updateStudent,
                     builder: (context, state) {
-                      return state.updateStudent.isLoading
-                          ? CoursatyAppLoader()
-                          : InkWell(
-                              onTap: () {
+                      final loading = state.updateStudent.isLoading;
+                      return InkWell(
+                        onTap: loading
+                            ? null
+                            : () {
+                                AppHaptics.lightTap();
                                 if (!_didChangeAnything) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -296,27 +335,29 @@ class _ChangeUniversityScreenState extends State<ChangeUniversityScreen> {
                                   );
                                 }
                               },
-                              child: Container(
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [AppColors.buttonShadow],
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'حفظ',
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onPrimary,
-                                    height: 1.4,
-                                  ),
-                                ),
+                        child: AppPressScale(
+                          enabled: !loading,
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [AppColors.buttonShadow],
+                            ),
+                            alignment: Alignment.center,
+                            child: LoadingLabel(
+                              label: 'حفظ',
+                              isLoading: loading,
+                              style: GoogleFonts.cairo(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.onPrimary,
+                                height: 1.4,
                               ),
-                            );
+                            ),
+                          ),
+                        ),
+                      );
                     },
                   ),
                   const SizedBox(height: 20),

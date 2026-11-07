@@ -10,13 +10,13 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../app/widgets/coursaty_button.dart';
 import '../../../../app/widgets/coursaty_text_field.dart';
 import '../../../../app/widgets/custom_choose_file_button.dart';
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../app/widgets/title_app_bar.dart';
 import '../../../../core/common/helper/show_message.dart';
 import '../../../../core/utils/extensions/build_context.dart';
 import '../../domain/usecases/upsert_question_usecase.dart';
 import '../bloc/course_content_management_bloc.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class UpsertQuestionPage extends StatefulWidget {
   const UpsertQuestionPage({
@@ -181,10 +181,12 @@ class _UpsertQuestionPageState extends State<UpsertQuestionPage> {
                 listenWhen: (p, c) => p.upsertLecture != c.upsertLecture,
                 listener: (context, state) {
                   if (state.upsertLecture.isFailed) {
+                    AppHaptics.error();
                     showMessage(state.errorMessage);
                   }
 
                   if (state.upsertLecture.isSuccess) {
+                    AppHaptics.success();
                     Navigator.pop(context);
                     if (widget.question != null) {
                       if (context.canPop()) {
@@ -196,9 +198,8 @@ class _UpsertQuestionPageState extends State<UpsertQuestionPage> {
                 builder: (context, state) {
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: state.upsertLecture.isLoading
-                        ? CoursatyAppLoader()
-                        : CoursatyPrimaryButton(
+                    child: CoursatyPrimaryButton(
+                            isLoading: state.upsertLecture.isLoading,
                             label: widget.question == null ? 'إضافة' : 'تعديل',
                             onPressed: _submit,
                           ),

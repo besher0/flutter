@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
 import 'package:coursaty_student_and_teacher/core/security/secure_student_content.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -22,6 +21,10 @@ import '../../../courses/presentation/screens/mcq_questions_screen.dart';
 import '../../../courses/presentation/widgets/content_item.dart';
 import '../../../courses/presentation/widgets/image_header.dart';
 import '../bloc/my_downloads_state.dart';
+import 'package:coursaty_student_and_teacher/features/study_progress/data/study_progress_store.dart';
+import 'package:coursaty_student_and_teacher/features/study_progress/presentation/widgets/studied_toggle.dart';
+import '../../../courses/presentation/widgets/course_skeletons.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 
 class DownloadedLectureDetails extends StatefulWidget {
   const DownloadedLectureDetails({
@@ -47,6 +50,14 @@ class _DownloadedLectureDetailsState extends State<DownloadedLectureDetails>
   void initState() {
     super.initState();
     _captureLease = StudentContentProtection.claim();
+    // A download's copy of the lecture only fills in when the lecture was
+    // never opened online (older downloads may list fewer videos).
+    final lecture = widget.lectureDetailsModel;
+    if (lecture.lecture?.id != null) {
+      StudyProgressStore.instance.rememberLectureVideos(lecture.lecture!.id!, [
+        for (final video in lecture.videos ?? const <Video>[]) ?video.id,
+      ], overwrite: false);
+    }
   }
 
   @override
@@ -94,6 +105,10 @@ class _DownloadedLectureDetailsState extends State<DownloadedLectureDetails>
                                       context,
                                     ).colorScheme.primary,
                                   ),
+                                ),
+                                LectureStudyProgress(
+                                  lectureId:
+                                      widget.lectureDetailsModel.lecture!.id!,
                                 ),
                                 if (widget
                                         .lectureDetailsModel
@@ -144,6 +159,7 @@ class _DownloadedLectureDetailsState extends State<DownloadedLectureDetails>
                   pinned: true,
                   delegate: TabBarDelegate(
                     TabBar(
+                      onTap: (_) => tabTapHaptic(context, controller: _tabs),
                       controller: _tabs,
                       labelColor: AppColors.secondary,
                       unselectedLabelColor: AppColors.greyNormal,
@@ -164,13 +180,22 @@ class _DownloadedLectureDetailsState extends State<DownloadedLectureDetails>
               ];
             },
             body: FutureBuilder(
+              // Copies: filtering the saved lecture's own lists removed the
+              // videos that are not downloaded from the downloads state.
               future: _deleteNotDownloadedFilesOnOfflineMode(
-                files: widget.lectureDetailsModel.files ?? [],
-                videos: widget.lectureDetailsModel.videos ?? [],
+                files: List.of(widget.lectureDetailsModel.files ?? []),
+                videos: List.of(widget.lectureDetailsModel.videos ?? []),
               ),
               builder: (context, snapShot) {
                 if (snapShot.connectionState != ConnectionState.done) {
-                  return Center(child: CoursatyAppLoader());
+                  return TabBarView(
+                    controller: _tabs,
+                    children: const [
+                      ContentListSkeleton(),
+                      ContentListSkeleton(),
+                      McqTabSkeleton(),
+                    ],
+                  );
                 }
                 final files = snapShot.data['files'];
                 final videos = snapShot.data['videos'];
@@ -312,8 +337,10 @@ class _VideosTab extends StatelessWidget {
                   ),
                 );
               },
-              actions: [],
-              title: videos[i].videoName ?? '',
+              actions: [VideoStudiedToggle(videoId: url)],
+              // ⚠️ Was `videos[i]`: the unfiltered list, so a card showed
+              // another video's name when some videos were not downloaded.
+              title: downloaded[i].videoName ?? '',
               index: i,
             );
           },

@@ -6,6 +6,7 @@ import 'package:get_thumbnail_video/index.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:get_thumbnail_video/video_thumbnail.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 class BannerMediaWidget extends StatefulWidget {
   final String? imageUrl;
@@ -66,10 +67,7 @@ class _BannerMediaWidgetState extends State<BannerMediaWidget> {
 
     if (hasVideo) {
       if (isLoadingThumbnail) {
-        return Container(
-          color: AppColors.primaryLightTrack,
-          child: const Center(child: CircularProgressIndicator()),
-        );
+        return ImageSkeleton(borderRadius: BorderRadius.circular(12));
       }
 
       if (thumbnailPath != null) {
@@ -99,10 +97,7 @@ class _BannerMediaWidgetState extends State<BannerMediaWidget> {
         imageUrl: widget.imageUrl ?? '',
         fit: BoxFit.cover,
         width: double.infinity,
-        placeholder: (_, __) => Container(
-          color: AppColors.primaryLightTrack,
-          child: const Center(child: CircularProgressIndicator()),
-        ),
+        placeholder: (_, __) => const ImageSkeleton(),
         errorWidget: (_, __, ___) => Container(
           color: AppColors.primaryLightTrack.withValues(alpha: 0.5),
           child: Icon(

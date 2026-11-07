@@ -1,5 +1,4 @@
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/paid_content_dialog.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/design/app_assets.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
@@ -16,6 +15,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/widgets/you_are_guest_dialog.dart';
 import '../../../../core/storage/prefs_repository.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class _RatingDialog extends StatefulWidget {
   const _RatingDialog({required this.courseId});
@@ -30,6 +31,7 @@ class _RatingDialogState extends State<_RatingDialog> {
   int selectedStars = 1; // ✅ minimum 1
 
   void _selectStar(int index) {
+    if (index + 1 != selectedStars) AppHaptics.selection();
     setState(() {
       selectedStars = index + 1;
     });
@@ -172,7 +174,14 @@ class RatingWidget extends StatelessWidget {
           c.rateCourseOrGetCourseRateStatus,
       builder: (context, state) {
         if (state.rateCourseOrGetCourseRateStatus.isLoading) {
-          return Center(child: CoursatyAppLoader());
+          // Same pill as the rating badge below.
+          return AppShimmer(
+            child: SkeletonBox(
+              width: 92,
+              height: 36,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          );
         }
         if (state.courseRatingModel == null) {
           return SizedBox.shrink();

@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/features/norifications/presentation/bloc/notifications_bloc.dart';
 import 'package:flutter/material.dart' hide Notification;
@@ -7,6 +6,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/extensions/build_context.dart';
 import '../widgets/empty_notifications.dart';
 import '../widgets/notification_tile.dart';
+import '../widgets/notifications_skeletons.dart';
+import '../../../../app/widgets/try_again_widget.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -42,8 +43,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             },
             child: BlocBuilder<NotificationsBloc, NotificationsState>(
               builder: (context, state) {
-                return state.getNotificationsStatus.isLoading
-                    ? Center(child: CoursatyAppLoader())
+                // Skeleton only for the first load; a refresh keeps the list.
+                return state.getNotificationsStatus.isLoading &&
+                        state.notifications.isEmpty
+                    ? const NotificationListSkeleton()
+                    : state.getNotificationsStatus.isFailed &&
+                          state.notifications.isEmpty
+                    ? Center(
+                        child: TryAgainWidget(
+                          onPress: () => BlocProvider.of<NotificationsBloc>(
+                            context,
+                          ).add(GetNotificationsEvent()),
+                        ),
+                      )
                     : state.notifications.isNotEmpty
                     ? ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: 16),

@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/widgets/video_widget.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 class AdvertisementPreview extends StatelessWidget {
   final Advertisement advertisement;
@@ -53,10 +54,7 @@ class AdvertisementPreview extends StatelessWidget {
                     imageUrl: advertisement.fullScreenImageUrl!,
                     fit: BoxFit.fitWidth,
 
-                    placeholder: (context, url) => SizedBox(
-                      height: 0.7.sh,
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
+                    placeholder: (context, url) => const ImageSkeleton(),
                     errorWidget: (context, url, error) => SizedBox(
                       height: 0.7.sh,
                       child: Center(

@@ -6,6 +6,7 @@ import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 final _moneyFormat = NumberFormat('#,##0.##', 'en');
 final _countFormat = NumberFormat('#,##0', 'en');
@@ -63,7 +64,9 @@ class RevenuePeriodSelector extends StatelessWidget {
                 ),
                 selected: option == selected,
                 onSelected: (_) {
-                  if (option != selected) onChanged(option);
+                  if (option == selected) return;
+                  AppHaptics.selection();
+                  onChanged(option);
                 },
               ),
             ),

@@ -1,5 +1,4 @@
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_dropdown.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/theme/app_colors.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -11,6 +10,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import '../../../../app/widgets/interaction/app_pressable.dart';
+import '../../../../services/haptics/app_haptics.dart';
 
 class AddAffiliationScreen extends StatefulWidget {
   const AddAffiliationScreen({super.key});
@@ -68,7 +71,13 @@ class _AddAffiliationScreenState extends State<AddAffiliationScreen> {
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       return !state.getUniversities.isSuccess
-                          ? Center(child: CoursatyAppLoader())
+                          ? FieldLoadingPlaceholder(
+                              labelWidth: 60,
+                              failed: state.getUniversities.isFailed,
+                              onRetry: () => BlocProvider.of<AuthBloc>(
+                                context,
+                              ).add(GetUniversitiesEvent()),
+                            )
                           : CoursatyDropdown<String>(
                               label: 'الجامعة',
                               hint: 'اختر الجامعة',
@@ -115,7 +124,16 @@ class _AddAffiliationScreenState extends State<AddAffiliationScreen> {
                       }
 
                       return !state.getColleges.isSuccess
-                          ? Center(child: CoursatyAppLoader())
+                          ? FieldLoadingPlaceholder(
+                              labelWidth: 50,
+                              failed: state.getColleges.isFailed,
+                              onRetry: () =>
+                                  BlocProvider.of<AuthBloc>(context).add(
+                                    GetCollegesEvent(
+                                      universityId: universityController.text,
+                                    ),
+                                  ),
+                            )
                           : CoursatyDropdown<String>(
                               label: 'الكلية',
                               hint: 'اختر الكلية',
@@ -160,7 +178,16 @@ class _AddAffiliationScreenState extends State<AddAffiliationScreen> {
                       }
 
                       return !state.getDepartments.isSuccess
-                          ? Center(child: CoursatyAppLoader())
+                          ? FieldLoadingPlaceholder(
+                              labelWidth: 50,
+                              failed: state.getDepartments.isFailed,
+                              onRetry: () =>
+                                  BlocProvider.of<AuthBloc>(context).add(
+                                    GetDepartmentsEvent(
+                                      collegeId: collegeController.text,
+                                    ),
+                                  ),
+                            )
                           : state.departmentsResponseModel.isNullOrEmpty
                           ? SizedBox.shrink()
                           : CoursatyDropdown<String>(
@@ -205,10 +232,12 @@ class _AddAffiliationScreenState extends State<AddAffiliationScreen> {
                       }
                     },
                     builder: (context, state) {
-                      return state.affiliationsStatus.isLoading
-                          ? Center(child: CoursatyAppLoader())
-                          : InkWell(
-                              onTap: () {
+                      final loading = state.affiliationsStatus.isLoading;
+                      return InkWell(
+                        onTap: loading
+                            ? null
+                            : () {
+                                AppHaptics.lightTap();
                                 if (!_formKey.currentState!.validate()) {
                                   return;
                                 }
@@ -229,26 +258,28 @@ class _AddAffiliationScreenState extends State<AddAffiliationScreen> {
                                   ),
                                 );
                               },
-                              child: Container(
-                                height: 52,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [AppColors.buttonShadow],
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'إضافة الانتماء',
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onPrimary,
-                                  ),
-                                ),
+                        child: AppPressScale(
+                          enabled: !loading,
+                          child: Container(
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [AppColors.buttonShadow],
+                            ),
+                            alignment: Alignment.center,
+                            child: LoadingLabel(
+                              label: 'إضافة الانتماء',
+                              isLoading: loading,
+                              style: GoogleFonts.cairo(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.onPrimary,
                               ),
-                            );
+                            ),
+                          ),
+                        ),
+                      );
                     },
                   ),
                 ],

@@ -41,10 +41,12 @@ import '../../core/common/constant/design/app_assets.dart';
 import '../../core/routes/router.dart';
 import '../../core/storage/prefs_repository.dart';
 import '../../core/theme/app_colors.dart';
+import '../../services/crash_reporting.dart';
 import 'chip_widget.dart';
 import 'playback_wakelock.dart';
 import 'smooth_seek_controller.dart';
 import 'video_zoom.dart';
+import 'skeleton/skeleton.dart';
 
 class MyVideoWidgetBetterPlayer extends StatefulWidget {
   const MyVideoWidgetBetterPlayer({
@@ -125,6 +127,10 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     // concurrent init would open a second session and controller.
     if (_initStarted) return;
     _initStarted = true;
+    CrashReporting.log(
+      'player: open ${widget.filePath != null ? 'offline' : 'online'} '
+      'quality=${widget.preferredResolution}',
+    );
     try {
       final source = await _resolveSource();
       if (!mounted) {
@@ -158,7 +164,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         initialized = true;
       });
       _scheduleRenewal();
-    } catch (error) {
+      CrashReporting.log('player: ready');
+    } catch (error, stack) {
+      CrashReporting.recordError(error, stack, reason: 'player init');
       if (!mounted) return;
       setState(() {
         _initializationError = _playbackErrorMessage(error);
@@ -219,8 +227,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         await proxy.updateUpstream(upstream, source.headers);
       }
       return _PlaybackSource(_onlineProxy!.localUrlFor(upstream).toString());
-    } catch (error) {
+    } catch (error, stack) {
       log('playback proxy unavailable: ${error.runtimeType}');
+      CrashReporting.recordError(error, stack, reason: 'playback proxy');
       return source;
     }
   }
@@ -403,7 +412,12 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       if (mounted) {
         showMessage('تم ربط حسابك بجهاز آخر، لذا توقف التشغيل على هذا الجهاز');
       }
-    } catch (error) {
+    } catch (error, stack) {
+      CrashReporting.recordError(
+        error,
+        stack,
+        reason: proactive ? 'session renewal' : 'playback recovery',
+      );
       if (!mounted) return;
       if (proactive) {
         // The current session is still valid for about a minute; try again
@@ -422,6 +436,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
   }
 
   Future<void> _onBetterPlayerEvent(BetterPlayerEvent event) async {
+    if (event.betterPlayerEventType == BetterPlayerEventType.exception) {
+      CrashReporting.log('player: exception ${event.parameters ?? ''}');
+    }
     if (event.betterPlayerEventType != BetterPlayerEventType.exception) {
       if (event.betterPlayerEventType == BetterPlayerEventType.play) {
         _hasRefreshedForCurrentError = false;
@@ -541,6 +558,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
 
   @override
   void dispose() {
+    CrashReporting.log('player: close');
     _zoomController.dispose();
     _renewalTimer?.cancel();
     _wakelock?.dispose();
@@ -651,14 +669,12 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
                                               width: 40.r,
                                               height: 40.r,
                                               fit: BoxFit.cover,
-                                              placeholder: (_, __) => SizedBox(
-                                                width: 40.r,
-                                                height: 40.r,
-                                                child: Center(
-                                                  child:
-                                                      CircularProgressIndicator(),
-                                                ),
-                                              ),
+                                              placeholder: (_, __) =>
+                                                  ImageSkeleton(
+                                                    width: 40.r,
+                                                    height: 40.r,
+                                                    shape: BoxShape.circle,
+                                                  ),
                                               errorWidget: (_, __, ___) =>
                                                   const Icon(Icons.error),
                                             ),

@@ -1,10 +1,13 @@
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
+import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
+import 'package:coursaty_student_and_teacher/services/crash_reporting.dart';
 import 'package:coursaty_student_and_teacher/services/device_info_service.dart';
 import 'package:coursaty_student_and_teacher/services/network_time_protocol_service.dart';
 import 'package:coursaty_student_and_teacher/services/notification_service/handle_notification/notification_process.dart';
 import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:get_it/get_it.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'core/di/di_container.dart';
@@ -30,10 +33,12 @@ void main() async {
   // the much slower pure Dart implementation, which made 1080p stutter.
   FlutterCryptography.enable();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  var firebaseReady = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    firebaseReady = true;
     HydratedBloc.storage = await HydratedStorage.build(
       storageDirectory: HydratedStorageDirectory(
         (await getApplicationDocumentsDirectory()).path,
@@ -42,6 +47,8 @@ void main() async {
   } catch (e) {
     print(e);
   }
+  // Before anything else can fail, so startup errors are reported too.
+  if (firebaseReady) await CrashReporting.init();
   await Future.wait([
     EasyLocalization.ensureInitialized(),
     configureDependencies(),
@@ -49,6 +56,15 @@ void main() async {
     DeviceInfoService.init(),
     PaidContentPolicy.init(),
   ]);
+  final prefs = GetIt.I<PrefsRepository>();
+  CrashReporting.setCustomKey(
+    'role',
+    prefs.isGuest
+        ? 'guest'
+        : prefs.isTeacher
+        ? 'teacher'
+        : 'student',
+  );
   // Not awaited: the cached setting is already in place.
   PaidContentPolicy.refresh();
   isDateFraud = NetworkTimeProtocolService.checkLocalTimeValidity();

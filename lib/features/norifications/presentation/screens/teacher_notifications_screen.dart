@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/features/norifications/data/model/notification_model.dart';
 import 'package:coursaty_student_and_teacher/features/norifications/presentation/bloc/notifications_bloc.dart';
@@ -10,6 +9,8 @@ import '../../../../core/routes/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../widgets/empty_notifications.dart';
 import '../widgets/notification_tile.dart';
+import '../widgets/notifications_skeletons.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 
 class TeacherNotificationsScreen extends StatefulWidget {
   const TeacherNotificationsScreen({super.key});
@@ -49,6 +50,7 @@ class _TeacherNotificationsScreenState
           child: Column(
             children: [
               TabBar(
+                onTap: (_) => tabTapHaptic(context),
                 indicatorColor: AppColors.secondary,
                 labelColor: AppColors.secondary,
                 unselectedLabelColor: AppColors.greyNormal,
@@ -74,8 +76,17 @@ class _TeacherNotificationsScreenState
               const SizedBox(height: 12),
               BlocBuilder<NotificationsBloc, NotificationsState>(
                 builder: (context, state) {
-                  if (state.getNotificationsStatus.isLoading) {
-                    return Center(child: CoursatyAppLoader());
+                  // Skeleton only for the first load; a refresh keeps the list.
+                  if (state.getNotificationsStatus.isLoading &&
+                      state.notifications.isEmpty) {
+                    return const Expanded(
+                      child: TabBarView(
+                        children: [
+                          NotificationListSkeleton(),
+                          NotificationListSkeleton(),
+                        ],
+                      ),
+                    );
                   }
                   List<Notification> notifications = state.notifications;
                   String pendingStatus = 'PENDING';

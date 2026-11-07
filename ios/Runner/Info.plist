@@ -102,17 +102,6 @@
 		<string>https</string>
 		<string>http</string>
 	</array>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>coursay.duckdns.org</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>https</string>
-			</array>
-		</dict>
-	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

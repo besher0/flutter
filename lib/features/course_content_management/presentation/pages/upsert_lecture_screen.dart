@@ -1,6 +1,5 @@
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -12,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class AddOrUpdateLectureScreen extends StatefulWidget {
   const AddOrUpdateLectureScreen({
@@ -170,10 +170,12 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
                     buildWhen: (p, c) => p.upsertCourse != c.upsertCourse,
                     listener: (context, state) {
                       if (state.upsertCourse.isFailed) {
+                        AppHaptics.error();
                         showMessage(state.errorMessage);
                       }
 
                       if (state.upsertCourse.isSuccess) {
+                        AppHaptics.success();
                         showMessage(
                           widget.isEditMode
                               ? 'تم تعديل المحاضرة بنجاح'
@@ -188,14 +190,13 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
                       }
                     },
                     builder: (context, state) {
-                      return state.upsertCourse.isLoading
-                          ? CoursatyAppLoader()
-                          : CoursatyPrimaryButton(
-                              label: widget.isEditMode
-                                  ? 'حفظ التعديلات'
-                                  : 'إضافة المحاضرة',
-                              onPressed: _submit,
-                            );
+                      return CoursatyPrimaryButton(
+                        isLoading: state.upsertCourse.isLoading,
+                        label: widget.isEditMode
+                            ? 'حفظ التعديلات'
+                            : 'إضافة المحاضرة',
+                        onPressed: _submit,
+                      );
                     },
                   ),
                   const SizedBox(height: 30),

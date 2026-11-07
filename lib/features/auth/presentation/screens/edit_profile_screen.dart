@@ -14,7 +14,6 @@ import '../../../../app/widgets/coursaty_button.dart';
 import '../../../../app/widgets/coursaty_dropdown.dart';
 import '../../../../app/widgets/coursaty_text_field.dart';
 import '../../../../app/widgets/custom_choose_file_button.dart';
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../bloc/auth_bloc.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
@@ -201,9 +200,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     buildWhen: (p, c) => p.profileStatus != c.profileStatus,
                     listenWhen: (p, c) => p.profileStatus != c.profileStatus,
                     builder: (context, state) {
-                      return state.updateProfileStatus.isLoading
-                          ? CoursatyAppLoader()
-                          : Column(
+                      // The fields stay while saving; the save button shows
+                      // the progress.
+                      return Column(
                               spacing: 10,
                               children: [
                                 CoursatyTextField(
@@ -235,9 +234,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   buildWhen: (p, c) =>
                       p.updateProfileStatus != c.updateProfileStatus,
                   builder: (context, state) {
-                    return state.updateProfileStatus.isLoading
-                        ? CoursatyAppLoader()
-                        : CoursatyPrimaryButton(
+                    return CoursatyPrimaryButton(
+                            isLoading: state.updateProfileStatus.isLoading,
                             label: 'حفظ',
                             onPressed: () {
                               if (_formKey.currentState!.validate()) {

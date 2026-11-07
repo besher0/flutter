@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/widgets/title_app_bar.dart';
 import '../bloc/home_bloc.dart';
 import '../widgets/subject_card.dart';
+import '../widgets/home_skeletons.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
 
 class ProgramsScreen extends StatefulWidget {
   const ProgramsScreen({super.key});
@@ -35,9 +36,9 @@ class _ProgramsScreenState extends State<ProgramsScreen> {
       body: SafeArea(
         child: BlocBuilder<HomeBloc, HomeState>(
           builder: (context, state) {
-            if (state.allPrograms.isLoading &&
-                state.allPrograms.items.isEmpty) {
-              return Center(child: CoursatyAppLoader());
+            if (state.allPrograms.items.isEmpty &&
+                (state.allPrograms.isLoading || state.allPrograms.isInitial)) {
+              return const SubjectListSkeleton(chipCount: 0);
             }
             final programs = state.allPrograms.items;
 
@@ -47,8 +48,11 @@ class _ProgramsScreenState extends State<ProgramsScreen> {
               children: [
                 NotificationListener<ScrollNotification>(
                   onNotification: (scrollInfo) {
-                    if (scrollInfo.metrics.pixels >=
-                        (0.7 * scrollInfo.metrics.maxScrollExtent)) {
+                    final current = context.read<HomeBloc>().state.allPrograms;
+                    if (!current.isLoading &&
+                        !current.hasReachedMax &&
+                        scrollInfo.metrics.pixels >=
+                            (0.7 * scrollInfo.metrics.maxScrollExtent)) {
                       BlocProvider.of<HomeBloc>(context).add(GetAllPrograms());
                     }
                     return false;
@@ -87,12 +91,11 @@ class _ProgramsScreenState extends State<ProgramsScreen> {
                     ),
                   ),
                 ),
-                10.verticalSpace,
                 if (state.allPrograms.items.isNotEmpty &&
-                    state.allPrograms.isLoading) ...{
-                  Center(child: CoursatyAppLoader()),
-                },
-                15.verticalSpace,
+                    state.allPrograms.isLoading)
+                  const ListEndLoader()
+                else
+                  25.verticalSpace,
               ],
             );
           },

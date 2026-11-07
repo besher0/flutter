@@ -7,12 +7,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/widgets/app_drawer.dart';
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
+import '../../../../app/widgets/try_again_widget.dart';
 import '../../../../core/routes/router.dart';
 import '../../../../core/common/constant/configuration/feature_flags.dart';
 import '../../../sales_points/presentation/widgets/point_of_sale_card.dart';
 import '../bloc/home_bloc.dart';
 import '../widgets/banner_carousel.dart';
+import '../widgets/home_skeletons.dart';
 
 import '../widgets/section_card.dart';
 import '../widgets/section_header.dart';
@@ -43,8 +44,21 @@ class HomeContent extends StatelessWidget {
           child: BlocBuilder<HomeBloc, HomeState>(
             buildWhen: (p, c) => p.getHomeContent != c.getHomeContent,
             builder: (context, state) {
-              if (state.getHomeContent.isLoading) {
-                return Center(child: CoursatyAppLoader());
+              // Skeleton only for the first load; a refresh keeps the
+              // current content on screen.
+              if (state.homeResponseModel == null) {
+                if (state.getHomeContent.isFailed) {
+                  return Center(
+                    child: TryAgainWidget(
+                      onPress: () => BlocProvider.of<HomeBloc>(
+                        context,
+                      ).add(GetHomeContentEvent()),
+                    ),
+                  );
+                }
+                if (!state.getHomeContent.isSuccess) {
+                  return const HomeContentSkeleton();
+                }
               }
               final banners = state.homeResponseModel?.advertisements ?? [];
               final teachers = state.homeResponseModel?.teachers ?? [];
@@ -156,8 +170,9 @@ class HomeContent extends StatelessWidget {
                           buildWhen: (p, c) =>
                               p.getSalesPointsStatus != c.getSalesPointsStatus,
                           builder: (context, state) {
-                            return state.getSalesPointsStatus.isLoading
-                                ? Center(child: CoursatyAppLoader())
+                            return state.getSalesPointsStatus.isLoading &&
+                                    state.salesPoints.isEmpty
+                                ? const HomeSalesPointsSkeleton()
                                 : state.salesPoints.isEmpty
                                 ? SizedBox.shrink()
                                 : Column(

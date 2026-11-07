@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/list_extensions.dart';
 import 'package:coursaty_student_and_teacher/features/auth/data/model/academic_years_model.dart';
 import 'package:coursaty_student_and_teacher/features/auth/data/model/colleges_model.dart';
@@ -15,6 +14,7 @@ import '../../../../app/widgets/coursaty_text_field.dart';
 import '../../../../app/widgets/try_again_widget.dart';
 import '../../data/model/education_model.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 class UniversityDataStep extends StatelessWidget {
   const UniversityDataStep({
@@ -54,7 +54,7 @@ class UniversityDataStep extends StatelessWidget {
                             ).add(GetUniversitiesEvent());
                           },
                         )
-                      : Center(child: CoursatyAppLoader())
+                      : const FormFieldSkeleton(labelWidth: 60)
                 : CoursatyDropdown<UniversitiesResponseModel>(
                     label: 'الجامعة',
                     hint: 'الجامعة',
@@ -104,7 +104,7 @@ class UniversityDataStep extends StatelessWidget {
                               );
                             },
                           )
-                        : CoursatyAppLoader()
+                        : const FormFieldSkeleton(labelWidth: 50)
                   : CoursatyDropdown<CollegesResponseModel>(
                       label: 'الكلية',
                       hint: 'الكلية',
@@ -156,7 +156,7 @@ class UniversityDataStep extends StatelessWidget {
                             );
                           },
                         )
-                      : CoursatyAppLoader()
+                      : const FormFieldSkeleton(labelWidth: 50)
                 : state.departmentsResponseModel.isNullOrEmpty
                 ? SizedBox.shrink()
                 : CoursatyDropdown<DepartmentsResponseModel>(
@@ -203,7 +203,7 @@ class UniversityDataStep extends StatelessWidget {
                               );
                             },
                           )
-                        : CoursatyAppLoader()
+                        : const FormFieldSkeleton(labelWidth: 50)
                   : CoursatyDropdown<AcademicYearsResponseModel>(
                       label: 'السنة',
                       hint: 'السنة',

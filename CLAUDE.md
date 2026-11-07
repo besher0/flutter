@@ -27,6 +27,8 @@ Scale: ~334 Dart files, ~42.5k lines under `lib/`.
 - Git repo, remote `github.com/besher0/flutter`, working branch **`fix/video-security-integration`**
   (plus `main`), version `2.1.0+6`. Releases are distributed outside Google Play too
   (`RELEASING_OUTSIDE_PLAY.md`).
+- Toolchain (2026-11-03): **Flutter 3.47.9 / Dart 3.13.7**, Gradle wrapper **8.14.3**, Android Gradle
+  Plugin **8.11.1** (Flutter 3.47 refuses older Gradle/AGP). `pubspec.lock` needs this SDK (`meta 1.19`).
 - `flutter analyze`: keep errors at 0; don't mass-fix the pre-existing infos/warnings.
 - **Tests exist** under `test/` (`core/`, `app/`, `features/…`, `fixtures/device_proof_contract.json`):
   `/v2` routing + device header, revenue models/widgets, screen-capture policy, downloads expiry,
@@ -212,9 +214,37 @@ withdrawals, `dashboard/*`) are the ones this app consumes.
   (`BetterPlayerMaterialControls` / `BetterPlayerCupertinoControls`) above it. A small reset button sits
   at the top right while zoomed (below the cupertino top bar on iOS). iOS zoom transforms a platform
   view (UiKitView) and has not been checked on an iPhone yet.
-- Real-device gate (`services/device_info_service.dart`): an Android device is refused for one definite
-  emulator trace, or for two different circumstantial signals (x86 CPU, hypervisor flag, no
-  accelerometer). Each of those alone exists on real tablets.
+- Crash reporting: Firebase Crashlytics (`services/crash_reporting.dart`, started in `main.dart` right
+  after `Firebase.initializeApp`; off in debug builds). Native crashes come from the SDK (Android NDK
+  library included, same BoM as `firebase_core`); Dart framework/zone/isolate errors from
+  `CrashReporting.init`. Use `CrashReporting.log` for breadcrumbs and `recordError` for handled errors;
+  the player logs open/ready/exception/close. Never send personal data (only the `role` key is set).
+  iOS: symbol (dSYM) upload needs the Crashlytics run-script build phase in Xcode — not added yet.
+- Real-device gate (`services/device_info_service.dart` + native `EmulatorSignals.kt`): **only emulators
+  are refused, never a real device.** Android refuses on proof only: an emulator build/name, QEMU
+  kernel/hardware properties, a desktop emulator's own files (BlueStacks, Nox, LDPlayer, MEmu,
+  Genymotion, VirtualBox), an x86 CPU under a hypervisor (a PC virtual machine; Chromebooks excepted),
+  or a QEMU trace/emulated sensor together with x86 or a hypervisor. No accelerometer, an x86 CPU alone,
+  a generic fingerprint, QEMU leftovers or a failed check never refuse. iOS refuses the Simulator and
+  iPhone apps on a Mac. Tests list both sides in `test/features/mobile_reliability_test.dart`.
+- Studied videos (online and downloads, students/guests): local store
+  `features/study_progress/data/study_progress_store.dart` (`StudyProgressStore.instance`, a
+  `ChangeNotifier` over SharedPreferences, key per account; marks survive deleting a download). A
+  lecture is studied when **all** its videos are: the full video list is remembered from the server's
+  lecture details when the online lecture page loads (`rememberLectureVideos`, overwrite); a download's
+  snapshot only fills a gap (`overwrite: false`). UI in `study_progress/presentation/widgets/studied_toggle.dart`:
+  `VideoStudiedToggle` (cards + video page top bar), `LectureStudiedBadge` (lecture lists via
+  `LectureItem.trailing`), `LectureStudyProgress` (under lecture titles, «درست X من Y فيديو»). Not in
+  `MyDownloadsState`. ⚠️ Never filter the saved `LectureDetailsModel` lists in place (copy them first).
+- iOS universal links: `ios/Runner/Runner.entitlements` (`applinks:coursay.duckdns.org`, linked via
+  `CODE_SIGN_ENTITLEMENTS`); server file `.well-known/apple-app-site-association` (paths `/teacher`,
+  `/course`, `/lecture`; app id `XT693D4UPT.com.YamanKartal.coursatyApp`). The App ID needs the
+  Associated Domains capability in the Apple Developer portal.
+- Course pages (online `course_details_screen.dart` and downloaded `downloaded_course_details.dart`)
+  show three links as plain icon + label (`CourseLinkTile`, vector `AppAssets.telegramLogo`): Coursaty's
+  Telegram channel and Instagram page (`CoursatySocialLinks` in
+  `core/common/constant/configuration/social_links.dart`), then the course's teacher group
+  (`telegramUrl`, subscribers only, hidden on the iPhone with paid content).
 - Besides the unit tests, the practical way to validate a change against the real backend is the same
   one used in the admin project: have the user log in and save the token, then drive the app's real
   data sources from a throwaway `test/zz_tmp_*.dart` (Dio + token in headers) and delete it afterwards.

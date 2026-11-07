@@ -45,6 +45,8 @@ class ContentItem extends StatelessWidget {
     final quality = GetIt.I<PrefsRepository>().getQuality(fileUrl ?? '');
     return InkWell(
       onTap: onTap,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,

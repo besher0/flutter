@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/common/constant/configuration/paid_content_policy.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 /// The student's bottom tabs, in order. The bar and the pages are both built
 /// from [studentTabs], so a hidden tab never shifts one against the other.
@@ -112,7 +113,10 @@ class CoursatyBottomNavBar extends StatelessWidget {
       ),
       child: BottomNavigationBar(
         currentIndex: currentIndex,
-        onTap: onTap,
+        onTap: (index) {
+          if (index != currentIndex) AppHaptics.selection();
+          onTap(index);
+        },
         items: items,
         type: BottomNavigationBarType.fixed,
         backgroundColor: Theme.of(context).colorScheme.surface,
