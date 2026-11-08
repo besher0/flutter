@@ -1,8 +1,8 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/custom_choose_file_button.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/my_video_widget_better_player.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
@@ -27,6 +27,8 @@ import '../../../courses/presentation/widgets/course_free_checkbox.dart';
 import '../../../courses/presentation/widgets/video_segement_item.dart';
 import '../widgets/upsert_video_segment_dialog.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class AddVideoScreen extends StatefulWidget {
   const AddVideoScreen({
@@ -137,243 +139,255 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                   child: Icon(Icons.add),
                 ),
               ),
-        body: SafeArea(
-          child: Form(
-            key: formKey,
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      if (widget.video != null) ...{
-                        MyVideoWidgetBetterPlayer(
-                          videoName: widget.video!.videoName ?? '',
-                          preferredResolution: widget.preferredResolution,
-                          isFromNetwork: true,
-                          duration:
-                              widget.video!.durationSeconds
-                                  ?.formatDurationFromSeconds() ??
-                              '',
-                          videoId: widget.video!.id!,
-                          segments: [],
-                          courseId: widget.courseId,
-                        ),
-                        10.verticalSpace,
-                      },
-                      if (widget.video != null) ...{
-                        10.verticalSpace,
-                        BlocConsumer<
-                          CourseContentManagementBloc,
-                          CourseContentManagementState
-                        >(
-                          buildWhen: (p, c) =>
-                              p.upsertVideoSegment != c.upsertVideoSegment,
-                          listenWhen: (p, c) =>
-                              p.upsertVideoSegment != c.upsertVideoSegment,
-                          listener: (context, state) {
-                            if (state.upsertVideoSegment.isFailed) {
-                              showMessage(state.errorMessage);
-                            }
-                          },
-                          builder: (context, state) {
-                            return state.upsertVideoSegment.isLoading
-                                ? Center(child: CoursatyAppLoader())
-                                : state.videoSegments.isEmpty
-                                ? SizedBox.shrink()
-                                : SizedBox(
-                                    height: 100,
-                                    child: ListView.separated(
-                                      itemCount: state.videoSegments.length,
-                                      shrinkWrap: true,
-                                      scrollDirection: Axis.horizontal,
-                                      separatorBuilder: (context, index) {
-                                        return Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            10.verticalSpace,
-                                            Divider(
-                                              color: AppColors.secondary
-                                                  .withValues(alpha: 0.1),
-                                              indent: 22.w,
-                                              endIndent: 22.w,
-                                              height: 0,
-                                            ),
-                                            10.verticalSpace,
-                                          ],
-                                        );
-                                      },
-                                      itemBuilder: (context, index) {
-                                        Segment p = state.videoSegments[index];
-                                        return VideoSegementItem(
-                                          index: index,
-                                          segment: p,
-                                          onEdit: () async {
-                                            final segment =
-                                                await showUpsertSegmentDialog(
-                                                  context,
-                                                  initialSegment: p,
-                                                );
-                                            if (segment != null &&
-                                                context.mounted) {
-                                              BlocProvider.of<
-                                                    CourseContentManagementBloc
-                                                  >(context)
-                                                  .add(
-                                                    UpsertVideoSegmentEvent(
-                                                      UpsertVideoSegmentParams(
-                                                        videoId:
-                                                            widget.video!.id!,
-                                                        segmentId: p.id!,
-                                                        endSeconds:
-                                                            segment.endSeconds,
-                                                        startSeconds: segment
-                                                            .startSeconds!,
-                                                        segmentName: segment
-                                                            .segmentName!,
-                                                        sortOrder:
-                                                            segment.sortOrder,
-                                                      ),
-                                                    ),
-                                                  );
-                                            }
+        body: DesktopFormWidth(
+          child: SafeArea(
+            child: Form(
+              key: formKey,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        if (widget.video != null) ...{
+                          MyVideoWidgetBetterPlayer(
+                            videoName: widget.video!.videoName ?? '',
+                            preferredResolution: widget.preferredResolution,
+                            isFromNetwork: true,
+                            duration:
+                                widget.video!.durationSeconds
+                                    ?.formatDurationFromSeconds() ??
+                                '',
+                            videoId: widget.video!.id!,
+                            segments: [],
+                            courseId: widget.courseId,
+                          ),
+                          10.verticalSpace,
+                        },
+                        if (widget.video != null) ...{
+                          10.verticalSpace,
+                          BlocConsumer<
+                            CourseContentManagementBloc,
+                            CourseContentManagementState
+                          >(
+                            buildWhen: (p, c) =>
+                                p.upsertVideoSegment != c.upsertVideoSegment,
+                            listenWhen: (p, c) =>
+                                p.upsertVideoSegment != c.upsertVideoSegment,
+                            listener: (context, state) {
+                              if (state.upsertVideoSegment.isFailed) {
+                                AppHaptics.error();
+                                showMessage(state.errorMessage);
+                              }
+                            },
+                            builder: (context, state) {
+                              // Saving a segment keeps the list on screen.
+                              final saving = state.upsertVideoSegment.isLoading;
+                              return state.videoSegments.isEmpty
+                                  ? (saving
+                                        ? const ListEndLoader()
+                                        : SizedBox.shrink())
+                                  : BusyOverlay(
+                                      busy: saving,
+                                      child: SizedBox(
+                                        height: 100,
+                                        child: ListView.separated(
+                                          itemCount: state.videoSegments.length,
+                                          shrinkWrap: true,
+                                          scrollDirection: Axis.horizontal,
+                                          separatorBuilder: (context, index) {
+                                            return Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                10.verticalSpace,
+                                                Divider(
+                                                  color: AppColors.secondary
+                                                      .withValues(alpha: 0.1),
+                                                  indent: 22.w,
+                                                  endIndent: 22.w,
+                                                  height: 0,
+                                                ),
+                                                10.verticalSpace,
+                                              ],
+                                            );
                                           },
-                                          onDelete: () {
-                                            BlocProvider.of<
-                                                  CourseContentManagementBloc
-                                                >(context)
-                                                .add(
-                                                  DeleteVideoSegmentsEvent(
-                                                    params:
-                                                        DeleteVideoSegmentParams(
-                                                          videoId:
-                                                              widget.video!.id!,
-                                                          segmentId: p.id!,
+                                          itemBuilder: (context, index) {
+                                            Segment p =
+                                                state.videoSegments[index];
+                                            return VideoSegementItem(
+                                              index: index,
+                                              segment: p,
+                                              onEdit: () async {
+                                                final segment =
+                                                    await showUpsertSegmentDialog(
+                                                      context,
+                                                      initialSegment: p,
+                                                    );
+                                                if (segment != null &&
+                                                    context.mounted) {
+                                                  BlocProvider.of<
+                                                        CourseContentManagementBloc
+                                                      >(context)
+                                                      .add(
+                                                        UpsertVideoSegmentEvent(
+                                                          UpsertVideoSegmentParams(
+                                                            videoId: widget
+                                                                .video!
+                                                                .id!,
+                                                            segmentId: p.id!,
+                                                            endSeconds: segment
+                                                                .endSeconds,
+                                                            startSeconds: segment
+                                                                .startSeconds!,
+                                                            segmentName: segment
+                                                                .segmentName!,
+                                                            sortOrder: segment
+                                                                .sortOrder,
+                                                          ),
                                                         ),
-                                                  ),
-                                                );
+                                                      );
+                                                }
+                                              },
+                                              onDelete: () {
+                                                BlocProvider.of<
+                                                      CourseContentManagementBloc
+                                                    >(context)
+                                                    .add(
+                                                      DeleteVideoSegmentsEvent(
+                                                        params:
+                                                            DeleteVideoSegmentParams(
+                                                              videoId: widget
+                                                                  .video!
+                                                                  .id!,
+                                                              segmentId: p.id!,
+                                                            ),
+                                                      ),
+                                                    );
+                                              },
+                                            );
                                           },
-                                        );
-                                      },
-                                    ),
-                                  );
-                          },
-                        ),
-                      },
-                      10.verticalSpace,
-                      CoursatyTextField(
-                        label: 'اسم الفيديو',
-                        validator: _requiredValidator,
-                        controller: name,
-                      ),
-                      10.verticalSpace,
-                      CoursatyTextField(
-                        label: 'عن الفيديو (اختياري)',
-                        minLines: 3,
-                        controller: description,
-                      ),
-                      10.verticalSpace,
-                      CoursatyTextField(
-                        label: 'ترتيب الفيديو (اختياري)',
-                        minLines: 1,
-                        controller: sortOrder,
-                        inputFormatters: [AsciiDigitsFormatter()],
-                      ),
-                      // Hidden with paid content (iPhone): a new video stays
-                      // paid and an edited one keeps its current setting.
-                      if (!PaidContentPolicy.hidePaid) ...[
+                                        ),
+                                      ),
+                                    );
+                            },
+                          ),
+                        },
                         10.verticalSpace,
-                        IsFreeCourseTile(
-                          isFreeNotifier: isFree,
-                          title: "الفيديو مجاني",
-                          description:
-                              "عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الفيديو مجاناً",
+                        CoursatyTextField(
+                          label: 'اسم الفيديو',
+                          validator: _requiredValidator,
+                          controller: name,
                         ),
+                        10.verticalSpace,
+                        CoursatyTextField(
+                          label: 'عن الفيديو (اختياري)',
+                          minLines: 3,
+                          controller: description,
+                        ),
+                        10.verticalSpace,
+                        CoursatyTextField(
+                          label: 'ترتيب الفيديو (اختياري)',
+                          minLines: 1,
+                          controller: sortOrder,
+                          inputFormatters: [AsciiDigitsFormatter()],
+                        ),
+                        // Hidden with paid content (iPhone): a new video stays
+                        // paid and an edited one keeps its current setting.
+                        if (!PaidContentPolicy.hidePaid) ...[
+                          10.verticalSpace,
+                          IsFreeCourseTile(
+                            isFreeNotifier: isFree,
+                            title: "الفيديو مجاني",
+                            description:
+                                "عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الفيديو مجاناً",
+                          ),
+                        ],
+                        10.verticalSpace,
+                        // if (!widget.isForEdit) ...{
+                        CustomChooseFileButton(
+                          title: "اختر فيديو",
+                          usedForImage: false,
+                          usedForFile: false,
+                          choosedFile: chooseFile,
+                          choosedFileSize: videoSize,
+                          videoDuration: videoDuration,
+                        ),
+                        // },
                       ],
-                      10.verticalSpace,
-                      // if (!widget.isForEdit) ...{
-                      CustomChooseFileButton(
-                        title: "اختر فيديو",
-                        usedForImage: false,
-                        usedForFile: false,
-                        choosedFile: chooseFile,
-                        choosedFileSize: videoSize,
-                        videoDuration: videoDuration,
-                      ),
-                      // },
-                    ],
+                    ),
                   ),
-                ),
-                BlocConsumer<
-                  CourseContentManagementBloc,
-                  CourseContentManagementState
-                >(
-                  listenWhen: (p, c) => p.upsertLecture != c.upsertLecture,
-                  listener: (context, state) {
-                    if (state.upsertLecture.isFailed) {
-                      showMessage(state.errorMessage);
-                    }
-                    if (state.upsertLecture.isSuccess) {
-                      BlocProvider.of<CoursesBloc>(context).add(
-                        GetLectureDetailsEvent(
-                          lectureId: widget.lectureId,
-                          courseId: widget.courseId,
-                        ),
-                      );
-                      context.pop();
-                    }
-                  },
-                  builder: (context, state) {
-                    final path = state.currentlyUploadingFile?.path;
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (path != null &&
-                              state.uploadingProgress.containsKey(path)) ...{
-                            if (!state.uploadPaused ||
-                                state.uploadingProgress[path]! >= 0)
-                              ProgressIndicatorWidget(
-                                percent: state.uploadingProgress[path]! < 0
-                                    ? null
-                                    : state.uploadingProgress[path],
-                                textColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                fractionDigits: 1,
-                              ),
-                            if (state.uploadPaused) ...{
-                              const Padding(
-                                padding: EdgeInsets.only(top: 8, bottom: 8),
-                                child: Text(
-                                  "توقف الرفع بسبب انقطاع الاتصال",
-                                  textAlign: TextAlign.center,
+                  BlocConsumer<
+                    CourseContentManagementBloc,
+                    CourseContentManagementState
+                  >(
+                    listenWhen: (p, c) => p.upsertLecture != c.upsertLecture,
+                    listener: (context, state) {
+                      if (state.upsertLecture.isFailed) {
+                        AppHaptics.error();
+                        showMessage(state.errorMessage);
+                      }
+                      if (state.upsertLecture.isSuccess) {
+                        AppHaptics.success();
+                        BlocProvider.of<CoursesBloc>(context).add(
+                          GetLectureDetailsEvent(
+                            lectureId: widget.lectureId,
+                            courseId: widget.courseId,
+                          ),
+                        );
+                        context.pop();
+                      }
+                    },
+                    builder: (context, state) {
+                      final path = state.currentlyUploadingFile?.path;
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (path != null &&
+                                state.uploadingProgress.containsKey(path)) ...{
+                              if (!state.uploadPaused ||
+                                  state.uploadingProgress[path]! >= 0)
+                                ProgressIndicatorWidget(
+                                  percent: state.uploadingProgress[path]! < 0
+                                      ? null
+                                      : state.uploadingProgress[path],
+                                  textColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
+                                  fractionDigits: 1,
                                 ),
+                              if (state.uploadPaused) ...{
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 8, bottom: 8),
+                                  child: Text(
+                                    "توقف الرفع بسبب انقطاع الاتصال",
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                CoursatyPrimaryButton(
+                                  label: "استئناف الرفع",
+                                  onPressed: () => _submit(context, state),
+                                ),
+                              },
+                              TextButton.icon(
+                                onPressed: () => _confirmCancelUpload(context),
+                                icon: const Icon(Icons.close),
+                                label: const Text("إلغاء الرفع"),
                               ),
+                            } else
                               CoursatyPrimaryButton(
-                                label: "استئناف الرفع",
+                                isLoading: state.upsertLecture.isLoading,
+                                label: !widget.isForEdit ? 'إضافة' : "تعديل",
                                 onPressed: () => _submit(context, state),
                               ),
-                            },
-                            TextButton.icon(
-                              onPressed: () => _confirmCancelUpload(context),
-                              icon: const Icon(Icons.close),
-                              label: const Text("إلغاء الرفع"),
-                            ),
-                          } else if (state.upsertLecture.isLoading)
-                            CoursatyAppLoader()
-                          else
-                            CoursatyPrimaryButton(
-                              label: !widget.isForEdit ? 'إضافة' : "تعديل",
-                              onPressed: () => _submit(context, state),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),

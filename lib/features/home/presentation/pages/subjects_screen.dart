@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
 import 'package:coursaty_student_and_teacher/core/theme/app_colors.dart';
@@ -9,6 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/home_skeletons.dart';
+import '../../../../app/widgets/try_again_widget.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class MaterialsScreen extends StatefulWidget {
   const MaterialsScreen({super.key});
@@ -46,11 +48,15 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
       body: SafeArea(
         child: BlocBuilder<HomeBloc, HomeState>(
           builder: (context, state) {
-            if (state.getSubjectsWithFiltering.isLoading) {
-              return Center(child: CoursatyAppLoader());
-            }
-
             final StudentSubjectsModel? model = state.studentSubjectsModel;
+
+            // Skeleton only for the first load; a refresh keeps the list.
+            if (model == null && !state.getSubjectsWithFiltering.isSuccess) {
+              if (state.getSubjectsWithFiltering.isFailed) {
+                return Center(child: TryAgainWidget(onPress: _refresh));
+              }
+              return const SubjectsScreenSkeleton();
+            }
 
             final List<Year> years = model?.years ?? [];
 
@@ -103,6 +109,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
 
                             return GestureDetector(
                               onTap: () {
+                                if (!isSelected) AppHaptics.selection();
                                 setState(() {
                                   _selectedYearIndex = index;
 
@@ -172,6 +179,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
 
                               return GestureDetector(
                                 onTap: () {
+                                  AppHaptics.selection();
                                   setState(() {
                                     if (_selectedSeasonIndex == index) {
                                       _selectedSeasonIndex = null;

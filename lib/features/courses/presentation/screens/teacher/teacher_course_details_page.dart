@@ -1,6 +1,5 @@
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'dart:developer';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/revenue_widgets.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
@@ -24,6 +23,9 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/extensions/build_context.dart';
 import '../../../../../core/utils/responsive_padding.dart';
 import '../../../../course_content_management/presentation/bloc/course_content_management_bloc.dart';
+import '../../widgets/course_skeletons.dart';
+import '../../../../teachers/presentation/widgets/teachers_skeletons.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 
 class TeacherCourseDetailsPage extends StatefulWidget {
   const TeacherCourseDetailsPage({super.key, required this.courseId});
@@ -74,7 +76,16 @@ class _TeacherCourseDetailsPageState extends State<TeacherCourseDetailsPage> {
                   );
                   if (state.getTeacherCourseDetails.isLoading ||
                       state.getTeacherCourseDetails.isInit) {
-                    return Center(child: CoursatyAppLoader());
+                    return Expanded(
+                      child: TabBarView(
+                        children: [
+                          const CourseFormSkeleton(),
+                          const TeacherLectureListSkeleton(),
+                          if (!PaidContentPolicy.hidePaid)
+                            const RevenueReportSkeleton(),
+                        ],
+                      ),
+                    );
                   }
                   if (state.getTeacherCourseDetails.isFailed) {
                     return TryAgainWidget(
@@ -117,6 +128,7 @@ class _CourseTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TabBar(
+      onTap: (_) => tabTapHaptic(context),
       indicatorColor: AppColors.secondary,
       labelColor: AppColors.secondary,
       unselectedLabelColor: AppColors.greyNormal,
@@ -154,7 +166,7 @@ class _LecturesTab extends StatelessWidget {
           c.teacherCourseDetailsResponseModel,
       builder: (context, state) {
         if (state.getTeacherCourseDetails.isLoading) {
-          return Center(child: CoursatyAppLoader());
+          return const TeacherLectureListSkeleton();
         }
         if (state.getTeacherCourseDetails.isFailed) {
           return TryAgainWidget(
@@ -177,72 +189,84 @@ class _LecturesTab extends StatelessWidget {
             }
           },
           builder: (context, managementState) {
-            return managementState.deleteFromCourseTransaction.isLoading
-                ? Center(child: CoursatyAppLoader())
-                : Stack(
-                    alignment: Alignment.bottomLeft,
-                    children: [
-                      RefreshIndicator(
-                        onRefresh: () async {
-                          onFailed.call();
-                        },
-                        child: ListView(
-                          padding: const EdgeInsets.all(16),
-                          children: [
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final columns = 1;
-                                const spacing = 10.0;
-                                final width =
-                                    (constraints.maxWidth -
-                                        ((columns - 1) * spacing)) /
-                                    columns;
-                                return Wrap(
-                                  spacing: spacing,
-                                  runSpacing: spacing,
-                                  children: List.generate(
-                                    state
-                                            .teacherCourseDetailsResponseModel
-                                            ?.lectures
-                                            ?.length ??
-                                        0,
-                                    (i) {
-                                      final lecture = state
-                                          .teacherCourseDetailsResponseModel!
-                                          .lectures![i];
-                                      return SizedBox(
-                                        width: width,
-                                        height: 100,
-                                        child: _LectureTile(
-                                          index: i,
-                                          lecture: lecture,
-                                          courseId: courseId,
-                                          onTap: () => context.push(
-                                            "${GRouter.config.applicationRoutes.lectureDetailsForTeacher}/${lecture.id}/${lecture.title}/$courseId",
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(15.0),
-                        child: FloatingActionButton(
-                          onPressed: () {
-                            context.pushPage(
-                              AddOrUpdateLectureScreen(courseId: courseId),
+            // While a delete runs the list stays visible but cannot be
+            // tapped, with a thin progress bar on top.
+            final deleting =
+                managementState.deleteFromCourseTransaction.isLoading;
+            return IgnorePointer(
+              ignoring: deleting,
+              child: Stack(
+                alignment: Alignment.bottomLeft,
+                children: [
+                  RefreshIndicator(
+                    onRefresh: () async {
+                      onFailed.call();
+                    },
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final columns = 1;
+                            const spacing = 10.0;
+                            final width =
+                                (constraints.maxWidth -
+                                    ((columns - 1) * spacing)) /
+                                columns;
+                            return Wrap(
+                              spacing: spacing,
+                              runSpacing: spacing,
+                              children: List.generate(
+                                state
+                                        .teacherCourseDetailsResponseModel
+                                        ?.lectures
+                                        ?.length ??
+                                    0,
+                                (i) {
+                                  final lecture = state
+                                      .teacherCourseDetailsResponseModel!
+                                      .lectures![i];
+                                  return SizedBox(
+                                    width: width,
+                                    height: 100,
+                                    child: _LectureTile(
+                                      index: i,
+                                      lecture: lecture,
+                                      courseId: courseId,
+                                      onTap: () => context.push(
+                                        "${GRouter.config.applicationRoutes.lectureDetailsForTeacher}/${lecture.id}/${lecture.title}/$courseId",
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             );
                           },
-                          child: Icon(Icons.add, color: AppColors.textLight),
                         ),
-                      ),
-                    ],
-                  );
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(15.0),
+                    child: FloatingActionButton(
+                      onPressed: () {
+                        context.pushPage(
+                          AddOrUpdateLectureScreen(courseId: courseId),
+                        );
+                      },
+                      child: Icon(Icons.add, color: AppColors.textLight),
+                    ),
+                  ),
+                  if (deleting)
+                    const Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: LinearProgressIndicator(minHeight: 2),
+                    ),
+                ],
+              ),
+            );
           },
         );
       },
@@ -336,7 +360,7 @@ class _RevenueTabState extends State<_RevenueTab>
               final stats = state.courseStatisticsModel;
               if (state.getCourseStatistics.isLoading ||
                   state.getCourseStatistics.isInit) {
-                return Center(child: CoursatyAppLoader());
+                return const RevenueReportSkeleton();
               }
               if (state.getCourseStatistics.isFailed || stats == null) {
                 return Center(child: TryAgainWidget(onPress: _load));

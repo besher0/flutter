@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,6 +8,8 @@ import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/courses_bloc.dart';
 import '../widgets/course_card.dart';
+import '../widgets/course_skeletons.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
 
 class CoursesByYearScreen extends StatefulWidget {
   const CoursesByYearScreen({super.key, required this.yearId});
@@ -52,7 +53,12 @@ class _CoursesByYearScreenState extends State<CoursesByYearScreen> {
                 builder: (context, state) {
                   if (state.coursesOfYear.items.isEmpty &&
                       state.coursesOfYear.isLoading) {
-                    return Center(child: CoursatyAppLoader());
+                    return const Expanded(
+                      child: CourseListSkeleton(
+                        padding: EdgeInsets.symmetric(horizontal: 14),
+                        spacing: 16,
+                      ),
+                    );
                   }
                   return Expanded(
                     child: SingleChildScrollView(
@@ -61,8 +67,15 @@ class _CoursesByYearScreenState extends State<CoursesByYearScreen> {
                         children: [
                           NotificationListener<ScrollNotification>(
                             onNotification: (scrollInfo) {
-                              if (scrollInfo.metrics.pixels >=
-                                  (0.7 * scrollInfo.metrics.maxScrollExtent)) {
+                              final current = context
+                                  .read<CoursesBloc>()
+                                  .state
+                                  .coursesOfYear;
+                              if (!current.isLoading &&
+                                  !current.hasReachedMax &&
+                                  scrollInfo.metrics.pixels >=
+                                      (0.7 *
+                                          scrollInfo.metrics.maxScrollExtent)) {
                                 BlocProvider.of<CoursesBloc>(context).add(
                                   GetCoursesByYearEvent(yearId: widget.yearId),
                                 );
@@ -115,12 +128,11 @@ class _CoursesByYearScreenState extends State<CoursesByYearScreen> {
                               },
                             ),
                           ),
-                          10.verticalSpace,
                           if (state.coursesOfYear.items.isNotEmpty &&
-                              state.coursesOfYear.isLoading) ...{
-                            Center(child: CoursatyAppLoader()),
-                          },
-                          15.verticalSpace,
+                              state.coursesOfYear.isLoading)
+                            const ListEndLoader()
+                          else
+                            25.verticalSpace,
                         ],
                       ),
                     ),

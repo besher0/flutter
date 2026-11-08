@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/widgets/coursaty_button.dart';
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../core/common/helper/show_message.dart';
 import '../../data/model/education_model.dart';
 import '../widgets/confirm_step.dart';
@@ -341,14 +340,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
               }
             },
             builder: (context, state) {
-              return state.createUser.isLoading
-                  ? CoursatyAppLoader()
-                  : CoursatyPrimaryButton(
-                      label: _currentStep == _totalSteps - 1
-                          ? 'تأكيد'
-                          : 'التالي',
-                      onPressed: _next,
-                    );
+              return CoursatyPrimaryButton(
+                isLoading: state.createUser.isLoading,
+                label: _currentStep == _totalSteps - 1 ? 'تأكيد' : 'التالي',
+                onPressed: _next,
+              );
             },
           ),
           const SizedBox(height: 16),

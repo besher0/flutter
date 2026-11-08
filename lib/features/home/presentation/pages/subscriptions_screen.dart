@@ -2,7 +2,6 @@ import 'package:coursaty_student_and_teacher/core/common/constant/configuration/
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
@@ -20,6 +19,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/extensions/date_time.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import '../widgets/home_skeletons.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   const SubscriptionsScreen({super.key});
@@ -28,7 +32,7 @@ class SubscriptionsScreen extends StatefulWidget {
   State<SubscriptionsScreen> createState() => _SubscriptionsScreenState();
 }
 
-class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
+class _SubscriptionsScreenState extends State<SubscriptionsScreen>  with SingleTickerProviderStateMixin{
   void _onBellTap() {
     context.push(GRouter.config.applicationRoutes.notifications);
   }
@@ -38,6 +42,56 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     super.initState();
     BlocProvider.of<HomeBloc>(context).add(DeleteOutDatedCoursesEvent());
     BlocProvider.of<SubscriptionBloc>(context).add(LoadCourseInterests());
+  }
+
+  /// Pull-to-refresh in any tab reloads every tab (each shows its skeleton
+  /// until its own list arrives).
+  Future<void> _refreshAll() async {
+    BlocProvider.of<HomeBloc>(context)
+      ..add(GetMyActiveCourses())
+      ..add(GetMyInActiveCourses());
+    if (!PaidContentPolicy.hidePaid) {
+      BlocProvider.of<SubscriptionBloc>(context).add(LoadCourseInterests());
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  late final TabController _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: 1
+  );
+
+  Widget _tab({
+    required bool loading,
+    required bool failed,
+    required bool deleting,
+    required List<CourseModel> courses,
+    required bool isExpired,
+  }) {
+    if (loading) return const SubscriptionListSkeleton();
+    if (courses.isEmpty) {
+      return _RefreshableMessage(
+        onRefresh: _refreshAll,
+        child: failed
+            ? TryAgainWidget(onPress: _refreshAll)
+            : const _EmptySubscriptionsState(),
+      );
+    }
+    // Removing outdated courses keeps the list, blocked, with a thin bar.
+    return BusyOverlay(
+      busy: deleting,
+      child: _SubscriptionsList(
+        courses: courses,
+        isExpired: isExpired,
+        onRefresh: _refreshAll,
+      ),
+    );
   }
 
   @override
@@ -55,6 +109,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
               // ✅ Tabs
               TabBar(
+                onTap: (_) => tabTapHaptic(context),
+                controller: _tabController,
                 indicatorColor: AppColors.secondary,
                 labelColor: AppColors.secondary,
                 unselectedLabelColor: AppColors.greyNormal,
@@ -91,27 +147,28 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   builder: (context, state) {
                     return TabBarView(
                       physics: AlwaysScrollableScrollPhysics(),
+                      controller: _tabController,
                       children: [
-                        if (!PaidContentPolicy.hidePaid) const InterestsTab(),
-                        // ✅ Active Tab
-                        state.getActiveCourses.isLoading || state.isDeleting
-                            ? Center(child: CoursatyAppLoader())
-                            : state.activeCourses.isEmpty
-                            ? const _EmptySubscriptionsState()
-                            : _SubscriptionsList(
-                                courses: state.activeCourses,
-                                isExpired: false,
-                              ),
+                        if (!PaidContentPolicy.hidePaid)
+                          InterestsTab(onRefresh: _refreshAll),
+                        // ✅ Active Tab (skeleton while it loads, also on
+                        // refresh)
+                        _tab(
+                          loading: state.getActiveCourses.isLoading,
+                          failed: state.getActiveCourses.isFailed,
+                          deleting: state.isDeleting,
+                          courses: state.activeCourses,
+                          isExpired: false,
+                        ),
 
                         // ✅ Expired Tab
-                        state.getInActiveCourses.isLoading || state.isDeleting
-                            ? Center(child: CoursatyAppLoader())
-                            : state.inActiveCourses.isEmpty
-                            ? const _EmptySubscriptionsState()
-                            : _SubscriptionsList(
-                                courses: state.inActiveCourses,
-                                isExpired: true,
-                              ),
+                        _tab(
+                          loading: state.getInActiveCourses.isLoading,
+                          failed: state.getInActiveCourses.isFailed,
+                          deleting: state.isDeleting,
+                          courses: state.inActiveCourses,
+                          isExpired: true,
+                        ),
                       ],
                     );
                   },
@@ -126,21 +183,24 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 }
 
 class _SubscriptionsList extends StatelessWidget {
-  const _SubscriptionsList({required this.courses, required this.isExpired});
+  const _SubscriptionsList({
+    required this.courses,
+    required this.isExpired,
+    required this.onRefresh,
+  });
 
   final List<CourseModel> courses;
   final bool isExpired;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: () async {
-        BlocProvider.of<HomeBloc>(
-          context,
-        ).add(isExpired ? GetMyInActiveCourses() : GetMyActiveCourses());
-      },
+      onRefresh: onRefresh,
+      // Fills the tab and always scrolls, so pull-to-refresh works with
+      // only one or two courses too.
       child: ListView.builder(
-        shrinkWrap: true,
+        physics: const AlwaysScrollableScrollPhysics(),
 
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: courses.length,
@@ -196,6 +256,8 @@ class _SubscriptionCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+
       child: Container(
         height: 220,
         decoration: BoxDecoration(
@@ -217,10 +279,8 @@ class _SubscriptionCard extends StatelessWidget {
                     height: 83,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      height: 83,
-                      color: AppColors.primaryLightTrack,
-                    ),
+                    placeholder: (_, __) =>
+                        const ImageSkeleton(height: 83, width: double.infinity),
                     errorWidget: (_, __, ___) => Container(
                       height: 83,
                       color: AppColors.primaryLightTrack,
@@ -421,6 +481,30 @@ class _CourseChipRating extends StatelessWidget {
           const SizedBox(width: 6),
           Icon(Icons.star_rounded, size: 11, color: AppColors.secondary),
         ],
+      ),
+    );
+  }
+}
+
+/// Pull-to-refresh for a tab whose content is not a list (empty / failed).
+class _RefreshableMessage extends StatelessWidget {
+  const _RefreshableMessage({required this.onRefresh, required this.child});
+
+  final Future<void> Function() onRefresh;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(child: child),
+          ),
+        ),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
 import 'dart:convert';
 import 'dart:math';
 
@@ -34,8 +35,14 @@ class DeviceInfoService {
   DeviceInfoService();
 
   static Future<void> init() async {
-    screenLockEnabled = await DeviceSafetyInfo.isScreenLock;
-    isRealDeviceEmulatorDetector = await DeviceSafetyInfo.isRealDevice;
+    // Informational only (they decide nothing); a plugin that fails on some
+    // device must not stop the app from starting.
+    try {
+      screenLockEnabled = await DeviceSafetyInfo.isScreenLock;
+      isRealDeviceEmulatorDetector = await DeviceSafetyInfo.isRealDevice;
+    } catch (error) {
+      debugPrint('device safety info unavailable: ${error.runtimeType}');
+    }
     if (kIsAndroid) {
       androidDeviceInfo = await deviceInfoPlugin.androidInfo;
     } else if (kIsIOS) {
@@ -141,23 +148,23 @@ class DeviceInfoService {
     _installationDeviceId = deviceId;
   }
 
-  /// Only real phones and tablets may run the app.
+  /// Every real phone and tablet may run the app; only emulators are refused
+  /// (Android emulators on Windows, Linux or macOS such as BlueStacks,
+  /// LDPlayer, Nox, MEmu, Genymotion, WSA and the Android Studio emulator, and
+  /// the iOS Simulator).
   ///
-  /// Android: emulators on Windows/macOS (BlueStacks, LDPlayer, Nox, WSA, ...)
-  /// report isPhysicalDevice = true, so the native check looks for what they
-  /// cannot hide: an x86 CPU or hypervisor, QEMU/VirtualBox traces, and a
-  /// missing or emulated accelerometer. A screen lock is no longer required:
-  /// it said nothing about the device (emulators can set one) and locked out
-  /// real phones without one.
+  /// A device is refused only on proof of an emulator, never on a hint that
+  /// real devices can also show. See [isPhysicalAndroid].
   ///
   /// ⚠️ The plugins' own checks (device_info_plus `isPhysicalDevice`,
-  /// device_safety_info `isRealDevice`) and an AOSP "generic" fingerprint used
-  /// to refuse the device too. They look for words such as "generic",
+  /// device_safety_info `isRealDevice`) look for words such as "generic",
   /// "unknown" or "sdk" anywhere in the build strings, which unbranded tablets
-  /// carry, so they no longer decide; every emulator they catch also leaves
-  /// one of the signals above.
+  /// carry, so they do not decide.
   /// iOS: refuses the Simulator and iPhone apps running on a Mac.
+  /// Windows: a PC is the device itself (the teachers' version; refusing
+  /// virtual machines comes with the students' version).
   static bool isPhysicalDevice() {
+    if (AppPlatform.isWindows) return true;
     if (kIsIOS) {
       return iosDeviceInfo.isPhysicalDevice && !iosDeviceInfo.isiOSAppOnMac;
     } else if (kIsAndroid) {
@@ -169,17 +176,92 @@ class DeviceInfoService {
     return false;
   }
 
-  /// Native signals that real devices can show as well; reported, never
-  /// blocking on their own.
-  static const Set<String> weakEmulatorSignals = {'fingerprint'};
+  /// Native signals that no real phone or tablet shows: emulator names in
+  /// the build (model, manufacturer, hardware, product, bootloader) and the
+  /// QEMU kernel / emulator hardware properties.
+  static const Set<String> definiteEmulatorSignals = {
+    'model',
+    'manufacturer',
+    'hardware',
+    'product',
+    'bootloader',
+    'prop:qemu',
+    'prop:hardware',
+  };
 
+  /// Files that desktop emulators install (Genymotion, Nox, LDPlayer,
+  /// BlueStacks, MEmu, VirtualBox). QEMU leftovers (`qemud`, `qemu_pipe`,
+  /// `libc_malloc_debug_qemu.so`...) are not here: some real system images
+  /// carry them.
+  static const Set<String> emulatorVendorFiles = {
+    '/dev/socket/genyd',
+    '/dev/socket/baseband_genyd',
+    '/system/bin/nox-prop',
+    '/system/bin/nox-vbox-sf',
+    '/system/lib/libnoxspeedup.so',
+    '/system/bin/ldinit',
+    '/system/bin/ldmountsf',
+    '/system/lib/libldutils.so',
+    '/boot/bstsetup.env',
+    '/system/xbin/bstk',
+    '/data/.bluestacks.prop',
+    '/system/bin/microvirtd',
+    '/system/lib/vboxsf.ko',
+    '/system/lib/vboxguest.ko',
+  };
+
+  /// Kept for the diagnostics only: real devices can show them.
+  static const Set<String> weakEmulatorSignals = {
+    'fingerprint',
+    'sensor:no-accelerometer',
+    'check-failed',
+    'device:chromebook',
+  };
+
+  /// Decides from the native signals ([EmulatorSignals] on the Android side).
+  ///
+  /// Refused only when one of these proves an emulator:
+  /// - an emulator build or emulator file ([definiteEmulatorSignals],
+  ///   [emulatorVendorFiles], [knownEmulatorModel]);
+  /// - an x86 CPU running under a hypervisor: a virtual machine on a PC
+  ///   (every real phone and tablet runs on the bare hardware);
+  /// - a QEMU trace or emulated sensor together with an x86 CPU or a
+  ///   hypervisor.
+  ///
+  /// Never refused for what real devices show: an x86 CPU alone (Intel
+  /// tablets), no accelerometer (cheap tablets), a generic fingerprint
+  /// (unbranded tablets), a QEMU leftover in the system image, or a native
+  /// check that could not run. A Chromebook runs Android in a virtual machine
+  /// (x86 + hypervisor) but is a real device, so the virtual-machine rule does
+  /// not apply to it.
+  ///
+  /// ⚠️ A single circumstantial signal (no accelerometer, x86) and, later,
+  /// any two of them refused real tablets ("run the app on a real device").
   @visibleForTesting
   static bool isPhysicalAndroid({
     required List<String> emulatorSignals,
     required bool knownEmulatorModel,
-  }) =>
-      emulatorSignals.every(weakEmulatorSignals.contains) &&
-      !knownEmulatorModel;
+  }) {
+    if (knownEmulatorModel) return false;
+    final signals = emulatorSignals.toSet();
+    if (signals.any(definiteEmulatorSignals.contains)) return false;
+    final files = signals
+        .where((s) => s.startsWith('file:'))
+        .map((s) => s.substring('file:'.length));
+    if (files.any(emulatorVendorFiles.contains)) return false;
+
+    final x86 = signals.contains('abi:x86') || signals.contains('cpu:x86');
+    final hypervisor = signals.contains('cpu:hypervisor');
+    final chromebook = signals.contains('device:chromebook');
+    if (x86 && hypervisor && !chromebook) return false;
+
+    final qemuTrace =
+        signals.contains('prop:qemu-service') ||
+        signals.contains('sensor:emulated') ||
+        files.isNotEmpty;
+    if (qemuTrace && (x86 || hypervisor) && !chromebook) return false;
+    return true;
+  }
 
   /// Why this device was refused, shown on the refusal page so a wrongly
   /// refused device can be reported (e.g. "cpu:hypervisor, model").
@@ -196,7 +278,8 @@ class DeviceInfoService {
           ) ??
           const [];
     } catch (error) {
-      // Fail closed: a check that cannot run must not let an emulator in.
+      // Recorded for the diagnostics only: a check that cannot run proves
+      // nothing, and refusing here could lock out a real device.
       debugPrint('emulator check failed: ${error.runtimeType}');
       return const ['check-failed'];
     }

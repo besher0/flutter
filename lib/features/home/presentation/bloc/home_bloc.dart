@@ -174,14 +174,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (_prefsRepository.isGuest) {
       return;
     }
-    emit(state.copyWith(getActiveCourses: Status.loading));
+    emit(state.copyWith(getInActiveCourses: Status.loading));
     if ((await HelperFunctions.lostInternetConnection())) {
       emit(
-        state.copyWith(getActiveCourses: Status.loaded, inActiveCourses: []),
+        state.copyWith(getInActiveCourses: Status.loaded, inActiveCourses: []),
       );
       return;
     }
-    emit(state.copyWith(getInActiveCourses: Status.loading));
     final res = await getMyCoursesUsecase(false);
     res.fold(
       (l) => emit(
@@ -313,6 +312,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     );
   }
 
+  /// Bumped by every new search (reset). A reply that comes back after a newer
+  /// search started belongs to an old query and is dropped, so slow answers
+  /// never overwrite the results of what the user typed last.
+  int _searchGeneration = 0;
+
   FutureOr<void> _onSearchEvent(
     SearchEvent event,
     Emitter<HomeState> emit,
@@ -322,6 +326,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (!event.reset && hasReachedMax) {
       return;
     }
+    if (event.reset) _searchGeneration++;
+    final generation = _searchGeneration;
 
     emit(
       state.copyWith(
@@ -344,6 +350,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         limit: kPageSize,
       ),
     );
+    if (generation != _searchGeneration) return;
 
     response.fold(
       (l) {

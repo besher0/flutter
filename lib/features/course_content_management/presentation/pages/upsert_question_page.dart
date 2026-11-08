@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart'
     hide Option;
 import 'package:flutter/material.dart';
@@ -10,13 +11,13 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../app/widgets/coursaty_button.dart';
 import '../../../../app/widgets/coursaty_text_field.dart';
 import '../../../../app/widgets/custom_choose_file_button.dart';
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../app/widgets/title_app_bar.dart';
 import '../../../../core/common/helper/show_message.dart';
 import '../../../../core/utils/extensions/build_context.dart';
 import '../../domain/usecases/upsert_question_usecase.dart';
 import '../bloc/course_content_management_bloc.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class UpsertQuestionPage extends StatefulWidget {
   const UpsertQuestionPage({
@@ -103,109 +104,110 @@ class _UpsertQuestionPageState extends State<UpsertQuestionPage> {
         appBar: TitleAppBar(
           title: widget.question == null ? "إضافة سؤال" : "تعديل السؤال",
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: Form(
-                  key: formKey,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      CoursatyTextField(
-                        label: 'نص السؤال',
-                        controller: questionText,
-                        minLines: 3,
-                        validator: _requiredValidator,
-                      ),
-
-                      16.verticalSpace,
-
-                      CoursatyTextField(
-                        label: 'شرح الإجابة (اختياري)',
-                        controller: explanation,
-                        minLines: 3,
-                      ),
-
-                      16.verticalSpace,
-
-                      CoursatyTextField(
-                        label: 'ترتيب السؤال (اختياري)',
-                        controller: sortOrder,
-                        minLines: 1,
-                        inputFormatters: [
-                          AsciiDigitsFormatter(),
-                        ],
-                      ),
-
-                      16.verticalSpace,
-
-                      CustomChooseFileButton(
-                        title: widget.question?.imageUrl != null
-                            ? "تغيير صورة السؤال (اختياري)"
-                            : "رفع صورة السؤال (اختياري)",
-                        usedForImage: true,
-                        usedForFile: false,
-                        choosedFile: selectedImage,
-                      ),
-
-                      24.verticalSpace,
-
-                      Text(
-                        "الخيارات",
-                        style: context.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+        body: DesktopFormWidth(
+          child: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: Form(
+                    key: formKey,
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        CoursatyTextField(
+                          label: 'نص السؤال',
+                          controller: questionText,
+                          minLines: 3,
+                          validator: _requiredValidator,
                         ),
-                      ),
 
-                      16.verticalSpace,
+                        16.verticalSpace,
 
-                      ...List.generate(options.length, (index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: _OptionItem(
-                            index: index,
-                            option: options[index],
+                        CoursatyTextField(
+                          label: 'شرح الإجابة (اختياري)',
+                          controller: explanation,
+                          minLines: 3,
+                        ),
+
+                        16.verticalSpace,
+
+                        CoursatyTextField(
+                          label: 'ترتيب السؤال (اختياري)',
+                          controller: sortOrder,
+                          minLines: 1,
+                          inputFormatters: [AsciiDigitsFormatter()],
+                        ),
+
+                        16.verticalSpace,
+
+                        CustomChooseFileButton(
+                          title: widget.question?.imageUrl != null
+                              ? "تغيير صورة السؤال (اختياري)"
+                              : "رفع صورة السؤال (اختياري)",
+                          usedForImage: true,
+                          usedForFile: false,
+                          choosedFile: selectedImage,
+                        ),
+
+                        24.verticalSpace,
+
+                        Text(
+                          "الخيارات",
+                          style: context.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
-                        );
-                      }),
-                    ],
+                        ),
+
+                        16.verticalSpace,
+
+                        ...List.generate(options.length, (index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _OptionItem(
+                              index: index,
+                              option: options[index],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-              BlocConsumer<
-                CourseContentManagementBloc,
-                CourseContentManagementState
-              >(
-                listenWhen: (p, c) => p.upsertLecture != c.upsertLecture,
-                listener: (context, state) {
-                  if (state.upsertLecture.isFailed) {
-                    showMessage(state.errorMessage);
-                  }
+                BlocConsumer<
+                  CourseContentManagementBloc,
+                  CourseContentManagementState
+                >(
+                  listenWhen: (p, c) => p.upsertLecture != c.upsertLecture,
+                  listener: (context, state) {
+                    if (state.upsertLecture.isFailed) {
+                      AppHaptics.error();
+                      showMessage(state.errorMessage);
+                    }
 
-                  if (state.upsertLecture.isSuccess) {
-                    Navigator.pop(context);
-                    if (widget.question != null) {
-                      if (context.canPop()) {
-                        Navigator.pop(context);
+                    if (state.upsertLecture.isSuccess) {
+                      AppHaptics.success();
+                      Navigator.pop(context);
+                      if (widget.question != null) {
+                        if (context.canPop()) {
+                          Navigator.pop(context);
+                        }
                       }
                     }
-                  }
-                },
-                builder: (context, state) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: state.upsertLecture.isLoading
-                        ? CoursatyAppLoader()
-                        : CoursatyPrimaryButton(
-                            label: widget.question == null ? 'إضافة' : 'تعديل',
-                            onPressed: _submit,
-                          ),
-                  );
-                },
-              ),
-            ],
+                  },
+                  builder: (context, state) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: CoursatyPrimaryButton(
+                        isLoading: state.upsertLecture.isLoading,
+                        label: widget.question == null ? 'إضافة' : 'تعديل',
+                        onPressed: _submit,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),

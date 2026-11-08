@@ -11,6 +11,7 @@ import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/common/helper/helper_functions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/model/sale_point_model.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 class PointOfSaleCard extends StatelessWidget {
   const PointOfSaleCard({super.key, required this.salePoint});
@@ -44,7 +45,8 @@ class PointOfSaleCard extends StatelessWidget {
                 imageUrl: salePoint.image ?? '',
                 width: 157,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => _placeholder(157, 83),
+                placeholder: (_, __) =>
+                    const ImageSkeleton(width: 157, height: 83),
                 errorWidget: (_, __, ___) => _placeholder(157, 83),
               ),
             ),

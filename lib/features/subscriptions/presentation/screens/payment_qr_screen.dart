@@ -23,6 +23,9 @@ import 'package:no_screenshot/no_screenshot.dart';
 import 'package:no_screenshot/screenshot_snapshot.dart';
 
 import '../../../../core/routes/router.dart';
+import '../widgets/payment_skeleton.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 enum _InterestSaveOrigin { screenshot, manual, qrDownload }
 
@@ -164,7 +167,9 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
       listenWhen: (previous, current) =>
           previous.saveInterestStatus != current.saveInterestStatus,
       listener: (context, state) {
+        // Bookmark result: confirmed by the server.
         if (state.saveInterestStatus.isSuccess) {
+          AppHaptics.success();
           final origin = _interestSaveOrigin;
           setState(() {
             _interestSaved = true;
@@ -181,6 +186,7 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
             ),
           );
         } else if (state.saveInterestStatus.isFailed) {
+          AppHaptics.error();
           final origin = _interestSaveOrigin;
           setState(() => _savingInterest = false);
           _interestSaveOrigin = null;
@@ -197,7 +203,7 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
           appBar: AppBar(title: const Text('الدفع والاشتراك')),
           body: SafeArea(
             child: state.paymentInfoStatus.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const PaymentPageSkeleton()
                 : state.paymentInfoStatus.isFailed
                 ? _PaymentMessage(
                     icon: Icons.cloud_off_outlined,
@@ -274,10 +280,9 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
                               const SizedBox(height: 18),
                               if (!_interestSaved)
                                 CoursatySecondaryButton(
-                                  label: _savingInterest
-                                      ? 'جارٍ الحفظ...'
-                                      : 'حفظ في اهتماماتي',
-                                  onPressed: _savingInterest || _downloadingQr
+                                  label: 'حفظ في اهتماماتي',
+                                  isLoading: _savingInterest,
+                                  onPressed: _downloadingQr
                                       ? null
                                       : () => _saveInterest(
                                           InterestSource.manual,
@@ -455,11 +460,7 @@ class _QrCard extends StatelessWidget {
                 width: size,
                 height: size,
                 fit: BoxFit.contain,
-                placeholder: (_, _) => SizedBox(
-                  width: size,
-                  height: size,
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
+                placeholder: (_, _) => ImageSkeleton(width: size, height: size),
                 errorWidget: (_, _, _) => SizedBox(
                   width: size,
                   height: size,

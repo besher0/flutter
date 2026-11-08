@@ -6,10 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../home/presentation/widgets/subject_card.dart';
 import 'add_course_page.dart';
+import '../../../home/presentation/widgets/home_skeletons.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 
 class SelectSubjectPage extends StatefulWidget {
   const SelectSubjectPage({super.key});
@@ -41,6 +42,7 @@ class _SelectSubjectPageState extends State<SelectSubjectPage> {
         child: Column(
           children: [
             TabBar(
+              onTap: (_) => tabTapHaptic(context),
               indicatorColor: AppColors.secondary,
               labelColor: AppColors.secondary,
               unselectedLabelColor: AppColors.greyNormal,
@@ -70,7 +72,20 @@ class _SelectSubjectPageState extends State<SelectSubjectPage> {
             >(
               builder: (context, state) {
                 if (state.getAllowedSubjects.isLoading) {
-                  return Center(child: CoursatyAppLoader());
+                  return const Expanded(
+                    child: TabBarView(
+                      children: [
+                        SubjectListSkeleton(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          spacing: 21,
+                        ),
+                        SubjectListSkeleton(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          spacing: 21,
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 List<Subject> allSubjects =
                     state.getAllowedSubjectsResponseModel?.subjects ?? [];

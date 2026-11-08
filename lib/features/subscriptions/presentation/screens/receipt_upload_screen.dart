@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class ReceiptUploadScreen extends StatefulWidget {
   const ReceiptUploadScreen({
@@ -80,11 +81,13 @@ class _ReceiptUploadScreenState extends State<ReceiptUploadScreen> {
           previous.receiptStatus != current.receiptStatus,
       listener: (context, state) {
         if (state.receiptStatus.isSuccess) {
+          AppHaptics.success();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('تم إرسال الإيصال للمراجعة بنجاح.')),
           );
           context.pop(true);
         } else if (state.receiptStatus.isFailed) {
+          AppHaptics.error();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(

@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/features/auth/data/model/academic_years_model.dart';
 import 'package:coursaty_student_and_teacher/features/auth/domain/use_case/create_guest_account_usecase.dart';
@@ -14,6 +13,7 @@ import '../../../../app/widgets/logout_confirmation_dialog.dart';
 import '../../../../core/common/helper/show_message.dart';
 import '../../../../core/routes/router.dart';
 import '../../../../core/storage/prefs_repository.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 class CreateGuestScreen extends StatefulWidget {
   const CreateGuestScreen({
@@ -170,7 +170,13 @@ class _CreateGuestScreenState extends State<CreateGuestScreen> {
                 BlocBuilder<AuthBloc, AuthState>(
                   builder: (context, state) {
                     return !state.getUniversities.isSuccess
-                        ? Center(child: CoursatyAppLoader())
+                        ? FieldLoadingPlaceholder(
+                            labelWidth: 60,
+                            failed: state.getUniversities.isFailed,
+                            onRetry: () => BlocProvider.of<AuthBloc>(
+                              context,
+                            ).add(GetUniversitiesEvent()),
+                          )
                         : CoursatyDropdown<String>(
                             label: 'الجامعة',
                             hint: 'الجامعة',
@@ -218,7 +224,16 @@ class _CreateGuestScreenState extends State<CreateGuestScreen> {
                     }
 
                     return !state.getColleges.isSuccess
-                        ? CoursatyAppLoader()
+                        ? FieldLoadingPlaceholder(
+                            labelWidth: 50,
+                            failed: state.getColleges.isFailed,
+                            onRetry: () =>
+                                BlocProvider.of<AuthBloc>(context).add(
+                                  GetCollegesEvent(
+                                    universityId: universityController.text,
+                                  ),
+                                ),
+                          )
                         : CoursatyDropdown<String>(
                             label: 'الكلية',
                             hint: 'الكلية',
@@ -270,7 +285,15 @@ class _CreateGuestScreenState extends State<CreateGuestScreen> {
                     }
 
                     if (!state.getDepartments.isSuccess) {
-                      return CoursatyAppLoader();
+                      return FieldLoadingPlaceholder(
+                        labelWidth: 50,
+                        failed: state.getDepartments.isFailed,
+                        onRetry: () => BlocProvider.of<AuthBloc>(context).add(
+                          GetDepartmentsEvent(
+                            collegeId: collegeController.text,
+                          ),
+                        ),
+                      );
                     }
 
                     if (state.departmentsResponseModel == null ||
@@ -319,7 +342,15 @@ class _CreateGuestScreenState extends State<CreateGuestScreen> {
                   }
 
                   return !state.getYears.isSuccess
-                      ? CoursatyAppLoader()
+                      ? FieldLoadingPlaceholder(
+                          labelWidth: 50,
+                          failed: state.getYears.isFailed,
+                          onRetry: () => BlocProvider.of<AuthBloc>(context).add(
+                            GetAcademicYearsEvent(
+                              collegeId: collegeController.text,
+                            ),
+                          ),
+                        )
                       : CoursatyDropdown<AcademicYearsResponseModel>(
                           label: 'السنة',
                           hint: 'السنة',
@@ -374,48 +405,47 @@ class _CreateGuestScreenState extends State<CreateGuestScreen> {
                 },
 
                 builder: (context, state) {
-                  return state.getOrCreateGuest.isLoading
-                      ? CoursatyAppLoader()
-                      : CoursatyPrimaryButton(
-                          label: 'المتابعة',
+                  return CoursatyPrimaryButton(
+                    isLoading: state.getOrCreateGuest.isLoading,
+                    label: 'المتابعة',
 
-                          onPressed: () {
-                            FocusScope.of(context).unfocus();
+                    onPressed: () {
+                      FocusScope.of(context).unfocus();
 
-                            final isValid =
-                                _formKey.currentState?.validate() ?? false;
+                      final isValid =
+                          _formKey.currentState?.validate() ?? false;
 
-                            if (!isValid) {
-                              return;
-                            }
+                      if (!isValid) {
+                        return;
+                      }
 
-                            /// extra protection
-                            if (_hasEmptyRequiredFields()) {
-                              showMessage(_requiredFieldsMessage());
-                              return;
-                            }
+                      /// extra protection
+                      if (_hasEmptyRequiredFields()) {
+                        showMessage(_requiredFieldsMessage());
+                        return;
+                      }
 
-                            /// no changes in edit mode
-                            if (widget.forEdit && !_didChangeAnything) {
-                              showMessage("لم تقم بتغيير أي معلومات");
-                              return;
-                            }
+                      /// no changes in edit mode
+                      if (widget.forEdit && !_didChangeAnything) {
+                        showMessage("لم تقم بتغيير أي معلومات");
+                        return;
+                      }
 
-                            BlocProvider.of<AuthBloc>(context).add(
-                              CreateGuestEvent(
-                                params: CreateGuestAccountParams(
-                                  universityId: universityController.text,
+                      BlocProvider.of<AuthBloc>(context).add(
+                        CreateGuestEvent(
+                          params: CreateGuestAccountParams(
+                            universityId: universityController.text,
 
-                                  collegeId: collegeController.text,
+                            collegeId: collegeController.text,
 
-                                  departmentId: departmentController.text,
+                            departmentId: departmentController.text,
 
-                                  yearCollegeId: yearController.text,
-                                ),
-                              ),
-                            );
-                          },
-                        );
+                            yearCollegeId: yearController.text,
+                          ),
+                        ),
+                      );
+                    },
+                  );
                 },
               ),
 

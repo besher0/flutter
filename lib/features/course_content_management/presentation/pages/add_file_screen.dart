@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
@@ -11,12 +12,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/widgets/custom_choose_file_button.dart';
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../core/common/helper/show_message.dart';
 import '../../../../core/utils/extensions/build_context.dart';
 import '../../../courses/presentation/widgets/course_free_checkbox.dart';
 import '../bloc/course_content_management_bloc.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class AddFileScreen extends StatefulWidget {
   const AddFileScreen({
@@ -72,111 +73,110 @@ class _AddFileScreenState extends State<AddFileScreen> {
         appBar: TitleAppBar(
           title: widget.fileElement != null ? "تعديل الملف" : "إضافة ملف",
         ),
-        body: SafeArea(
-          child: Form(
-            key: formKey,
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      CoursatyTextField(
-                        label: 'اسم الملف',
-                        validator: _requiredValidator,
-                        controller: name,
-                      ),
-                      15.verticalSpace,
-                      CoursatyTextField(
-                        label: 'ترتيب الملف (اختياري)',
-                        minLines: 1,
-                        controller: sortOrder,
-                        inputFormatters: [
-                          AsciiDigitsFormatter(),
-                        ],
-                      ),
-                      // Hidden with paid content (iPhone): a new file stays
-                      // paid and an edited one keeps its current setting.
-                      if (!PaidContentPolicy.hidePaid) ...[
-                        15.verticalSpace,
-                        IsFreeCourseTile(
-                          isFreeNotifier: isFree,
-                          title: "الملف مجاني",
-                          description:
-                              "عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الملف مجاناً",
+        body: DesktopFormWidth(
+          child: SafeArea(
+            child: Form(
+              key: formKey,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        CoursatyTextField(
+                          label: 'اسم الملف',
+                          validator: _requiredValidator,
+                          controller: name,
                         ),
+                        15.verticalSpace,
+                        CoursatyTextField(
+                          label: 'ترتيب الملف (اختياري)',
+                          minLines: 1,
+                          controller: sortOrder,
+                          inputFormatters: [AsciiDigitsFormatter()],
+                        ),
+                        // Hidden with paid content (iPhone): a new file stays
+                        // paid and an edited one keeps its current setting.
+                        if (!PaidContentPolicy.hidePaid) ...[
+                          15.verticalSpace,
+                          IsFreeCourseTile(
+                            isFreeNotifier: isFree,
+                            title: "الملف مجاني",
+                            description:
+                                "عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الملف مجاناً",
+                          ),
+                        ],
+                        // if (widget.fileElement == null) ...{
+                        10.verticalSpace,
+                        CustomChooseFileButton(
+                          title: "رفع ملف",
+                          usedForImage: false,
+                          usedForFile: true,
+                          choosedFile: chooseFile,
+                          choosedFileSize: size,
+                        ),
+                        // },
                       ],
-                      // if (widget.fileElement == null) ...{
-                      10.verticalSpace,
-                      CustomChooseFileButton(
-                        title: "رفع ملف",
-                        usedForImage: false,
-                        usedForFile: true,
-                        choosedFile: chooseFile,
-                        choosedFileSize: size,
-                      ),
-                      // },
-                    ],
+                    ),
                   ),
-                ),
-                BlocConsumer<
-                  CourseContentManagementBloc,
-                  CourseContentManagementState
-                >(
-                  listenWhen: (p, c) => p.upsertLecture != c.upsertLecture,
-                  listener: (context, state) {
-                    if (state.upsertLecture.isFailed) {
-                      showMessage(state.errorMessage);
-                    }
-                    if (state.upsertLecture.isSuccess) {
-                      context.pop();
-                    }
-                  },
-                  builder: (context, state) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: state.upsertLecture.isLoading
-                          ? CoursatyAppLoader()
-                          : CoursatyPrimaryButton(
-                              label: widget.fileElement == null
-                                  ? 'إضافة'
-                                  : "تعديل",
-                              onPressed: () {
-                                if (formKey.currentState!.validate()) {
-                                  if (widget.fileElement == null &&
-                                      chooseFile.value == null) {
-                                    showMessage("رجاء قم باختيار ملف");
-                                    return;
-                                  }
-                                  BlocProvider.of<CourseContentManagementBloc>(
-                                    context,
-                                  ).add(
-                                    UpsertFileEvent(
-                                      lectureId: widget.lectureId,
-                                      file: chooseFile.value,
-                                      courseId: widget.courseId,
-                                      UpsertFileParams(
-                                        fileName: name.text,
-                                        fileId: widget.fileElement?.id,
-                                        fileUrl: widget.fileElement?.fileUrl,
-                                        lectureId: widget.lectureId,
-                                        isFree: isFree.value,
-                                        sortOrder: sortOrder.text.trim().isEmpty
-                                            ? null
-                                            : sortOrder.text,
-                                        size: size.text.trim().isEmpty
-                                            ? null
-                                            : size.text,
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                    );
-                  },
-                ),
-              ],
+                  BlocConsumer<
+                    CourseContentManagementBloc,
+                    CourseContentManagementState
+                  >(
+                    listenWhen: (p, c) => p.upsertLecture != c.upsertLecture,
+                    listener: (context, state) {
+                      if (state.upsertLecture.isFailed) {
+                        AppHaptics.error();
+                        showMessage(state.errorMessage);
+                      }
+                      if (state.upsertLecture.isSuccess) {
+                        AppHaptics.success();
+                        context.pop();
+                      }
+                    },
+                    builder: (context, state) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: CoursatyPrimaryButton(
+                          isLoading: state.upsertLecture.isLoading,
+                          label: widget.fileElement == null ? 'إضافة' : "تعديل",
+                          onPressed: () {
+                            if (formKey.currentState!.validate()) {
+                              if (widget.fileElement == null &&
+                                  chooseFile.value == null) {
+                                showMessage("رجاء قم باختيار ملف");
+                                return;
+                              }
+                              BlocProvider.of<CourseContentManagementBloc>(
+                                context,
+                              ).add(
+                                UpsertFileEvent(
+                                  lectureId: widget.lectureId,
+                                  file: chooseFile.value,
+                                  courseId: widget.courseId,
+                                  UpsertFileParams(
+                                    fileName: name.text,
+                                    fileId: widget.fileElement?.id,
+                                    fileUrl: widget.fileElement?.fileUrl,
+                                    lectureId: widget.lectureId,
+                                    isFree: isFree.value,
+                                    sortOrder: sortOrder.text.trim().isEmpty
+                                        ? null
+                                        : sortOrder.text,
+                                    size: size.text.trim().isEmpty
+                                        ? null
+                                        : size.text,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),

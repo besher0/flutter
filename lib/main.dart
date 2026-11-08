@@ -1,10 +1,16 @@
+import 'package:coursaty_student_and_teacher/app/widgets/desktop_video_player.dart';
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
+import 'package:coursaty_student_and_teacher/core/platform/desktop_tls.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
+import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
+import 'package:coursaty_student_and_teacher/services/crash_reporting.dart';
 import 'package:coursaty_student_and_teacher/services/device_info_service.dart';
 import 'package:coursaty_student_and_teacher/services/network_time_protocol_service.dart';
 import 'package:coursaty_student_and_teacher/services/notification_service/handle_notification/notification_process.dart';
 import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:get_it/get_it.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'core/di/di_container.dart';
@@ -28,27 +34,50 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Hardware AES-GCM for offline videos (javax.crypto / CryptoKit) instead of
   // the much slower pure Dart implementation, which made 1080p stutter.
-  FlutterCryptography.enable();
+  if (AppPlatform.isMobile) FlutterCryptography.enable();
+  // Desktop video player (libmpv); the phones use better_player.
+  if (AppPlatform.isDesktop) DesktopVideoPlayer.ensureInitialized();
+  // Before any request: Windows may lack the CDN's root certificate.
+  await DesktopTls.init();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    HydratedBloc.storage = await HydratedStorage.build(
-      storageDirectory: HydratedStorageDirectory(
-        (await getApplicationDocumentsDirectory()).path,
-      ),
-    );
-  } catch (e) {
-    print(e);
+  var firebaseReady = false;
+  // Firebase is configured for the phones only (Windows has no options, and
+  // its SDK has no push or Crashlytics).
+  if (AppPlatform.hasFirebase) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      firebaseReady = true;
+    } catch (e) {
+      print(e);
+    }
   }
+  // ⚠️ Was inside the Firebase `try`: a Firebase failure (always, on
+  // Windows) left the saved blocs without storage.
+  HydratedBloc.storage = await HydratedStorage.build(
+    storageDirectory: HydratedStorageDirectory(
+      (await getApplicationDocumentsDirectory()).path,
+    ),
+  );
+  // Before anything else can fail, so startup errors are reported too.
+  if (firebaseReady) await CrashReporting.init();
   await Future.wait([
     EasyLocalization.ensureInitialized(),
     configureDependencies(),
-    NotificationProcess.init(),
+    if (AppPlatform.hasFirebase) NotificationProcess.init(),
     DeviceInfoService.init(),
     PaidContentPolicy.init(),
   ]);
+  final prefs = GetIt.I<PrefsRepository>();
+  CrashReporting.setCustomKey(
+    'role',
+    prefs.isGuest
+        ? 'guest'
+        : prefs.isTeacher
+        ? 'teacher'
+        : 'student',
+  );
   // Not awaited: the cached setting is already in place.
   PaidContentPolicy.refresh();
   isDateFraud = NetworkTimeProtocolService.checkLocalTimeValidity();

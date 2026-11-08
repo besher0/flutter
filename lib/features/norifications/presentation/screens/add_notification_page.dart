@@ -1,7 +1,7 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_dropdown.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -12,6 +12,8 @@ import 'package:coursaty_student_and_teacher/features/teachers/data/model/teache
 import 'package:coursaty_student_and_teacher/features/teachers/presentation/bloc/teachers_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class AddNotificationPage extends StatefulWidget {
   const AddNotificationPage({super.key});
@@ -69,195 +71,198 @@ class _AddNotificationPageState extends State<AddNotificationPage> {
         onBackTap: () => context.pop(),
       ),
 
-      body: SingleChildScrollView(
-        child: Form(
-          key: _globalKey,
+      body: DesktopFormWidth(
+        child: SingleChildScrollView(
+          child: Form(
+            key: _globalKey,
 
-          child: Padding(
-            padding: HWEdgeInsets.symmetric(horizontal: 20.0),
+            child: Padding(
+              padding: HWEdgeInsets.symmetric(horizontal: 20.0),
 
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
+              child: Column(
+                children: [
+                  const SizedBox(height: 40),
 
-                BlocBuilder<TeachersBloc, TeachersState>(
-                  buildWhen: (p, c) =>
-                      p.affiliationsStatus != c.affiliationsStatus,
+                  BlocBuilder<TeachersBloc, TeachersState>(
+                    buildWhen: (p, c) =>
+                        p.affiliationsStatus != c.affiliationsStatus,
 
-                  builder: (context, state) {
-                    if (state.affiliationsStatus.isLoading) {
-                      return Center(child: CoursatyAppLoader());
-                    }
+                    builder: (context, state) {
+                      if (state.affiliationsStatus.isLoading) {
+                        return const FormFieldSkeleton(labelWidth: 70);
+                      }
 
-                    final affiliations = state.affiliations ?? [];
+                      final affiliations = state.affiliations ?? [];
 
-                    if (affiliations.isEmpty) {
-                      return Container(
-                        padding: const EdgeInsets.all(16),
+                      if (affiliations.isEmpty) {
+                        return Container(
+                          padding: const EdgeInsets.all(16),
 
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.orange.withValues(alpha: 0.1),
-                        ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.orange.withValues(alpha: 0.1),
+                          ),
 
-                        child: const Text('لا توجد انتماءات جامعية متاحة'),
+                          child: const Text('لا توجد انتماءات جامعية متاحة'),
+                        );
+                      }
+
+                      return CoursatyDropdown<TeacherAffiliationsResponseModel>(
+                        label: 'الانتماء الجامعي',
+                        hint: 'اختر الانتماء الجامعي',
+
+                        validator: (value) {
+                          if (value == null) {
+                            return 'الحقل مطلوب';
+                          }
+
+                          return null;
+                        },
+
+                        onChanged: (item) {
+                          if (item == null) return;
+
+                          selectedAffiliation = item;
+
+                          universityController.text = item.universityId ?? '';
+
+                          collegeController.text = item.collegeId ?? '';
+
+                          departmentController.text = item.departmentId ?? '';
+                        },
+
+                        items: affiliations
+                            .map(
+                              (item) =>
+                                  DropdownMenuItem<
+                                    TeacherAffiliationsResponseModel
+                                  >(
+                                    value: item,
+
+                                    child: Text(_buildAffiliationTitle(item)),
+                                  ),
+                            )
+                            .toList(),
                       );
-                    }
-
-                    return CoursatyDropdown<TeacherAffiliationsResponseModel>(
-                      label: 'الانتماء الجامعي',
-                      hint: 'اختر الانتماء الجامعي',
-
-                      validator: (value) {
-                        if (value == null) {
-                          return 'الحقل مطلوب';
-                        }
-
-                        return null;
-                      },
-
-                      onChanged: (item) {
-                        if (item == null) return;
-
-                        selectedAffiliation = item;
-
-                        universityController.text = item.universityId ?? '';
-
-                        collegeController.text = item.collegeId ?? '';
-
-                        departmentController.text = item.departmentId ?? '';
-                      },
-
-                      items: affiliations
-                          .map(
-                            (item) =>
-                                DropdownMenuItem<
-                                  TeacherAffiliationsResponseModel
-                                >(
-                                  value: item,
-
-                                  child: Text(_buildAffiliationTitle(item)),
-                                ),
-                          )
-                          .toList(),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 16),
-
-                if (selectedAffiliation != null) ...[
-                  _InfoTile(
-                    title: 'الجامعة',
-                    value: selectedAffiliation?.university?.name ?? '-',
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  _InfoTile(
-                    title: 'الكلية',
-                    value: selectedAffiliation?.college?.name ?? '-',
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  _InfoTile(
-                    title: 'القسم',
-                    value: selectedAffiliation?.department?.name ?? '-',
+                    },
                   ),
 
                   const SizedBox(height: 16),
+
+                  if (selectedAffiliation != null) ...[
+                    _InfoTile(
+                      title: 'الجامعة',
+                      value: selectedAffiliation?.university?.name ?? '-',
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _InfoTile(
+                      title: 'الكلية',
+                      value: selectedAffiliation?.college?.name ?? '-',
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _InfoTile(
+                      title: 'القسم',
+                      value: selectedAffiliation?.department?.name ?? '-',
+                    ),
+
+                    const SizedBox(height: 16),
+                  ],
+
+                  CoursatyTextField(
+                    label: 'عنوان الإشعار',
+                    hint: 'عنوان الإشعار',
+                    controller: title,
+                    keyboardType: TextInputType.text,
+                    textInputAction: TextInputAction.next,
+                    validator: _requiredValidator,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  CoursatyTextField(
+                    label: 'محتوى الإشعار',
+                    hint: 'محتوى الإشعار',
+                    controller: description,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    minLines: 5,
+                    validator: _requiredValidator,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  CoursatyTextField(
+                    label: 'رابط مع الإشعار (اختياري)',
+                    hint: 'رابط مع الإشعار (اختياري)',
+                    controller: link,
+                    keyboardType: TextInputType.text,
+                    textInputAction: TextInputAction.next,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  BlocConsumer<NotificationsBloc, NotificationsState>(
+                    buildWhen: (p, c) =>
+                        p.addNotificationsStatus != c.addNotificationsStatus,
+
+                    listenWhen: (p, c) =>
+                        p.addNotificationsStatus != c.addNotificationsStatus,
+
+                    listener: (context, state) {
+                      if (state.addNotificationsStatus.isFailed) {
+                        AppHaptics.error();
+                        showMessage(state.errorMessage);
+                      }
+
+                      if (state.addNotificationsStatus.isSuccess) {
+                        AppHaptics.success();
+                        context.pop();
+                      }
+                    },
+
+                    builder: (context, state) {
+                      return CoursatyPrimaryButton(
+                        isLoading: state.addNotificationsStatus.isLoading,
+                        label: 'إرسال',
+
+                        onPressed: () {
+                          if (_globalKey.currentState!.validate()) {
+                            BlocProvider.of<NotificationsBloc>(context).add(
+                              AddNotificationEvent(
+                                params: AddNotificationParams(
+                                  title: title.text,
+                                  description: description.text,
+                                  collegeId: collegeController.text,
+                                  link: link.text.trim().isEmpty
+                                      ? null
+                                      : link.text.trim(),
+                                  departmentId:
+                                      departmentController.text.isEmpty
+                                      ? null
+                                      : departmentController.text,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  CoursatySecondaryButton(
+                    label: "إلغاء",
+                    onPressed: () => context.pop(),
+                  ),
+
+                  const SizedBox(height: 24),
                 ],
-
-                CoursatyTextField(
-                  label: 'عنوان الإشعار',
-                  hint: 'عنوان الإشعار',
-                  controller: title,
-                  keyboardType: TextInputType.text,
-                  textInputAction: TextInputAction.next,
-                  validator: _requiredValidator,
-                ),
-
-                const SizedBox(height: 16),
-
-                CoursatyTextField(
-                  label: 'محتوى الإشعار',
-                  hint: 'محتوى الإشعار',
-                  controller: description,
-                  keyboardType: TextInputType.multiline,
-                  textInputAction: TextInputAction.newline,
-                  minLines: 5,
-                  validator: _requiredValidator,
-                ),
-
-                const SizedBox(height: 16),
-
-                CoursatyTextField(
-                  label: 'رابط مع الإشعار (اختياري)',
-                  hint: 'رابط مع الإشعار (اختياري)',
-                  controller: link,
-                  keyboardType: TextInputType.text,
-                  textInputAction: TextInputAction.next,
-                ),
-
-                const SizedBox(height: 24),
-
-                BlocConsumer<NotificationsBloc, NotificationsState>(
-                  buildWhen: (p, c) =>
-                      p.addNotificationsStatus != c.addNotificationsStatus,
-
-                  listenWhen: (p, c) =>
-                      p.addNotificationsStatus != c.addNotificationsStatus,
-
-                  listener: (context, state) {
-                    if (state.addNotificationsStatus.isFailed) {
-                      showMessage(state.errorMessage);
-                    }
-
-                    if (state.addNotificationsStatus.isSuccess) {
-                      context.pop();
-                    }
-                  },
-
-                  builder: (context, state) {
-                    return state.addNotificationsStatus.isLoading
-                        ? CoursatyAppLoader()
-                        : CoursatyPrimaryButton(
-                            label: 'إرسال',
-
-                            onPressed: () {
-                              if (_globalKey.currentState!.validate()) {
-                                BlocProvider.of<NotificationsBloc>(context).add(
-                                  AddNotificationEvent(
-                                    params: AddNotificationParams(
-                                      title: title.text,
-                                      description: description.text,
-                                      collegeId: collegeController.text,
-                                      link: link.text.trim().isEmpty
-                                          ? null
-                                          : link.text.trim(),
-                                      departmentId:
-                                          departmentController.text.isEmpty
-                                          ? null
-                                          : departmentController.text,
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                          );
-                  },
-                ),
-
-                const SizedBox(height: 16),
-
-                CoursatySecondaryButton(
-                  label: "إلغاء",
-                  onPressed: () => context.pop(),
-                ),
-
-                const SizedBox(height: 24),
-              ],
+              ),
             ),
           ),
         ),

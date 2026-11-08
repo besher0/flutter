@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/theme/app_colors.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -8,6 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../widgets/teachers_skeletons.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import '../../../../app/widgets/try_again_widget.dart';
 
 class TeacherWithdrawalsScreen extends StatefulWidget {
   const TeacherWithdrawalsScreen({super.key});
@@ -40,9 +42,17 @@ class _TeacherWithdrawalsScreenState extends State<TeacherWithdrawalsScreen> {
             final model = state.teacherWithdrawalModel;
             final withdrawals = model?.withdrawals ?? [];
 
-            return state.withdrawalsPagination.isLoading &&
-                    state.withdrawalsPagination.items.isEmpty
-                ? Center(child: CoursatyAppLoader())
+            final page = state.withdrawalsPagination;
+            return page.items.isEmpty && (page.isLoading || page.isInitial)
+                ? const WithdrawalsSkeleton()
+                : page.items.isEmpty && page.isFailure
+                ? Center(
+                    child: TryAgainWidget(
+                      onPress: () => BlocProvider.of<TeachersBloc>(
+                        context,
+                      ).add(GetWithdrawalsEvent(reset: true)),
+                    ),
+                  )
                 : withdrawals.isEmpty
                 ? Center(
                     child: Text(
@@ -62,8 +72,14 @@ class _TeacherWithdrawalsScreenState extends State<TeacherWithdrawalsScreen> {
                     },
                     child: NotificationListener<ScrollNotification>(
                       onNotification: (scrollInfo) {
-                        if (scrollInfo.metrics.pixels >=
-                            (0.7 * scrollInfo.metrics.maxScrollExtent)) {
+                        final current = context
+                            .read<TeachersBloc>()
+                            .state
+                            .withdrawalsPagination;
+                        if (!current.isLoading &&
+                            !current.hasReachedMax &&
+                            scrollInfo.metrics.pixels >=
+                                (0.7 * scrollInfo.metrics.maxScrollExtent)) {
                           BlocProvider.of<TeachersBloc>(
                             context,
                           ).add(GetWithdrawalsEvent(reset: false));
@@ -100,7 +116,7 @@ class _TeacherWithdrawalsScreenState extends State<TeacherWithdrawalsScreen> {
                             child:
                                 state.withdrawalsPagination.isLoading &&
                                     state.withdrawalsPagination.items.isNotEmpty
-                                ? Center(child: CoursatyAppLoader())
+                                ? const ListEndLoader()
                                 : SizedBox.shrink(),
                           ),
                           const SliverToBoxAdapter(child: SizedBox(height: 20)),

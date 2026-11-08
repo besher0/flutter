@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 class SubjectCard extends StatelessWidget {
   const SubjectCard({
@@ -28,7 +29,9 @@ class SubjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
+      highlightColor: Colors.transparent,
+      splashColor: Colors.transparent,
       onTap: onTap,
       child: Container(
         height: 110,
@@ -48,7 +51,8 @@ class SubjectCard extends StatelessWidget {
                 width: 157,
                 height: 83,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => _placeholder(157, 83),
+                placeholder: (_, __) =>
+                    const ImageSkeleton(width: 157, height: 83),
                 errorWidget: (_, __, ___) => _placeholder(157, 83),
               ),
             ),

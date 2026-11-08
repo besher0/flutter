@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
 
 class SectionCard extends StatelessWidget {
   const SectionCard({
@@ -45,12 +46,7 @@ class SectionCard extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: subject.image ?? '',
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
-                    color: AppColors.primaryLightTrack,
-                    child: const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
+                  placeholder: (_, __) => const ImageSkeleton(),
                   errorWidget: (_, __, ___) => Container(
                     color: AppColors.primaryLightTrack,
                     child: Icon(

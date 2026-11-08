@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
 import 'package:coursaty_student_and_teacher/features/app/presentation/bloc/app_bloc.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +9,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/common/helper/show_message.dart';
 import '../../core/routes/router.dart';
 import '../../core/theme/app_colors.dart';
+import 'loading_indicator/inline_loader.dart';
+import 'interaction/app_pressable.dart';
+import '../../services/haptics/app_haptics.dart';
 
 class ActivateCodeDialog extends StatefulWidget {
   const ActivateCodeDialog({super.key, this.onActivated});
@@ -61,6 +63,8 @@ class _ActivateCodeDialogState extends State<ActivateCodeDialog> {
   }
 
   void _activateCode() {
+    // One request at a time (the keyboard's submit can fire it too).
+    if (BlocProvider.of<AppBloc>(context).state.scanCode.isLoading) return;
     if (_controller.text.length == maxCodeLength) {
       BlocProvider.of<AppBloc>(context).add(ScanCodeEvent(_controller.text));
     }
@@ -71,10 +75,13 @@ class _ActivateCodeDialogState extends State<ActivateCodeDialog> {
     return BlocListener<AppBloc, AppState>(
       listenWhen: (p, c) => p.scanCode != c.scanCode,
       listener: (context, state) {
+        // Haptics follow the confirmed result of the activation.
         if (state.scanCode.isFailed) {
+          AppHaptics.error();
           showMessage(state.errorMessage);
         }
         if (state.scanCode.isSuccess && state.currentScannedCourseId != null) {
+          AppHaptics.success();
           if (Navigator.canPop(context)) {
             Navigator.of(context).pop();
           }
@@ -190,61 +197,69 @@ class _ActivateCodeDialogState extends State<ActivateCodeDialog> {
 
                 BlocBuilder<AppBloc, AppState>(
                   builder: (context, state) {
-                    return state.scanCode.isLoading
-                        ? CoursatyAppLoader()
-                        : Container(
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [AppColors.buttonShadow],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: _activateCode,
-                                child: Center(
-                                  child: Text(
-                                    'اشترك',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onPrimary,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                  ),
-                                ),
+                    final loading = state.scanCode.isLoading;
+                    return AppPressScale(
+                      enabled: !loading,
+                      child: Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [AppColors.buttonShadow],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: loading
+                                ? null
+                                : () {
+                                    AppHaptics.lightTap();
+                                    _activateCode();
+                                  },
+                            child: Center(
+                              child: LoadingLabel(
+                                label: 'اشترك',
+                                isLoading: loading,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                               ),
                             ),
-                          );
+                          ),
+                        ),
+                      ),
+                    );
                   },
                 ),
 
                 const SizedBox(height: 12),
 
-                Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: AppColors.greyLight,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
+                AppPressScale(
+                  child: Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: AppColors.greyLight,
                       borderRadius: BorderRadius.circular(12),
-                      onTap: () => Navigator.of(context).pop(),
-                      child: Center(
-                        child: Text(
-                          'إلغاء',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: AppColors.greyDark,
-                                fontWeight: FontWeight.w700,
-                              ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Center(
+                          child: Text(
+                            'إلغاء',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: AppColors.greyDark,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
                         ),
                       ),
                     ),

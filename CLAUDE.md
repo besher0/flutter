@@ -27,6 +27,8 @@ Scale: ~334 Dart files, ~42.5k lines under `lib/`.
 - Git repo, remote `github.com/besher0/flutter`, working branch **`fix/video-security-integration`**
   (plus `main`), version `2.1.0+6`. Releases are distributed outside Google Play too
   (`RELEASING_OUTSIDE_PLAY.md`).
+- Toolchain (2026-11-03): **Flutter 3.47.9 / Dart 3.13.7**, Gradle wrapper **8.14.3**, Android Gradle
+  Plugin **8.11.1** (Flutter 3.47 refuses older Gradle/AGP). `pubspec.lock` needs this SDK (`meta 1.19`).
 - `flutter analyze`: keep errors at 0; don't mass-fix the pre-existing infos/warnings.
 - **Tests exist** under `test/` (`core/`, `app/`, `features/…`, `fixtures/device_proof_contract.json`):
   `/v2` routing + device header, revenue models/widgets, screen-capture policy, downloads expiry,
@@ -196,13 +198,68 @@ withdrawals, `dashboard/*`) are the ones this app consumes.
   on every request. Downloads use `download-session` + an offline license. Qualities come from
   `uploads/videos/{id}/resolutions`, `playlistResolutions` first. Players hold a wake lock
   (`app/widgets/playback_wakelock.dart`).
-- Online playback goes through a loopback proxy (`my_downloads/data/services/online_playback_proxy.dart`):
-  the player opens one local URL for the whole viewing and a session renewal only swaps the proxy's
-  upstream token/header. ⚠️ Never renew by calling `setupDataSource` while playing — better_player hides
-  the video until the next play event, which was the black flash every ~4 minutes (signed URLs live
-  300 s). Pinch zoom (Android) scales only the picture; better_player draws no controls inside the
-  player (`BetterPlayerTheme.custom` + empty builder) and `_zoomable` draws `BetterPlayerMaterialControls`
-  above the zoomed picture.
+- Online playback goes through a loopback proxy (`my_downloads/data/services/online_playback_proxy.dart`)
+  that runs **in its own isolate** (every segment byte passes through it; on the UI isolate that made the
+  player feel heavy). The player opens one local URL for the whole viewing and a session renewal only
+  swaps the proxy's upstream token/header (`await updateUpstream`). ⚠️ Never renew by calling
+  `setupDataSource` while playing — better_player hides the video until the next play event, which was
+  the black flash every ~4 minutes (signed URLs live 300 s).
+- Player performance rules (`app/widgets/my_video_widget_better_player.dart`): the controller is a
+  `SmoothSeekBetterPlayerController` (`smooth_seek_controller.dart`) — better_player's progress bars seek
+  on every drag update (~60/s), so seeks are merged (one at a time, ≥300 ms apart, ending at the last
+  position). Every data source carries `_buffering` (max 50 s ahead): better_player's default max buffer
+  is ~109 minutes, which let ExoPlayer hold ~130 MB in Java heap and could close the app (OOM).
+- Pinch zoom (Android and iOS) scales only the picture; better_player draws no controls inside the
+  player (`BetterPlayerTheme.custom` + empty builder) and `_zoomable` draws the platform's controls
+  (`BetterPlayerMaterialControls` / `BetterPlayerCupertinoControls`) above it. A small reset button sits
+  at the top right while zoomed (below the cupertino top bar on iOS). iOS zoom transforms a platform
+  view (UiKitView) and has not been checked on an iPhone yet.
+- Crash reporting: Firebase Crashlytics (`services/crash_reporting.dart`, started in `main.dart` right
+  after `Firebase.initializeApp`; off in debug builds). Native crashes come from the SDK (Android NDK
+  library included, same BoM as `firebase_core`); Dart framework/zone/isolate errors from
+  `CrashReporting.init`. Use `CrashReporting.log` for breadcrumbs and `recordError` for handled errors;
+  the player logs open/ready/exception/close. Never send personal data (only the `role` key is set).
+  iOS: symbol (dSYM) upload needs the Crashlytics run-script build phase in Xcode — not added yet.
+- Real-device gate (`services/device_info_service.dart` + native `EmulatorSignals.kt`): **only emulators
+  are refused, never a real device.** Android refuses on proof only: an emulator build/name, QEMU
+  kernel/hardware properties, a desktop emulator's own files (BlueStacks, Nox, LDPlayer, MEmu,
+  Genymotion, VirtualBox), an x86 CPU under a hypervisor (a PC virtual machine; Chromebooks excepted),
+  or a QEMU trace/emulated sensor together with x86 or a hypervisor. No accelerometer, an x86 CPU alone,
+  a generic fingerprint, QEMU leftovers or a failed check never refuse. iOS refuses the Simulator and
+  iPhone apps on a Mac. Tests list both sides in `test/features/mobile_reliability_test.dart`.
+- Studied videos (online and downloads, students/guests): local store
+  `features/study_progress/data/study_progress_store.dart` (`StudyProgressStore.instance`, a
+  `ChangeNotifier` over SharedPreferences, key per account; marks survive deleting a download). A
+  lecture is studied when **all** its videos are: the full video list is remembered from the server's
+  lecture details when the online lecture page loads (`rememberLectureVideos`, overwrite); a download's
+  snapshot only fills a gap (`overwrite: false`). UI in `study_progress/presentation/widgets/studied_toggle.dart`:
+  `VideoStudiedToggle` (cards + video page top bar), `LectureStudiedBadge` (lecture lists via
+  `LectureItem.trailing`), `LectureStudyProgress` (under lecture titles, «درست X من Y فيديو»). Not in
+  `MyDownloadsState`. ⚠️ Never filter the saved `LectureDetailsModel` lists in place (copy them first).
+- iOS universal links: `ios/Runner/Runner.entitlements` (`applinks:coursay.duckdns.org`, linked via
+  `CODE_SIGN_ENTITLEMENTS`); server file `.well-known/apple-app-site-association` (paths `/teacher`,
+  `/course`, `/lecture`; app id `XT693D4UPT.com.YamanKartal.coursatyApp`). The App ID needs the
+  Associated Domains capability in the Apple Developer portal.
+- Course pages (online `course_details_screen.dart` and downloaded `downloaded_course_details.dart`)
+  show three links as plain icon + label (`CourseLinkTile`, vector `AppAssets.telegramLogo`): Coursaty's
+  Telegram channel and Instagram page (`CoursatySocialLinks` in
+  `core/common/constant/configuration/social_links.dart`), then the course's teacher group
+  (`telegramUrl`, subscribers only, hidden on the iPhone with paid content).
+- **Windows desktop** (branch `feat/windows-desktop`, teachers first): one codebase. Ask
+  `AppPlatform` (`core/platform/app_platform.dart`) before using a phone-only plugin — no Windows
+  version: better_player, fluttertoast, firebase_messaging/crashlytics, no_screenshot,
+  root_checker_plus, device_safety_info, get_thumbnail_video, cryptography_flutter. Startup skips
+  Firebase, the emulator gate and the update check there. Video: `DesktopVideoPlayer` (media_kit,
+  libmpv bundled for Windows only) inside `MyVideoWidgetBetterPlayer`; never add
+  `media_kit_libs_android_*`/`_ios_*` (would bundle libmpv into the phone apps, which play with
+  better_player). Layout: ScreenUtil is 1:1 on
+  desktop and measures the centred 1280-px frame (`coursaty_app.dart`), so `.w/.h/.sp` are plain
+  pixels and `1.sw` is the frame width; use `AppLayout.isWide`, `AdaptiveCardRow`, `DesktopFormWidth`,
+  `AppLayout.courseCardWidth` for desktop-aware sizes. ⚠️ Mouse drag is **not** on app-wide: it made scrolling pages swallow clicks on the
+  desktop video controls; wrap a horizontal list in `HorizontalMouseDrag` instead. Plain-file/URL
+  players (upload preview, ad preview) use `SimpleDesktopVideo` on desktop. ⚠️ HTTPS on Windows needs the bundled Mozilla
+  roots (`DesktopTls`, loaded in `main` and passed to the proxy isolate): a new isolate that makes
+  HTTPS requests must call `DesktopTls.trustInThisIsolate`. Build: `flutter build windows`.
 - Besides the unit tests, the practical way to validate a change against the real backend is the same
   one used in the admin project: have the user log in and save the token, then drive the app's real
   data sources from a throwaway `test/zz_tmp_*.dart` (Dio + token in headers) and delete it afterwards.

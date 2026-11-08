@@ -97,7 +97,7 @@ void main() {
     // Renewal: the old token stops working, the player URL does not change.
     cdn.validToken = 'bcdn_token=B&expires=2&token_path=%2Fvid%2F';
     final renewed = Uri.parse('${cdn.origin}/${cdn.validToken}/vid/playlist.m3u8');
-    proxy.updateUpstream(renewed, const {});
+    await proxy.updateUpstream(renewed, const {});
     expect(proxy.localUrlFor(renewed), local);
     expect(await _get(local.resolve('video1.ts')), (200, 'bytes of vid/video1.ts'));
     expect(cdn.requests.last.uri.path, '/${cdn.validToken}/vid/video1.ts');
@@ -114,7 +114,7 @@ void main() {
     expect((await _get(local)).$1, 200);
 
     cdn.validHeader = 'session-2';
-    proxy.updateUpstream(gateway, const {
+    await proxy.updateUpstream(gateway, const {
       'X-Coursaty-Playback-Session': 'session-2',
     });
     expect(await _get(local.resolve('video0.ts')), (200, 'bytes of vid/video0.ts'));
@@ -134,6 +134,20 @@ void main() {
     proxy = await OnlinePlaybackProxy.start(upstream: signed);
     cdn.validToken = 'bcdn_token=EXPIRED-ELSEWHERE';
     expect((await _get(proxy.localUrlFor(signed))).$1, HttpStatus.forbidden);
+  });
+
+  test('closing stops the proxy isolate from serving', () async {
+    final signed = Uri.parse('${cdn.origin}/${cdn.validToken}/vid/playlist.m3u8');
+    proxy = await OnlinePlaybackProxy.start(upstream: signed);
+    final local = proxy.localUrlFor(signed);
+    expect((await _get(local)).$1, 200);
+
+    await proxy.close();
+    await expectLater(_get(local), throwsA(isA<SocketException>()));
+    await expectLater(
+      proxy.updateUpstream(signed, const {}),
+      throwsStateError,
+    );
   });
 
   test('playlist rewriting keeps relative references and query strings', () {

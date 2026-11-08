@@ -2,7 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
+import 'dart:typed_data';
+
+import 'package:coursaty_student_and_teacher/core/platform/desktop_tls.dart';
 
 /// Local HTTP proxy between the player and the online HLS stream.
 ///
@@ -19,11 +23,199 @@ import 'dart:math';
 /// edge gateway's session header). Playlists are passed through with absolute
 /// references rewritten to local paths, like the gateway itself does, so every
 /// request comes back here.
+///
+/// ⚠️ The server runs in its own isolate. Every byte of every segment passes
+/// through it, and on the UI isolate that work (plus the burst of requests a
+/// seek opens and cancels) competed with drawing frames, so the player felt
+/// heavy. This class only talks to that isolate.
 class OnlinePlaybackProxy {
-  OnlinePlaybackProxy._(this._server, this._secret, this._client);
+  OnlinePlaybackProxy._(
+    this._isolate,
+    this._commands,
+    this._port,
+    this._secret,
+  );
 
   static const _tokenSegmentPrefix = 'bcdn_token=';
-  static const _tokenQueryKeys = {'token', 'expires', 'token_path', 'bcdn_token'};
+  static const _tokenQueryKeys = {
+    'token',
+    'expires',
+    'token_path',
+    'bcdn_token',
+  };
+
+  /// How long the isolate may take to start or to confirm a command.
+  static const _replyTimeout = Duration(seconds: 5);
+
+  final Isolate _isolate;
+  final SendPort _commands;
+  final int _port;
+  final String _secret;
+  bool _closed = false;
+
+  static Future<OnlinePlaybackProxy> start({
+    required Uri upstream,
+    Map<String, String> headers = const {},
+  }) async {
+    final replies = ReceivePort();
+    final secret = _randomSecret();
+    final Isolate isolate;
+    try {
+      isolate = await Isolate.spawn(
+        _proxyIsolateMain,
+        [
+          replies.sendPort,
+          secret,
+          upstream.toString(),
+          headers,
+          // Windows: the bundled root certificates (see DesktopTls).
+          DesktopTls.roots,
+        ],
+        debugName: 'OnlinePlaybackProxy',
+        onError: replies.sendPort,
+      );
+    } catch (_) {
+      replies.close();
+      rethrow;
+    }
+    try {
+      final reply = await replies.first.timeout(_replyTimeout);
+      if (reply is List && reply.length == 2 && reply[0] is SendPort) {
+        return OnlinePlaybackProxy._(
+          isolate,
+          reply[0] as SendPort,
+          reply[1] as int,
+          secret,
+        );
+      }
+      throw StateError('playback proxy failed to start: $reply');
+    } catch (_) {
+      isolate.kill(priority: Isolate.immediate);
+      rethrow;
+    }
+  }
+
+  /// The local URL the player opens for [upstream] (the playlist).
+  Uri localUrlFor(Uri upstream) {
+    final parsed = _Upstream.parse(upstream, const {});
+    return Uri.parse(
+      'http://127.0.0.1:$_port/$_secret${parsed.path}'
+      '${parsed.query.isEmpty ? '' : '?${parsed.query}'}',
+    );
+  }
+
+  /// Uses the renewed session for every request from now on. Completes once
+  /// the proxy has switched, so a reload started afterwards uses it.
+  Future<void> updateUpstream(Uri upstream, Map<String, String> headers) =>
+      _send('update', [upstream.toString(), headers]);
+
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    try {
+      await _send('close', const []);
+    } catch (_) {
+      // Already gone; killing it below is enough.
+    } finally {
+      _isolate.kill(priority: Isolate.beforeNextEvent);
+    }
+  }
+
+  Future<void> _send(String command, List<Object?> arguments) async {
+    if (_closed && command != 'close') {
+      throw StateError('playback proxy is closed');
+    }
+    final reply = ReceivePort();
+    try {
+      _commands.send([command, reply.sendPort, ...arguments]);
+      await reply.first.timeout(_replyTimeout);
+    } finally {
+      reply.close();
+    }
+  }
+
+  /// Rewrites absolute references in a playlist to local paths under
+  /// [secret], dropping Bunny's path token and token query parameters.
+  /// Relative references already resolve to the proxy and are kept.
+  static String rewritePlaylist(String text, String secret) {
+    String local(String absolute) {
+      final uri = Uri.parse(absolute);
+      final parsed = _Upstream.parse(uri, const {});
+      return '/$secret${parsed.path}'
+          '${parsed.query.isEmpty ? '' : '?${parsed.query}'}';
+    }
+
+    bool isAbsolute(String value) =>
+        value.startsWith('http://') || value.startsWith('https://');
+
+    return const LineSplitter()
+        .convert(text)
+        .map((line) {
+          final trimmed = line.trim();
+          if (trimmed.isEmpty) return line;
+          if (trimmed.startsWith('#')) {
+            return line.replaceAllMapped(
+              RegExp(r'URI="([^"]+)"'),
+              (match) => isAbsolute(match[1]!)
+                  ? 'URI="${local(match[1]!)}"'
+                  : match[0]!,
+            );
+          }
+          return isAbsolute(trimmed) ? local(trimmed) : line;
+        })
+        .join('\n');
+  }
+
+  static String _randomSecret() {
+    final random = Random.secure();
+    return List.generate(
+      24,
+      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
+  }
+}
+
+/// Entry point of the proxy isolate: starts the server, reports
+/// `[commands, port]`, then serves `update` / `close` commands, each answered
+/// on the reply port it carries.
+Future<void> _proxyIsolateMain(List<Object?> arguments) async {
+  final ready = arguments[0] as SendPort;
+  final roots = arguments.length > 4 ? arguments[4] : null;
+  if (roots is Uint8List) {
+    try {
+      DesktopTls.trustInThisIsolate(roots);
+    } catch (_) {
+      // Keep the store's own roots; a request that needs more fails as before.
+    }
+  }
+  final server = await _ProxyServer.start(
+    secret: arguments[1] as String,
+    upstream: Uri.parse(arguments[2] as String),
+    headers: Map<String, String>.from(arguments[3] as Map),
+  );
+  final commands = ReceivePort();
+  ready.send([commands.sendPort, server.port]);
+  await for (final message in commands) {
+    final command = message as List<Object?>;
+    final reply = command[1] as SendPort;
+    switch (command[0]) {
+      case 'update':
+        server.updateUpstream(
+          Uri.parse(command[2] as String),
+          Map<String, String>.from(command[3] as Map),
+        );
+        reply.send(true);
+      case 'close':
+        await server.close();
+        reply.send(true);
+        commands.close();
+    }
+  }
+}
+
+/// The HTTP server itself; lives in the proxy isolate.
+class _ProxyServer {
+  _ProxyServer._(this._server, this._secret, this._client);
 
   final HttpServer _server;
   final String _secret;
@@ -35,32 +227,24 @@ class OnlinePlaybackProxy {
   int _generation = 0;
   bool _closed = false;
 
-  static Future<OnlinePlaybackProxy> start({
+  int get port => _server.port;
+
+  static Future<_ProxyServer> start({
+    required String secret,
     required Uri upstream,
-    Map<String, String> headers = const {},
-    HttpClient? client,
+    required Map<String, String> headers,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    final proxy = OnlinePlaybackProxy._(
+    final proxy = _ProxyServer._(
       server,
-      _randomSecret(),
-      client ?? (HttpClient()..connectionTimeout = const Duration(seconds: 20)),
+      secret,
+      HttpClient()..connectionTimeout = const Duration(seconds: 20),
     );
     proxy._upstream = _Upstream.parse(upstream, headers);
     server.listen(proxy._handle);
     return proxy;
   }
 
-  /// The local URL the player opens for [upstream] (the playlist).
-  Uri localUrlFor(Uri upstream) {
-    final parsed = _Upstream.parse(upstream, const {});
-    return Uri.parse(
-      'http://127.0.0.1:${_server.port}/$_secret${parsed.path}'
-      '${parsed.query.isEmpty ? '' : '?${parsed.query}'}',
-    );
-  }
-
-  /// Uses the renewed session for every request from now on.
   void updateUpstream(Uri upstream, Map<String, String> headers) {
     _upstream = _Upstream.parse(upstream, headers);
     _generation++;
@@ -154,14 +338,17 @@ class OnlinePlaybackProxy {
             (contentType?.subType.toLowerCase().contains('mpegurl') ?? false));
     if (isPlaylist) {
       final text = await utf8.decodeStream(upstream);
-      final local = utf8.encode(rewritePlaylist(text, _secret));
+      final local = utf8.encode(
+        OnlinePlaybackProxy.rewritePlaylist(text, _secret),
+      );
       response.headers.contentLength = local.length;
       if (request.method != 'HEAD') response.add(local);
       await response.close();
       return;
     }
     if (upstream.contentLength >= 0 &&
-        upstream.compressionState == HttpClientResponseCompressionState.notCompressed) {
+        upstream.compressionState ==
+            HttpClientResponseCompressionState.notCompressed) {
       response.headers.contentLength = upstream.contentLength;
     }
     if (request.method == 'HEAD') {
@@ -170,46 +357,6 @@ class OnlinePlaybackProxy {
       await response.addStream(upstream);
     }
     await response.close();
-  }
-
-  /// Rewrites absolute references in a playlist to local paths under
-  /// [secret], dropping Bunny's path token and token query parameters.
-  /// Relative references already resolve to the proxy and are kept.
-  static String rewritePlaylist(String text, String secret) {
-    String local(String absolute) {
-      final uri = Uri.parse(absolute);
-      final parsed = _Upstream.parse(uri, const {});
-      return '/$secret${parsed.path}'
-          '${parsed.query.isEmpty ? '' : '?${parsed.query}'}';
-    }
-
-    bool isAbsolute(String value) =>
-        value.startsWith('http://') || value.startsWith('https://');
-
-    return const LineSplitter()
-        .convert(text)
-        .map((line) {
-          final trimmed = line.trim();
-          if (trimmed.isEmpty) return line;
-          if (trimmed.startsWith('#')) {
-            return line.replaceAllMapped(
-              RegExp(r'URI="([^"]+)"'),
-              (match) => isAbsolute(match[1]!)
-                  ? 'URI="${local(match[1]!)}"'
-                  : match[0]!,
-            );
-          }
-          return isAbsolute(trimmed) ? local(trimmed) : line;
-        })
-        .join('\n');
-  }
-
-  static String _randomSecret() {
-    final random = Random.secure();
-    return List.generate(
-      24,
-      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
-    ).join();
   }
 }
 

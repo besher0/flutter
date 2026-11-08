@@ -5,6 +5,8 @@ plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
     id("com.google.gms.google-services")
+    // Uploads mapping files so Crashlytics reports show readable stack traces.
+    id("com.google.firebase.crashlytics")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("kotlin-android")
@@ -82,6 +84,10 @@ flutter {
 }
 
 dependencies {
+    // Native (C/C++) crashes, e.g. in the Flutter engine or the video player,
+    // reach Crashlytics too. Same BoM as firebase_core (FirebaseSDKVersion).
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-crashlytics-ndk")
     implementation("androidx.multidex:multidex:2.0.1")
     implementation("com.google.android.play:integrity:1.6.0")
 }

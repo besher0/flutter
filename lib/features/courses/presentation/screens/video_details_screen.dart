@@ -10,6 +10,7 @@ import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/downloading_media/downloading_media_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_state.dart';
+import 'package:coursaty_student_and_teacher/features/study_progress/presentation/widgets/studied_toggle.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/you_are_guest_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -95,98 +96,9 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
           context.pop();
         },
         // Offline downloads are a student entitlement; teachers stream only.
-        action:
-            !widget.fromNetwork ||
-                GetIt.I<PrefsRepository>().isGuest ||
-                GetIt.I<PrefsRepository>().isTeacher ||
-                GetIt.I<PrefsRepository>().token == null
-            ? null
-            : BlocBuilder<MyDownloadsBloc, MyDownloadsState>(
-                builder: (context, state) {
-                  return BlocBuilder<
-                    DownloadingMediaBloc,
-                    DownloadingMediaState
-                  >(
-                    builder: (context, downloadState) {
-                      final url = widget.video.id!;
-                      final canDownload =
-                          widget.video.offlineDownloadEnabled ?? true;
-                      return downloadState.downloadingStatus[url] == true
-                          ? Row(
-                              spacing: 5,
-                              children: [
-                                SizedBox(
-                                  height: 30.r,
-                                  width: 30.r,
-                                  child: FittedBox(
-                                    child: ProgressIndicatorWidget(
-                                      percent:
-                                          downloadState.downloadingProcesses[url],
-                                      backGroundColor: AppColors.greyNormal,
-                                      textColor: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    BlocProvider.of<DownloadingMediaBloc>(
-                                      context,
-                                    ).add(
-                                      CancelDownloadEvent(
-                                        fileUrl: url,
-                                        fileType: 'video',
-                                        fileName: widget.video.videoName,
-                                      ),
-                                    );
-                                  },
-                                  icon: Icon(
-                                    Icons.cancel_outlined,
-                                    color: context.colorScheme.primary,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : state.urlToFileReferences[url] == null &&
-                                canDownload
-                          ? InkWell(
-                              onTap: () {
-                                showVideoQualityDialog(
-                                  context,
-                                  toDownload: true,
-                                  videoId: widget.video.id!,
-                                  onChooseQuality: (context, quality) {
-                                    BlocProvider.of<DownloadingMediaBloc>(
-                                      context,
-                                    ).add(
-                                      DownloadFileEvent(
-                                        fileUrl: url,
-                                        downloadUrl: url,
-                                        quality: quality,
-                                        fileType: 'video',
-                                        fileName: widget.video.videoName,
-                                        courseId: widget.courseId,
-                                        courseDetailsModel:
-                                            widget.courseDetailsModel,
-                                        lectureDetailsModel:
-                                            widget.lectureDetailsModel,
-                                        lectureId: widget.video.lectureId,
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                              child: SvgPicture.asset(
-                                AppAssets.iconDownload2,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            )
-                          : SizedBox.shrink();
-                    },
-                  );
-                },
-              ),
+        // Students (and guests) can mark the video as studied (kept on this
+        // device), online and offline.
+        action: _appBarActions(),
       ),
 
       // The video stays fixed at the top; only the details and seek points under
@@ -214,6 +126,100 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget? _appBarActions() {
+    final prefs = GetIt.I<PrefsRepository>();
+    final studyToggle = prefs.isTeacher
+        ? null
+        : VideoStudiedToggle(videoId: widget.video.id!, size: 26);
+    final download =
+        !widget.fromNetwork ||
+            prefs.isGuest ||
+            prefs.isTeacher ||
+            prefs.token == null
+        ? null
+        : _downloadAction();
+    if (studyToggle == null || download == null) return studyToggle ?? download;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [studyToggle, download],
+    );
+  }
+
+  Widget _downloadAction() {
+    return BlocBuilder<MyDownloadsBloc, MyDownloadsState>(
+      builder: (context, state) {
+        return BlocBuilder<DownloadingMediaBloc, DownloadingMediaState>(
+          builder: (context, downloadState) {
+            final url = widget.video.id!;
+            final canDownload = widget.video.offlineDownloadEnabled ?? true;
+            return downloadState.downloadingStatus[url] == true
+                ? Row(
+                    spacing: 5,
+                    children: [
+                      SizedBox(
+                        height: 30.r,
+                        width: 30.r,
+                        child: FittedBox(
+                          child: ProgressIndicatorWidget(
+                            percent: downloadState.downloadingProcesses[url],
+                            backGroundColor: AppColors.greyNormal,
+                            textColor: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          BlocProvider.of<DownloadingMediaBloc>(context).add(
+                            CancelDownloadEvent(
+                              fileUrl: url,
+                              fileType: 'video',
+                              fileName: widget.video.videoName,
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.cancel_outlined,
+                          color: context.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  )
+                : state.urlToFileReferences[url] == null && canDownload
+                ? InkWell(
+                    onTap: () {
+                      showVideoQualityDialog(
+                        context,
+                        toDownload: true,
+                        videoId: widget.video.id!,
+                        onChooseQuality: (context, quality) {
+                          BlocProvider.of<DownloadingMediaBloc>(context).add(
+                            DownloadFileEvent(
+                              fileUrl: url,
+                              downloadUrl: url,
+                              quality: quality,
+                              fileType: 'video',
+                              fileName: widget.video.videoName,
+                              courseId: widget.courseId,
+                              courseDetailsModel: widget.courseDetailsModel,
+                              lectureDetailsModel: widget.lectureDetailsModel,
+                              lectureId: widget.video.lectureId,
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    child: SvgPicture.asset(
+                      AppAssets.iconDownload2,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  )
+                : SizedBox.shrink();
+          },
+        );
+      },
     );
   }
 

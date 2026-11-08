@@ -1,4 +1,3 @@
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/empty_courses.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +10,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/extensions/int.dart';
 import '../bloc/courses_bloc.dart';
 import '../widgets/course_card.dart';
+import '../widgets/course_skeletons.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import '../../../../app/widgets/try_again_widget.dart';
 
 class CoursesBySubjectScreen extends StatefulWidget {
   const CoursesBySubjectScreen({
@@ -54,9 +56,18 @@ class _CoursesBySubjectScreenState extends State<CoursesBySubjectScreen> {
                 p.coursesOfSubject.paginationStatus !=
                 c.coursesOfSubject.paginationStatus,
             builder: (context, state) {
-              if (state.coursesOfSubject.items.isEmpty &&
-                  state.coursesOfSubject.isLoading) {
-                return Center(child: CoursatyAppLoader());
+              final page = state.coursesOfSubject;
+              if (page.items.isEmpty && (page.isLoading || page.isInitial)) {
+                return const CourseListSkeleton();
+              }
+              if (page.items.isEmpty && page.isFailure) {
+                return Center(
+                  child: TryAgainWidget(
+                    onPress: () => BlocProvider.of<CoursesBloc>(context).add(
+                      GetCoursesBySubjectEvent(widget.subjectId, reset: true),
+                    ),
+                  ),
+                );
               }
               if (state.coursesOfSubject.items.isEmpty) {
                 return EmptyCourses(
@@ -71,8 +82,14 @@ class _CoursesBySubjectScreenState extends State<CoursesBySubjectScreen> {
                     Expanded(
                       child: NotificationListener<ScrollNotification>(
                         onNotification: (scrollInfo) {
-                          if (scrollInfo.metrics.pixels >=
-                              (0.7 * scrollInfo.metrics.maxScrollExtent)) {
+                          final current = context
+                              .read<CoursesBloc>()
+                              .state
+                              .coursesOfSubject;
+                          if (!current.isLoading &&
+                              !current.hasReachedMax &&
+                              scrollInfo.metrics.pixels >=
+                                  (0.7 * scrollInfo.metrics.maxScrollExtent)) {
                             BlocProvider.of<CoursesBloc>(
                               context,
                             ).add(GetCoursesBySubjectEvent(widget.subjectId));
@@ -135,12 +152,11 @@ class _CoursesBySubjectScreenState extends State<CoursesBySubjectScreen> {
                         ),
                       ),
                     ),
-                    10.verticalSpace,
-                    if (state.coursesOfYear.items.isNotEmpty &&
-                        state.coursesOfYear.isLoading) ...{
-                      Center(child: CoursatyAppLoader()),
-                    },
-                    15.verticalSpace,
+                    if (state.coursesOfSubject.items.isNotEmpty &&
+                        state.coursesOfSubject.isLoading)
+                      const ListEndLoader()
+                    else
+                      25.verticalSpace,
                   ],
                 ),
               );

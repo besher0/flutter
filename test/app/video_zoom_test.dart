@@ -177,6 +177,35 @@ void main() {
     });
   });
 
+  group('VideoZoomResetButton', () {
+    testWidgets('is small, shows only while zoomed, and a tap resets', (tester) async {
+      final zoom = VideoZoomController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topRight,
+              child: VideoZoomResetButton(controller: zoom),
+            ),
+          ),
+        ),
+      );
+      expect(find.byIcon(Icons.zoom_out), findsNothing);
+
+      zoom.value = const VideoZoom(scale: 2, offset: Offset(-0.5, -0.5));
+      await tester.pump();
+      expect(find.byIcon(Icons.zoom_out), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(VideoZoomResetButton)),
+        const Size.square(VideoZoomResetButton.tapTarget),
+      );
+
+      await tester.tap(find.byType(VideoZoomResetButton));
+      await tester.pump();
+      expect(zoom.value, VideoZoom.identity);
+    });
+  });
+
   // The player's controls are drawn above the zoomed picture (as in
   // MyVideoWidgetBetterPlayer._zoomable), so they keep their size and place at
   // any zoom, still take taps, and a pinch over them still zooms.

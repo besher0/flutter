@@ -8,13 +8,17 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
 import '../../../../core/routes/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../teachers/presentation/widgets/teachers_grid.dart';
 import '../bloc/home_bloc.dart';
 import '../widgets/subject_card.dart';
+import '../../../courses/presentation/widgets/course_skeletons.dart';
+import '../../../teachers/presentation/widgets/teachers_skeletons.dart';
+import '../widgets/home_skeletons.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 
 class SearchPageContent extends StatefulWidget {
   const SearchPageContent({super.key});
@@ -49,6 +53,7 @@ class _SearchPageContentState extends State<SearchPageContent> {
           15.verticalSpace,
           SearchWithFilterBar(controller: controller),
           TabBar(
+            onTap: (_) => tabTapHaptic(context),
             indicatorColor: AppColors.secondary,
             labelColor: AppColors.secondary,
             unselectedLabelColor: AppColors.greyNormal,
@@ -103,14 +108,24 @@ class _SearchPageContentState extends State<SearchPageContent> {
                               ),
                             ),
                           )
-                        : state.courses.isLoading
-                        ? Center(child: CoursatyAppLoader())
+                        : state.courses.isLoading && state.courses.items.isEmpty
+                        ? const CourseListSkeleton(
+                            padding: EdgeInsets.symmetric(horizontal: 15),
+                            spacing: 15,
+                          )
                         : state.courses.items.isEmpty && state.courses.isSuccess
                         ? EmptyCourses()
                         : NotificationListener<ScrollNotification>(
                             onNotification: (scrollInfo) {
-                              if (scrollInfo.metrics.pixels >=
-                                  (0.7 * scrollInfo.metrics.maxScrollExtent)) {
+                              final current = context
+                                  .read<HomeBloc>()
+                                  .state
+                                  .courses;
+                              if (!current.isLoading &&
+                                  !current.hasReachedMax &&
+                                  scrollInfo.metrics.pixels >=
+                                      (0.7 *
+                                          scrollInfo.metrics.maxScrollExtent)) {
                                 _fetchData();
                               }
                               return false;
@@ -123,6 +138,9 @@ class _SearchPageContentState extends State<SearchPageContent> {
                                 ),
                                 shrinkWrap: true,
                                 itemBuilder: (context, index) {
+                                  if (index >= state.courses.items.length) {
+                                    return const ListEndLoader();
+                                  }
                                   final item = state.courses.items[index];
                                   return CourseCard(
                                     title: item.name ?? '',
@@ -161,7 +179,10 @@ class _SearchPageContentState extends State<SearchPageContent> {
                                 },
                                 separatorBuilder: (context, index) =>
                                     15.verticalSpace,
-                                itemCount: state.courses.items.length,
+                                // One extra row for the next-page loader.
+                                itemCount:
+                                    state.courses.items.length +
+                                    (state.courses.isLoading ? 1 : 0),
                               ),
                             ),
                           ),
@@ -176,8 +197,10 @@ class _SearchPageContentState extends State<SearchPageContent> {
                               ),
                             ),
                           )
-                        : state.courses.isLoading
-                        ? Center(child: CoursatyAppLoader())
+                        : state.courses.isLoading && state.courses.items.isEmpty
+                        ? const SubjectListSkeleton(
+                            padding: EdgeInsets.symmetric(horizontal: 15),
+                          )
                         : state.subjects.isEmpty && state.courses.isSuccess
                         ? Center(
                             child: Text(
@@ -224,8 +247,11 @@ class _SearchPageContentState extends State<SearchPageContent> {
                               ),
                             ),
                           )
-                        : state.courses.isLoading
-                        ? Center(child: CoursatyAppLoader())
+                        : state.courses.isLoading && state.courses.items.isEmpty
+                        ? const SubjectListSkeleton(
+                            padding: EdgeInsets.symmetric(horizontal: 15),
+                            chipCount: 0,
+                          )
                         : state.programs.isEmpty && state.courses.isSuccess
                         ? Center(
                             child: Text(
@@ -273,8 +299,8 @@ class _SearchPageContentState extends State<SearchPageContent> {
                               ),
                             ),
                           )
-                        : state.courses.isLoading
-                        ? Center(child: CoursatyAppLoader())
+                        : state.courses.isLoading && state.courses.items.isEmpty
+                        ? const TeachersGridSkeleton()
                         : state.teachers.isEmpty && state.courses.isSuccess
                         ? Center(
                             child: Text(

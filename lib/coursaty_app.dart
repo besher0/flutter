@@ -1,3 +1,6 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
+import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
 import 'package:coursaty_student_and_teacher/features/app/presentation/bloc/app_bloc.dart';
 import 'package:coursaty_student_and_teacher/services/localization_service.dart';
 import 'package:coursaty_student_and_teacher/services/service_provider.dart';
@@ -46,10 +49,34 @@ class _CoursatyAppState extends State<CoursatyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Phones scale the 375-wide design to the screen. A desktop window is
+    // drawn 1:1 (its own size as the design size): scaling the phone design
+    // to a 1280-wide window made everything about 3.4x too large.
+    return LayoutBuilder(
+      builder: (context, constraints) => _withScreenUtil(
+        AppPlatform.isDesktop && constraints.biggest.isFinite
+            ? AppLayout.contentSize(constraints.biggest)
+            : kDesignSize,
+      ),
+    );
+  }
+
+  Widget _withScreenUtil(Size designSize) {
     return ScreenUtilInit(
-      designSize: kDesignSize,
+      designSize: designSize,
       minTextAdapt: true,
       builder: (context, child) {
+        if (AppPlatform.isDesktop) {
+          // ScreenUtil measures the whole window, but the app is drawn in the
+          // centred frame (DesktopFrame): measure the frame instead, so the
+          // scale stays 1:1 and `1.sw` is the frame's width, not the window's.
+          ScreenUtil.configure(
+            data: MediaQueryData.fromView(
+              View.of(context),
+            ).copyWith(size: designSize),
+            designSize: designSize,
+          );
+        }
         return LocalizationService(
           child: ServiceProvider(
             child: Builder(
@@ -59,6 +86,8 @@ class _CoursatyAppState extends State<CoursatyApp> with WidgetsBindingObserver {
                     .state
                     .isThemeLight;
                 return MaterialApp.router(
+                  scaffoldMessengerKey: AppMessenger.key,
+                  scrollBehavior: const AppScrollBehavior(),
                   debugShowCheckedModeBanner: false,
                   title: "كورساتي",
                   locale: context.locale,
@@ -68,7 +97,7 @@ class _CoursatyAppState extends State<CoursatyApp> with WidgetsBindingObserver {
                       data: MediaQuery.of(
                         context,
                       ).copyWith(textScaler: TextScaler.noScaling),
-                      child: child!,
+                      child: DesktopFrame(child: child!),
                     );
                   },
                   supportedLocales: context.supportedLocales,

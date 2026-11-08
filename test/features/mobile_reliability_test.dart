@@ -42,19 +42,67 @@ void main() {
       expect(decide(), isTrue);
     });
 
-    test('a PC emulator reporting isPhysicalDevice=true is still refused', () {
-      // e.g. BlueStacks / LDPlayer / WSA: x86 CPU under a hypervisor.
-      expect(decide(signals: ['abi:x86', 'cpu:hypervisor']), isFalse);
-      expect(decide(signals: ['sensor:no-accelerometer']), isFalse);
+    // Emulators on Windows, Linux or macOS: always refused.
+    test('desktop emulators are refused', () {
+      final emulators = <String, List<String>>{
+        'BlueStacks / LDPlayer / MEmu (x86 VM)': ['abi:x86', 'cpu:x86', 'cpu:hypervisor'],
+        'WSA (x86 VM, no accelerometer)': [
+          'abi:x86',
+          'cpu:hypervisor',
+          'sensor:no-accelerometer',
+        ],
+        'Android Studio emulator (ARM image on a Mac)': ['hardware', 'prop:hardware'],
+        'Android Studio emulator (x86 image)': ['prop:qemu', 'abi:x86'],
+        'Genymotion': ['manufacturer', 'file:/dev/socket/genyd'],
+        'Nox': ['file:/system/bin/nox-prop'],
+        'LDPlayer files only': ['file:/system/bin/ldinit'],
+        'BlueStacks files only': ['file:/data/.bluestacks.prop'],
+        'QEMU trace inside an x86 VM': ['abi:x86', 'file:/dev/qemu_pipe'],
+        'emulated sensors under a hypervisor': ['cpu:hypervisor', 'sensor:emulated'],
+      };
+      emulators.forEach((name, signals) {
+        expect(decide(signals: signals), isFalse, reason: name);
+      });
+      expect(decide(knownModel: true), isFalse, reason: 'known emulator build');
     });
 
-    test('a check that could not run fails closed', () {
-      expect(decide(signals: ['check-failed']), isFalse);
+    // Real phones and tablets: never refused, whatever hints they show.
+    test('real devices always pass', () {
+      final devices = <String, List<String>>{
+        'ordinary phone': [],
+        'tablet without an accelerometer': ['sensor:no-accelerometer'],
+        'unbranded tablet with a generic fingerprint': [
+          'fingerprint',
+          'sensor:no-accelerometer',
+        ],
+        'Intel (x86) tablet': ['abi:x86', 'cpu:x86'],
+        'Intel tablet without an accelerometer': [
+          'abi:x86',
+          'cpu:x86',
+          'sensor:no-accelerometer',
+        ],
+        'system image with a QEMU leftover': [
+          'file:/system/lib/libc_malloc_debug_qemu.so',
+          'prop:qemu-service',
+        ],
+        'native check that could not run': ['check-failed'],
+        'Chromebook (Android in a VM)': [
+          'abi:x86',
+          'cpu:x86',
+          'cpu:hypervisor',
+          'device:chromebook',
+        ],
+      };
+      devices.forEach((name, signals) {
+        expect(decide(signals: signals), isTrue, reason: name);
+      });
     });
 
-    test('an unbranded tablet with a "generic" build fingerprint passes', () {
-      expect(decide(signals: ['fingerprint']), isTrue);
-      expect(decide(signals: ['fingerprint', 'cpu:hypervisor']), isFalse);
+    test('a Chromebook flag never hides a definite emulator trace', () {
+      expect(
+        decide(signals: ['device:chromebook', 'file:/system/bin/nox-prop']),
+        isFalse,
+      );
     });
 
     test('emulator names are matched as whole words of the build fields', () {

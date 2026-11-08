@@ -1,10 +1,11 @@
 import 'package:coursaty_student_and_teacher/features/sales_points/presentation/bloc/sales_points_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../app/widgets/loading_indicator/coursaty_app_loader.dart';
 import '../../../../app/widgets/title_app_bar.dart';
 import '../../../../core/common/constant/configuration/feature_flags.dart';
 import '../widgets/point_of_sale_card.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import '../widgets/sales_point_skeletons.dart';
 
 class PointsOfSaleListScreen extends StatefulWidget {
   const PointsOfSaleListScreen({super.key});
@@ -32,8 +33,18 @@ class _PointsOfSaleListScreenState extends State<PointsOfSaleListScreen> {
         body: SafeArea(
           child: BlocBuilder<SalesPointsBloc, SalesPointsState>(
             builder: (context, state) {
-              return state.getSalesPointsStatus.isLoading
-                  ? Center(child: CoursatyAppLoader())
+              // Skeleton only for the first load; a refresh keeps the list.
+              return state.getSalesPointsStatus.isLoading &&
+                      state.salesPoints.isEmpty
+                  ? SkeletonList(
+                      count: 5,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 20,
+                      ),
+                      spacing: 16,
+                      itemBuilder: (_, _) => const SalesPointCardSkeleton(),
+                    )
                   : RefreshIndicator(
                       onRefresh: () async {
                         if (SubscriptionFeatureFlags.showPointsOfSale) {

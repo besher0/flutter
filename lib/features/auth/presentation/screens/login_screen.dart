@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
 import 'package:coursaty_student_and_teacher/features/auth/domain/use_case/log_in_use_case.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +18,7 @@ import '../../../../core/utils/responsive_padding.dart';
 import '../bloc/auth_bloc.dart';
 import 'create_guest_screen.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
+import '../../../../app/widgets/loading_indicator/inline_loader.dart';
 
 /// Login: title, phone + password fields, forgot/remember, primary button, sign up link.
 class LoginScreen extends StatefulWidget {
@@ -212,12 +212,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                     },
                     builder: (context, state) {
-                      return state.authStatus.isLoading
-                          ? CoursatyAppLoader()
-                          : CoursatyPrimaryButton(
-                              label: 'تسجيل دخول',
-                              onPressed: _submit,
-                            );
+                      return CoursatyPrimaryButton(
+                        isLoading: state.authStatus.isLoading,
+                        label: 'تسجيل دخول',
+                        onPressed: _submit,
+                      );
                     },
                   ),
                   const SizedBox(height: 16),
@@ -274,49 +273,50 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                     },
                     builder: (context, state) {
-                      return state.getOrCreateGuest.isLoading
-                          ? Center(child: CoursatyAppLoader())
-                          : InkWell(
-                              onTap: () {
+                      final loading = state.getOrCreateGuest.isLoading;
+                      return InkWell(
+                        onTap: loading
+                            ? null
+                            : () {
                                 BlocProvider.of<AuthBloc>(
                                   context,
                                 ).add(GetGuestEvent());
                               },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                spacing: 10,
-                                children: [
-                                  Text(
-                                    'أكمل التصفّح كزائر',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: context.colorScheme.primary,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: HWEdgeInsets.all(3),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: Icon(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          spacing: 10,
+                          children: [
+                            Text(
+                              'أكمل التصفّح كزائر',
+                              style: GoogleFonts.cairo(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: context.colorScheme.primary,
+                              ),
+                            ),
+                            Container(
+                              padding: HWEdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              child: Center(
+                                child: loading
+                                    ? const InlineLoader(size: 12)
+                                    : Icon(
                                         Icons.arrow_forward_ios,
                                         size: 12,
                                         color: Theme.of(
                                           context,
                                         ).colorScheme.primary,
                                       ),
-                                    ),
-                                  ),
-                                ],
                               ),
-                            );
+                            ),
+                          ],
+                        ),
+                      );
                     },
                   ),
                   const SizedBox(height: 40),

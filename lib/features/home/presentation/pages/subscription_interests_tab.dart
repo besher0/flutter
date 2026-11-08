@@ -7,9 +7,21 @@ import 'package:coursaty_student_and_teacher/features/subscriptions/presentation
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/home_skeletons.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 
 class InterestsTab extends StatelessWidget {
-  const InterestsTab({super.key});
+  const InterestsTab({super.key, this.onRefresh});
+
+  /// Pull-to-refresh action; defaults to reloading the interests only. The
+  /// subscriptions page passes one that reloads all of its tabs.
+  final Future<void> Function()? onRefresh;
+
+  Future<void> _refresh(BuildContext context) async {
+    if (onRefresh != null) return onRefresh!();
+    context.read<SubscriptionBloc>().add(LoadCourseInterests());
+  }
 
   @override
   Widget build(BuildContext context) =>
@@ -18,22 +30,24 @@ class InterestsTab extends StatelessWidget {
             previous.interestsStatus != current.interestsStatus ||
             previous.interests != current.interests,
         builder: (context, state) {
+          // Skeleton on every load, including a pull-to-refresh.
           if (state.interestsStatus.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const InterestListSkeleton();
           }
           if (state.interestsStatus.isFailed) {
-            return const _InterestFeedback(
+            return _InterestFeedback(
               message: 'تعذر تحميل اهتماماتك. اسحب لإعادة المحاولة.',
+              onRefresh: () => _refresh(context),
             );
           }
           if (state.interests.isEmpty) {
-            return const _InterestFeedback(
+            return _InterestFeedback(
               message: 'لا توجد كورسات محفوظة في اهتماماتك بعد.',
+              onRefresh: () => _refresh(context),
             );
           }
           return RefreshIndicator(
-            onRefresh: () async =>
-                context.read<SubscriptionBloc>().add(LoadCourseInterests()),
+            onRefresh: () => _refresh(context),
             child: ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
@@ -48,13 +62,13 @@ class InterestsTab extends StatelessWidget {
 }
 
 class _InterestFeedback extends StatelessWidget {
-  const _InterestFeedback({required this.message});
+  const _InterestFeedback({required this.message, required this.onRefresh});
   final String message;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) => RefreshIndicator(
-    onRefresh: () async =>
-        context.read<SubscriptionBloc>().add(LoadCourseInterests()),
+    onRefresh: onRefresh,
     child: ListView(
       children: [
         SizedBox(height: MediaQuery.sizeOf(context).height * .18),
@@ -112,6 +126,8 @@ class _InterestCard extends StatelessWidget {
                         width: 62,
                         height: 62,
                         fit: BoxFit.cover,
+                        placeholder: (_, _) =>
+                            const ImageSkeleton(width: 62, height: 62),
                         errorWidget: (_, _, _) => const SizedBox(
                           width: 62,
                           height: 62,
@@ -161,9 +177,13 @@ class _InterestCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 IconButton(
                   tooltip: 'إزالة من اهتماماتي',
-                  onPressed: () => context.read<SubscriptionBloc>().add(
-                    RemoveCourseInterest(interest.courseId),
-                  ),
+                  onPressed: () {
+                    // Un-bookmarking: a selection-type change.
+                    AppHaptics.selection();
+                    context.read<SubscriptionBloc>().add(
+                      RemoveCourseInterest(interest.courseId),
+                    );
+                  },
                   icon: const Icon(Icons.bookmark_remove_outlined),
                 ),
               ],

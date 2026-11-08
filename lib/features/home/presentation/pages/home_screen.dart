@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
 import 'package:coursaty_student_and_teacher/features/course_content_management/presentation/bloc/course_content_management_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/screens/courses_screen.dart';
@@ -44,8 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_prefsRepository.isStudent) {
       final isAuthenticatedStudent =
           !_prefsRepository.isGuest && _prefsRepository.token != null;
-      if (isAuthenticatedStudent &&
-          SubscriptionFeatureFlags.showPointsOfSale) {
+      if (isAuthenticatedStudent && SubscriptionFeatureFlags.showPointsOfSale) {
         BlocProvider.of<SalesPointsBloc>(context).add(GetSalesPointsEvent());
       }
       BlocProvider.of<HomeBloc>(context).add(GetMyActiveCourses());
@@ -74,6 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
       ).add(UpdateProfileEvent(params: UpdateProfileParams()));
     }
+  }
+
+  void _onNavTap(int i) {
+    if (i == 0 && openSearch.value) {
+      openSearch.value = false;
+      return;
+    }
+    setState(() => _navIndex = i);
   }
 
   void _closeApp() {
@@ -157,18 +165,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                 ),
-          bottomNavigationBar: CoursatyBottomNavBar(
-            currentIndex: _navIndex,
-            isStudent: isStudent,
-            onTap: (i) {
-              if (i == 0 && openSearch.value) {
-                openSearch.value = false;
-                return;
-              }
-              setState(() => _navIndex = i);
-            },
-          ),
-          body: pages[_navIndex],
+          // Desktop: the tabs move to a side rail and the page fills the rest.
+          bottomNavigationBar: AppLayout.isWide(context)
+              ? null
+              : CoursatyBottomNavBar(
+                  currentIndex: _navIndex,
+                  isStudent: isStudent,
+                  onTap: _onNavTap,
+                ),
+          body: AppLayout.isWide(context)
+              ? Row(
+                  children: [
+                    CoursatyNavigationRail(
+                      currentIndex: _navIndex,
+                      isStudent: isStudent,
+                      onTap: _onNavTap,
+                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: pages[_navIndex]),
+                  ],
+                )
+              : pages[_navIndex],
         ),
       ),
     );

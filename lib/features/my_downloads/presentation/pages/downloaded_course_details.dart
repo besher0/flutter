@@ -1,3 +1,5 @@
+import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/course_link_tile.dart';
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/social_links.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/chip_widget.dart';
@@ -11,6 +13,7 @@ import 'package:coursaty_student_and_teacher/core/utils/extensions/int.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/course_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/home/presentation/bloc/home_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
+import 'package:coursaty_student_and_teacher/features/study_progress/presentation/widgets/studied_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -25,6 +28,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../courses/presentation/widgets/image_header.dart';
 import '../../../courses/presentation/widgets/lecture_item.dart';
 import '../../../courses/presentation/widgets/media_item.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 
 class DownloadedCourseDetails extends StatefulWidget {
   const DownloadedCourseDetails({super.key, required this.course});
@@ -41,6 +46,7 @@ class _DownloadedCourseDetailsState extends State<DownloadedCourseDetails>
   late final TabController _tabController = TabController(
     length: 2,
     vsync: this,
+      initialIndex: 1
   );
   ScreenCaptureLease? _captureLease;
 
@@ -162,6 +168,7 @@ class _DownloadedCourseDetailsState extends State<DownloadedCourseDetails>
             ),
             const SizedBox(height: 12),
             TabBar(
+              onTap: (_) => tabTapHaptic(context),
               dividerColor: AppColors.secondary.withValues(alpha: 0.1),
               controller: _tabController,
               labelColor: AppColors.secondary,
@@ -248,10 +255,10 @@ class _DetailsTab extends StatelessWidget {
                         width: 40.r,
                         height: 40.r,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => SizedBox(
+                        placeholder: (_, __) => ImageSkeleton(
                           width: 40.r,
                           height: 40.r,
-                          child: Center(child: CircularProgressIndicator()),
+                          shape: BoxShape.circle,
                         ),
                         errorWidget: (_, __, ___) => const Icon(Icons.error),
                       ),
@@ -340,35 +347,43 @@ class _DetailsTab extends StatelessWidget {
             height: 1.8,
           ),
         ),
-        if (_telegramUrl != null || details.introVideoUrl != null) ...{
-          15.verticalSpace,
-          Divider(color: AppColors.secondary.withValues(alpha: 0.2)),
-          15.verticalSpace,
-        },
+        // The Coursaty links are always shown, so the divider is too.
+        15.verticalSpace,
+        Divider(color: AppColors.secondary.withValues(alpha: 0.2)),
+        15.verticalSpace,
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (details.instagramUrl?.trim().isNotEmpty == true) ...{
-              MediaItem(
-                assetUrl: AppAssets.instagram,
-                isSvg: true,
-                color: Color(0xffDB2877),
-                onTap: () {
-                  HelperFunctions.urlLauncher(details.instagramUrl!.trim());
-                },
-                title: "صفحة الانستا للاستاذ",
-              ),
-              15.verticalSpace,
-            },
+            // Coursaty's channel and page, then the course's own group.
+            CourseLinkTile(
+              assetUrl: AppAssets.telegramLogo,
+              isSvg: true,
+              onTap: () {
+                HelperFunctions.urlLauncher(
+                  CoursatySocialLinks.telegramChannel,
+                );
+              },
+              title: "قناة التلجرام",
+            ),
+            15.verticalSpace,
+            CourseLinkTile(
+              assetUrl: AppAssets.instagram,
+              isSvg: true,
+              onTap: () {
+                HelperFunctions.urlLauncher(CoursatySocialLinks.instagram);
+              },
+              title: "صفحة الإنستجرام",
+            ),
+            15.verticalSpace,
             if (_telegramUrl != null) ...{
-              MediaItem(
-                assetUrl: AppAssets.telegram,
-                color: Color(0xff1DA0E0),
+              CourseLinkTile(
+                assetUrl: AppAssets.telegramLogo,
+                isSvg: true,
                 onTap: () {
                   HelperFunctions.urlLauncher(_telegramUrl!);
                 },
-                title: "كروب المناقشة على التلغرام",
+                title: "غروب المناقشة مع الأستاذ",
               ),
               15.verticalSpace,
             },
@@ -409,6 +424,7 @@ class _LecturesTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: List.generate(lectures.length, (index) {
         return InkWell(
+          borderRadius: BorderRadius.circular(12),
           onTap: () {
             final lectureDetails = context
                 .read<MyDownloadsBloc>()
@@ -423,7 +439,11 @@ class _LecturesTab extends StatelessWidget {
               extra: lectureDetails,
             );
           },
-          child: LectureItem(index: index, lectureName: lectures[index].title!),
+          child: LectureItem(
+            index: index,
+            lectureName: lectures[index].title!,
+            trailing: LectureStudiedBadge(lectureId: lectures[index].id!),
+          ),
         );
       }),
     );

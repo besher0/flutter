@@ -6,6 +6,8 @@ import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/cours
 import 'package:coursaty_student_and_teacher/app/widgets/paid_content_dialog.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/you_are_guest_dialog.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
 import 'package:coursaty_student_and_teacher/features/courses/data/model/lecture_details_model.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/courses_bloc.dart';
@@ -19,9 +21,12 @@ import 'package:coursaty_student_and_teacher/features/my_downloads/data/services
 import 'package:coursaty_student_and_teacher/features/my_downloads/data/services/video_device_key_service.dart';
 import 'package:coursaty_student_and_teacher/features/my_downloads/presentation/bloc/my_downloads_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/data/model/teacher_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 // Drawn above the zoomed picture instead of inside the scaled player.
+// ignore: implementation_imports
+import 'package:better_player_plus/src/controls/better_player_cupertino_controls.dart';
 // ignore: implementation_imports
 import 'package:better_player_plus/src/controls/better_player_material_controls.dart';
 import 'package:dio/dio.dart';
@@ -38,9 +43,13 @@ import '../../core/common/constant/design/app_assets.dart';
 import '../../core/routes/router.dart';
 import '../../core/storage/prefs_repository.dart';
 import '../../core/theme/app_colors.dart';
+import '../../services/crash_reporting.dart';
 import 'chip_widget.dart';
+import 'desktop_video_player.dart';
 import 'playback_wakelock.dart';
+import 'smooth_seek_controller.dart';
 import 'video_zoom.dart';
+import 'skeleton/skeleton.dart';
 
 class MyVideoWidgetBetterPlayer extends StatefulWidget {
   const MyVideoWidgetBetterPlayer({
@@ -98,6 +107,14 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
   late BetterPlayerDataSource betterPlayerDataSource;
   late BetterPlayerController betterPlayerController;
   PlaybackWakelock? _wakelock;
+
+  /// Desktop only: media_kit replaces better_player (which has no desktop
+  /// version). Null on the phones, where nothing below changes.
+  DesktopVideoPlayer? _desktop;
+  final List<StreamSubscription<Object?>> _desktopSubscriptions = [];
+
+  /// The URL the player has open (a local proxy URL for online playback).
+  String? _sourceUrl;
   final VideoAccessService _videoAccessService = GetIt.I<VideoAccessService>();
   final SecureOfflinePlaybackService _secureOfflinePlaybackService =
       GetIt.I<SecureOfflinePlaybackService>();
@@ -121,6 +138,10 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     // concurrent init would open a second session and controller.
     if (_initStarted) return;
     _initStarted = true;
+    CrashReporting.log(
+      'player: open ${widget.filePath != null ? 'offline' : 'online'} '
+      'quality=${widget.preferredResolution}',
+    );
     try {
       final source = await _resolveSource();
       if (!mounted) {
@@ -128,14 +149,14 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         await _onlineProxy?.close();
         return;
       }
-      betterPlayerDataSource = BetterPlayerDataSource(
-        BetterPlayerDataSourceType.network,
-        source.url,
-        videoFormat: BetterPlayerVideoFormat.hls,
-        headers: source.headers,
-      );
+      _sourceUrl = source.url;
+      if (AppPlatform.isDesktop) {
+        await _initDesktopPlayer(source);
+        return;
+      }
+      betterPlayerDataSource = _dataSourceFor(source);
 
-      betterPlayerController = BetterPlayerController(
+      betterPlayerController = SmoothSeekBetterPlayerController(
         BetterPlayerConfiguration(
           autoDetectFullscreenDeviceOrientation: true,
           deviceOrientationsAfterFullScreen: [DeviceOrientation.portraitUp],
@@ -159,13 +180,69 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         initialized = true;
       });
       _scheduleRenewal();
-    } catch (error) {
+      CrashReporting.log('player: ready');
+    } catch (error, stack) {
+      CrashReporting.recordError(error, stack, reason: 'player init');
       if (!mounted) return;
       setState(() {
         _initializationError = _playbackErrorMessage(error);
       });
     }
   }
+
+  /// Same flow as the phone player, with media_kit. Errors (an expired
+  /// session, a failed segment) take the same recovery path as
+  /// better_player's exception event.
+  Future<void> _initDesktopPlayer(_PlaybackSource source) async {
+    final desktop = await DesktopVideoPlayer.open(
+      source.url,
+      headers: source.headers,
+    );
+    if (!mounted) {
+      await desktop.dispose();
+      await _offlineSession?.close();
+      await _onlineProxy?.close();
+      return;
+    }
+    _desktop = desktop;
+    _desktopSubscriptions
+      ..add(
+        desktop.errors.listen((message) {
+          CrashReporting.log('player: exception $message');
+          _recoverFromPlaybackError();
+        }),
+      )
+      ..add(
+        desktop.playingChanges.listen((playing) {
+          if (playing) _hasRefreshedForCurrentError = false;
+        }),
+      );
+    setState(() => initialized = true);
+    _scheduleRenewal();
+    CrashReporting.log('player: ready (desktop)');
+  }
+
+  /// ⚠️ better_player's default buffer allows 6,553,600 ms (about 109
+  /// minutes), so ExoPlayer kept downloading up to its byte cap (about 130 MB
+  /// of video held in Java heap arrays). On phones with a small heap that ends
+  /// in an OutOfMemoryError — the app closes without a message — and the GC
+  /// pressure makes playback and seeking feel heavy. 50 s ahead is plenty for
+  /// smooth playback and a few tens of MB even at 1080p.
+  static const _buffering = BetterPlayerBufferingConfiguration(
+    minBufferMs: 20000,
+    maxBufferMs: 50000,
+    bufferForPlaybackMs: 2500,
+    bufferForPlaybackAfterRebufferMs: 5000,
+  );
+
+  BetterPlayerDataSource _dataSourceFor(_PlaybackSource source) =>
+      BetterPlayerDataSource(
+        BetterPlayerDataSourceType.network,
+        source.url,
+        videoFormat: BetterPlayerVideoFormat.hls,
+        headers: source.headers,
+        bufferingConfiguration: _buffering,
+      );
 
   Future<_PlaybackSource> _resolveSource() async {
     if (widget.filePath != null) {
@@ -193,11 +270,14 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
           headers: source.headers,
         );
       } else {
-        proxy.updateUpstream(upstream, source.headers);
+        // Waits for the proxy isolate to switch, so a reload started next
+        // never reaches the old credentials.
+        await proxy.updateUpstream(upstream, source.headers);
       }
       return _PlaybackSource(_onlineProxy!.localUrlFor(upstream).toString());
-    } catch (error) {
+    } catch (error, stack) {
       log('playback proxy unavailable: ${error.runtimeType}');
+      CrashReporting.recordError(error, stack, reason: 'playback proxy');
       return source;
     }
   }
@@ -348,7 +428,6 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     }
     _renewingPlaybackSession = true;
     try {
-      final controller = betterPlayerController;
       final session = await _renewOnlineSession();
       if (!mounted) return;
       _onlineSession = session;
@@ -359,23 +438,8 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       // remove the video until the next play event: a black flash at every
       // renewal (every few minutes). A reload is only needed after a failed
       // request stopped the player, or if the stream URL itself changed.
-      if (!proactive || source.url != betterPlayerDataSource.url) {
-        final wasPlaying = controller.isPlaying() ?? false;
-        final position =
-            await controller.videoPlayerController?.position ?? Duration.zero;
-        final speed = controller.videoPlayerController?.value.speed ?? 1.0;
-        betterPlayerDataSource = BetterPlayerDataSource(
-          BetterPlayerDataSourceType.network,
-          source.url,
-          videoFormat: BetterPlayerVideoFormat.hls,
-          headers: source.headers,
-        );
-        await controller.setupDataSource(betterPlayerDataSource);
-        await controller.setSpeed(speed);
-        await controller.seekTo(position);
-        if (wasPlaying) {
-          controller.play();
-        }
+      if (!proactive || source.url != _sourceUrl) {
+        await _reloadAtCurrentPosition(source);
       }
       _scheduleRenewal();
     } on DeviceReplacementRequiredException {
@@ -385,7 +449,12 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
       if (mounted) {
         showMessage('تم ربط حسابك بجهاز آخر، لذا توقف التشغيل على هذا الجهاز');
       }
-    } catch (error) {
+    } catch (error, stack) {
+      CrashReporting.recordError(
+        error,
+        stack,
+        reason: proactive ? 'session renewal' : 'playback recovery',
+      );
       if (!mounted) return;
       if (proactive) {
         // The current session is still valid for about a minute; try again
@@ -403,13 +472,52 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
     }
   }
 
+  Future<void> _reloadAtCurrentPosition(_PlaybackSource source) async {
+    _sourceUrl = source.url;
+    final desktop = _desktop;
+    if (desktop != null) {
+      await desktop.reload(source.url, source.headers);
+      return;
+    }
+    final controller = betterPlayerController;
+    final wasPlaying = controller.isPlaying() ?? false;
+    final position =
+        await controller.videoPlayerController?.position ?? Duration.zero;
+    final speed = controller.videoPlayerController?.value.speed ?? 1.0;
+    betterPlayerDataSource = _dataSourceFor(source);
+    await controller.setupDataSource(betterPlayerDataSource);
+    await controller.setSpeed(speed);
+    await controller.seekTo(position);
+    if (wasPlaying) {
+      controller.play();
+    }
+  }
+
+  void _seekTo(Duration position) {
+    final desktop = _desktop;
+    if (desktop != null) {
+      desktop.seekTo(position);
+    } else {
+      betterPlayerController.seekTo(position);
+    }
+  }
+
   Future<void> _onBetterPlayerEvent(BetterPlayerEvent event) async {
+    if (event.betterPlayerEventType == BetterPlayerEventType.exception) {
+      CrashReporting.log('player: exception ${event.parameters ?? ''}');
+    }
     if (event.betterPlayerEventType != BetterPlayerEventType.exception) {
       if (event.betterPlayerEventType == BetterPlayerEventType.play) {
         _hasRefreshedForCurrentError = false;
       }
       return;
     }
+    await _recoverFromPlaybackError();
+  }
+
+  /// One renewal per failure: a failed request stopped the player, so open a
+  /// renewed session at the same position. Another try needs a play first.
+  Future<void> _recoverFromPlaybackError() async {
     if (widget.filePath != null ||
         _renewingPlaybackSession ||
         _hasRefreshedForCurrentError) {
@@ -422,8 +530,9 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
   /// Where zoom is supported, better_player draws no controls inside the
   /// player ([BetterPlayerTheme.custom] with an empty builder): the player is
   /// scaled while zoomed, and its controls would be scaled and pushed off
-  /// screen with it. [_zoomable] draws the same material controls above the
-  /// zoomed picture instead, so they stay usable at any zoom.
+  /// screen with it. [_zoomable] draws the platform's usual controls (material
+  /// on Android, cupertino on iOS) above the zoomed picture instead, so they
+  /// stay usable at any zoom.
   BetterPlayerControlsConfiguration get _controlsConfiguration =>
       BetterPlayerControlsConfiguration(
         progressBarPlayedColor: Theme.of(context).colorScheme.primary,
@@ -451,25 +560,37 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
               VideoZoomTransform(controller: _zoomController, child: player),
               BetterPlayerControllerProvider(
                 controller: betterPlayerController,
-                child: BetterPlayerMaterialControls(
-                  onControlsVisibilityChanged: (_) {},
-                  controlsConfiguration:
-                      betterPlayerController.betterPlayerControlsConfiguration,
-                ),
+                child: _platformControls(),
               ),
             ],
           ),
         ),
+        // Top right. The material top bar keeps its buttons on the left in
+        // this RTL layout; the cupertino one has its full-screen button at the
+        // top right, so on iOS the zoom button sits just below that bar.
         Positioned(
-          top: 8,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: VideoZoomResetButton(controller: _zoomController),
-          ),
+          top: isIOS ? 52 : 6,
+          right: 6,
+          child: VideoZoomResetButton(controller: _zoomController),
         ),
       ],
     );
+  }
+
+  static bool get isIOS => defaultTargetPlatform == TargetPlatform.iOS;
+
+  Widget _platformControls() {
+    final configuration =
+        betterPlayerController.betterPlayerControlsConfiguration;
+    return isIOS
+        ? BetterPlayerCupertinoControls(
+            onControlsVisibilityChanged: (_) {},
+            controlsConfiguration: configuration,
+          )
+        : BetterPlayerMaterialControls(
+            onControlsVisibilityChanged: (_) {},
+            controlsConfiguration: configuration,
+          );
   }
 
   /// Same page as better_player's default full-screen route, plus pinch zoom.
@@ -510,10 +631,16 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
 
   @override
   void dispose() {
+    CrashReporting.log('player: close');
     _zoomController.dispose();
     _renewalTimer?.cancel();
     _wakelock?.dispose();
-    if (initialized) {
+    for (final subscription in _desktopSubscriptions) {
+      subscription.cancel();
+    }
+    if (_desktop != null) {
+      _desktop!.dispose();
+    } else if (initialized) {
       betterPlayerController.removeEventsListener(_onBetterPlayerEvent);
       betterPlayerController.dispose();
     }
@@ -538,335 +665,331 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         ),
       );
     }
-    return initialized
-        ? Directionality(
-            textDirection: TextDirection.rtl,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: AspectRatio(
-                    aspectRatio:
-                        betterPlayerController.getAspectRatio() ?? 16 / 9,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: _zoomable(
-                        BetterPlayer(controller: betterPlayerController),
+    if (!initialized) return Center(child: CoursatyAppLoader());
+    return _layout(
+      video: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: AspectRatio(
+          aspectRatio: _desktop != null
+              ? 16 / 9
+              : betterPlayerController.getAspectRatio() ?? 16 / 9,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: _desktop != null
+                ? _desktop!.view(context)
+                : _zoomable(BetterPlayer(controller: betterPlayerController)),
+          ),
+        ),
+      ),
+      details: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Text(
+            //   widget.videoName,
+            //   style: GoogleFonts.cairo(
+            //     fontSize: 18,
+            //     fontWeight: FontWeight.w700,
+            //     color: Theme.of(context).colorScheme.primary,
+            //   ),
+            // ),
+            // const SizedBox(height: 8),
+            // Text(
+            //   widget.duration,
+            //   style: GoogleFonts.cairo(
+            //     fontSize: 16,
+            //     color: AppColors.greyDark,
+            //   ),
+            // ),
+            if (widget.teacher != null) ...{
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          context.pop(); // video details
+                          context.pop(); // lecture details
+                          // course details
+                          context.pushReplacement(
+                            "${GRouter.config.applicationRoutes.teacherDetails}/${widget.teacher!.id}/${widget.teacher!.name}",
+                          );
+                        },
+                        child: widget.teacher?.image == null
+                            ? CircleAvatar(
+                                radius: 26,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                child: SvgPicture.asset(
+                                  AppAssets.iconBoy,
+                                  height: 26,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
+                                ),
+                              )
+                            : ClipRRect(
+                                borderRadius: BorderRadiusGeometry.circular(
+                                  180,
+                                ),
+                                child: CachedNetworkImage(
+                                  imageUrl: widget.teacher?.image ?? '',
+                                  width: 40.r,
+                                  height: 40.r,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => ImageSkeleton(
+                                    width: 40.r,
+                                    height: 40.r,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  errorWidget: (_, __, ___) =>
+                                      const Icon(Icons.error),
+                                ),
+                              ),
                       ),
-                    ),
+                      10.horizontalSpace,
+                      Text(
+                        'أ. ${widget.teacher?.name ?? ''}',
+                        style: GoogleFonts.cairo(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                if (!widget.pinVideo) const SizedBox(height: 16),
-                _scrollableWhenPinned(
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Text(
-                        //   widget.videoName,
-                        //   style: GoogleFonts.cairo(
-                        //     fontSize: 18,
-                        //     fontWeight: FontWeight.w700,
-                        //     color: Theme.of(context).colorScheme.primary,
-                        //   ),
-                        // ),
-                        // const SizedBox(height: 8),
-                        // Text(
-                        //   widget.duration,
-                        //   style: GoogleFonts.cairo(
-                        //     fontSize: 16,
-                        //     color: AppColors.greyDark,
-                        //   ),
-                        // ),
-                        if (widget.teacher != null) ...{
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  InkWell(
-                                    onTap: () {
-                                      context.pop(); // video details
-                                      context.pop(); // lecture details
-                                      // course details
-                                      context.pushReplacement(
-                                        "${GRouter.config.applicationRoutes.teacherDetails}/${widget.teacher!.id}/${widget.teacher!.name}",
-                                      );
-                                    },
-                                    child: widget.teacher?.image == null
-                                        ? CircleAvatar(
-                                            radius: 26,
-                                            backgroundColor: Theme.of(
-                                              context,
-                                            ).colorScheme.primary,
-                                            child: SvgPicture.asset(
-                                              AppAssets.iconBoy,
-                                              height: 26,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onPrimary,
-                                            ),
-                                          )
-                                        : ClipRRect(
-                                            borderRadius:
-                                                BorderRadiusGeometry.circular(
-                                                  180,
-                                                ),
-                                            child: CachedNetworkImage(
-                                              imageUrl:
-                                                  widget.teacher?.image ?? '',
-                                              width: 40.r,
-                                              height: 40.r,
-                                              fit: BoxFit.cover,
-                                              placeholder: (_, __) => SizedBox(
-                                                width: 40.r,
-                                                height: 40.r,
-                                                child: Center(
-                                                  child:
-                                                      CircularProgressIndicator(),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 10,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          Share.share(
+                            'https://coursay.duckdns.org/teacher?tid=${widget.teacher!.id}&name=${widget.teacher!.name}',
+                          );
+                        },
+                        child: ChipWidget(iconPath: AppAssets.iconShare),
+                      ),
+                      FutureBuilder(
+                        future: HelperFunctions.lostInternetConnection(),
+                        builder: (context, snapShot) {
+                          print(snapShot.error);
+                          print(snapShot.data);
+                          print(snapShot.connectionState);
+                          if (snapShot.connectionState ==
+                              ConnectionState.done) {
+                            if (!(snapShot.data ?? true)) {
+                              return BlocBuilder<HomeBloc, HomeState>(
+                                buildWhen: (p, c) =>
+                                    p.activeCourses != c.activeCourses,
+                                builder: (context, state) {
+                                  return BlocBuilder<CoursesBloc, CoursesState>(
+                                    buildWhen: (p, c) =>
+                                        p.upsertVideoInteraction !=
+                                        c.upsertVideoInteraction,
+                                    builder: (context, state) {
+                                      bool liked =
+                                          state
+                                              .videoInteractionModel
+                                              ?.isLikedByUser ??
+                                          false;
+                                      return state
+                                              .upsertVideoInteraction
+                                              .isLoading
+                                          ? CoursatyAppLoader()
+                                          : InkWell(
+                                              onTap: () {
+                                                if (GetIt.I<PrefsRepository>()
+                                                    .isGuest) {
+                                                  showGuestContentDialog(
+                                                    context,
+                                                  );
+                                                  return;
+                                                }
+                                                final hasAccess = context
+                                                    .read<MyDownloadsBloc>()
+                                                    .state
+                                                    .courseIdToCourseDetailsReferences
+                                                    .keys
+                                                    .any(
+                                                      (key) =>
+                                                          key ==
+                                                          widget.courseId,
+                                                    );
+                                                if (!hasAccess) {
+                                                  showPaidContentDialog(
+                                                    context,
+                                                    courseId: widget.courseId,
+                                                  );
+                                                  return;
+                                                }
+                                                BlocProvider.of<CoursesBloc>(
+                                                  context,
+                                                ).add(
+                                                  ToggleVideoInteractionEvent(
+                                                    widget.videoId,
+                                                  ),
+                                                );
+                                              },
+                                              child: ChipWidget(
+                                                text:
+                                                    (state
+                                                                .videoInteractionModel
+                                                                ?.likesCount ??
+                                                            0)
+                                                        .toString(),
+                                                iconPath: liked
+                                                    ? AppAssets.iconHeartFilled
+                                                    : AppAssets.iconHeart,
+                                                iconColor: const Color(
+                                                  0xFFC61F1F,
                                                 ),
                                               ),
-                                              errorWidget: (_, __, ___) =>
-                                                  const Icon(Icons.error),
-                                            ),
-                                          ),
-                                  ),
-                                  10.horizontalSpace,
-                                  Text(
-                                    'أ. ${widget.teacher?.name ?? ''}',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                spacing: 10,
-                                children: [
-                                  InkWell(
-                                    onTap: () {
-                                      Share.share(
-                                        'https://coursay.duckdns.org/teacher?tid=${widget.teacher!.id}&name=${widget.teacher!.name}',
-                                      );
+                                            );
                                     },
-                                    child: ChipWidget(
-                                      iconPath: AppAssets.iconShare,
-                                    ),
-                                  ),
-                                  FutureBuilder(
-                                    future:
-                                        HelperFunctions.lostInternetConnection(),
-                                    builder: (context, snapShot) {
-                                      print(snapShot.error);
-                                      print(snapShot.data);
-                                      print(snapShot.connectionState);
-                                      if (snapShot.connectionState ==
-                                          ConnectionState.done) {
-                                        if (!(snapShot.data ?? true)) {
-                                          return BlocBuilder<
-                                            HomeBloc,
-                                            HomeState
-                                          >(
-                                            buildWhen: (p, c) =>
-                                                p.activeCourses !=
-                                                c.activeCourses,
-                                            builder: (context, state) {
-                                              return BlocBuilder<
-                                                CoursesBloc,
-                                                CoursesState
-                                              >(
-                                                buildWhen: (p, c) =>
-                                                    p.upsertVideoInteraction !=
-                                                    c.upsertVideoInteraction,
-                                                builder: (context, state) {
-                                                  bool liked =
-                                                      state
-                                                          .videoInteractionModel
-                                                          ?.isLikedByUser ??
-                                                      false;
-                                                  return state
-                                                          .upsertVideoInteraction
-                                                          .isLoading
-                                                      ? CoursatyAppLoader()
-                                                      : InkWell(
-                                                          onTap: () {
-                                                            if (GetIt.I<
-                                                                  PrefsRepository
-                                                                >()
-                                                                .isGuest) {
-                                                              showGuestContentDialog(
-                                                                context,
-                                                              );
-                                                              return;
-                                                            }
-                                                            final hasAccess = context
-                                                                .read<
-                                                                  MyDownloadsBloc
-                                                                >()
-                                                                .state
-                                                                .courseIdToCourseDetailsReferences
-                                                                .keys
-                                                                .any(
-                                                                  (key) =>
-                                                                      key ==
-                                                                      widget
-                                                                          .courseId,
-                                                                );
-                                                            if (!hasAccess) {
-                                                              showPaidContentDialog(
-                                                                context,
-                                                                courseId: widget
-                                                                    .courseId,
-                                                              );
-                                                              return;
-                                                            }
-                                                            BlocProvider.of<
-                                                                  CoursesBloc
-                                                                >(context)
-                                                                .add(
-                                                                  ToggleVideoInteractionEvent(
-                                                                    widget
-                                                                        .videoId,
-                                                                  ),
-                                                                );
-                                                          },
-                                                          child: ChipWidget(
-                                                            text:
-                                                                (state.videoInteractionModel?.likesCount ??
-                                                                        0)
-                                                                    .toString(),
-                                                            iconPath: liked
-                                                                ? AppAssets
-                                                                      .iconHeartFilled
-                                                                : AppAssets
-                                                                      .iconHeart,
-                                                            iconColor:
-                                                                const Color(
-                                                                  0xFFC61F1F,
-                                                                ),
-                                                          ),
-                                                        );
-                                                },
-                                              );
-                                            },
-                                          );
-                                        }
-                                      }
-                                      return SizedBox.shrink();
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          10.verticalSpace,
-                          Divider(
-                            color: AppColors.secondary.withValues(alpha: 0.2),
-                          ),
-                          10.verticalSpace,
-                        },
-                        if (widget.videoDescription != null &&
-                            widget.videoDescription!.trim().isNotEmpty) ...{
-                          const SizedBox(height: 16),
-                          Text(
-                            "عن الفيديو",
-                            style: GoogleFonts.cairo(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 9),
-                          Text(
-                            widget.videoDescription!,
-                            style: GoogleFonts.cairo(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              color: Theme.of(context).colorScheme.onSurface,
-                              height: 1.4,
-                            ),
-                          ),
-                          10.verticalSpace,
-                          Divider(
-                            color: AppColors.secondary.withValues(alpha: 0.2),
-                          ),
-                          10.verticalSpace,
-                        },
-                        if (widget.segments.isNotEmpty) ...{
-                          15.verticalSpace,
-                          Text(
-                            "تجد في هذا الفيديو",
-                            style: GoogleFonts.cairo(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          15.verticalSpace,
-                          ListView.separated(
-                            physics: NeverScrollableScrollPhysics(),
-                            itemCount: widget.segments.length,
-                            shrinkWrap: true,
-                            separatorBuilder: (context, index) {
-                              return Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  10.verticalSpace,
-                                  Divider(
-                                    color: AppColors.secondary.withValues(
-                                      alpha: 0.1,
-                                    ),
-                                    indent: 22.w,
-                                    endIndent: 22.w,
-                                    height: 0,
-                                  ),
-                                  10.verticalSpace,
-                                ],
-                              );
-                            },
-                            itemBuilder: (context, index) {
-                              Segment p = widget.segments[index];
-                              return InkWell(
-                                onTap: () {
-                                  betterPlayerController.seekTo(
-                                    Duration(seconds: (p.startSeconds ?? 0)),
                                   );
                                 },
-                                child: VideoSegementItem(
-                                  index: index,
-                                  segment: p,
-                                ),
                               );
-                            },
-                          ),
+                            }
+                          }
+                          return SizedBox.shrink();
                         },
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ],
+              ),
+              10.verticalSpace,
+              Divider(color: AppColors.secondary.withValues(alpha: 0.2)),
+              10.verticalSpace,
+            },
+            if (widget.videoDescription != null &&
+                widget.videoDescription!.trim().isNotEmpty) ...{
+              const SizedBox(height: 16),
+              Text(
+                "عن الفيديو",
+                style: GoogleFonts.cairo(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-              ],
-            ),
-          )
-        : Center(child: CoursatyAppLoader());
-  }
-
-  /// With [MyVideoWidgetBetterPlayer.pinVideo], the details scroll on their own
-  /// below the video, so scrolling the seek points never moves the player.
-  Widget _scrollableWhenPinned(Widget details) {
-    if (!widget.pinVideo) return details;
-    return Expanded(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 16, bottom: 24),
-        child: details,
+              ),
+              const SizedBox(height: 9),
+              Text(
+                widget.videoDescription!,
+                style: GoogleFonts.cairo(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  height: 1.4,
+                ),
+              ),
+              10.verticalSpace,
+              Divider(color: AppColors.secondary.withValues(alpha: 0.2)),
+              10.verticalSpace,
+            },
+            if (widget.segments.isNotEmpty) ...{
+              15.verticalSpace,
+              Text(
+                "تجد في هذا الفيديو",
+                style: GoogleFonts.cairo(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              15.verticalSpace,
+              ListView.separated(
+                physics: NeverScrollableScrollPhysics(),
+                itemCount: widget.segments.length,
+                shrinkWrap: true,
+                separatorBuilder: (context, index) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      10.verticalSpace,
+                      Divider(
+                        color: AppColors.secondary.withValues(alpha: 0.1),
+                        indent: 22.w,
+                        endIndent: 22.w,
+                        height: 0,
+                      ),
+                      10.verticalSpace,
+                    ],
+                  );
+                },
+                itemBuilder: (context, index) {
+                  Segment p = widget.segments[index];
+                  return InkWell(
+                    onTap: () {
+                      _seekTo(Duration(seconds: (p.startSeconds ?? 0)));
+                    },
+                    child: VideoSegementItem(index: index, segment: p),
+                  );
+                },
+              ),
+            },
+          ],
+        ),
       ),
     );
+  }
+
+  /// Phone: the video on top, the details under it. With
+  /// [MyVideoWidgetBetterPlayer.pinVideo] the details scroll on their own, so
+  /// scrolling the seek points never moves the player.
+  ///
+  /// Wide desktop window (pinned video page): the video and the details side
+  /// by side, the video as large as the window allows. A desktop video that
+  /// is not pinned (inside a list) is capped in height so it fits the window.
+  Widget _layout({required Widget video, required Widget details}) {
+    final Widget content;
+    if (widget.pinVideo && AppLayout.isWide(context)) {
+      content = Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Align(alignment: Alignment.topCenter, child: video),
+          ),
+          SizedBox(
+            width: 380,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(top: 8, bottom: 24),
+              child: details,
+            ),
+          ),
+        ],
+      );
+    } else {
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (AppPlatform.isDesktop)
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 520),
+                child: video,
+              ),
+            )
+          else
+            video,
+          if (!widget.pinVideo) const SizedBox(height: 16),
+          if (widget.pinVideo)
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(top: 16, bottom: 24),
+                child: details,
+              ),
+            )
+          else
+            details,
+        ],
+      );
+    }
+    return Directionality(textDirection: TextDirection.rtl, child: content);
   }
 }
 

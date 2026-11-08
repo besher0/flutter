@@ -1,8 +1,10 @@
+import 'package:coursaty_student_and_teacher/features/study_progress/presentation/widgets/studied_toggle.dart';
+import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/course_link_tile.dart';
+import 'package:coursaty_student_and_teacher/core/common/constant/configuration/social_links.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/chip_widget.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
-import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/paid_content_dialog.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/try_again_widget.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
@@ -32,6 +34,9 @@ import '../../../../core/utils/responsive_padding.dart';
 import '../widgets/image_header.dart';
 import '../widgets/lecture_item.dart';
 import '../widgets/media_item.dart';
+import '../../../../app/widgets/skeleton/skeleton.dart';
+import '../widgets/course_skeletons.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 
 class CourseDetailsScreen extends StatefulWidget {
   const CourseDetailsScreen({super.key, required this.courseId});
@@ -47,6 +52,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
   late final TabController _tabController = TabController(
     length: 2,
     vsync: this,
+    initialIndex: 1
   );
 
   void _fetchActiveCourses() {
@@ -105,7 +111,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
                     p.getCourseDetailsStatus != c.getCourseDetailsStatus,
                 builder: (context, state) {
                   if (state.getCourseDetailsStatus.isLoading) {
-                    return Center(child: CoursatyAppLoader());
+                    return const CourseDetailsHeaderSkeleton();
                   }
 
                   if (state.getCourseDetailsStatus.isFailed) {
@@ -226,6 +232,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
               ),
               const SizedBox(height: 12),
               TabBar(
+                onTap: (_) => tabTapHaptic(context),
                 dividerColor: AppColors.secondary.withValues(alpha: 0.1),
                 controller: _tabController,
                 labelColor: AppColors.secondary,
@@ -244,9 +251,22 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
                 buildWhen: (p, c) =>
                     p.getCourseDetailsStatus != c.getCourseDetailsStatus,
                 builder: (context, state) {
-                  if (state.getCourseDetailsStatus.isLoading ||
-                      state.courseDetailsModel == null) {
-                    return Center(child: CoursatyAppLoader());
+                  if (state.getCourseDetailsStatus.isLoading) {
+                    return Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          const CourseDetailsTabSkeleton(),
+                          LectureListSkeleton(
+                            childAspectRatio: context.fullWidth > 450 ? 4 : 3.h,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  // Failed: the retry button is shown above.
+                  if (state.courseDetailsModel == null) {
+                    return const SizedBox.shrink();
                   }
                   return Expanded(
                     child: TabBarView(
@@ -321,24 +341,21 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
                                       buildWhen: (p, c) =>
                                           p.scanCode != c.scanCode,
                                       builder: (context, state) {
-                                        return state.scanCode.isLoading
-                                            ? CoursatyAppLoader()
-                                            : CoursatyPrimaryButton(
-                                                label: 'اشترك بالكورس',
-                                                onPressed: () {
-                                                  if (GetIt.I<PrefsRepository>()
-                                                      .isGuest) {
-                                                    showGuestContentDialog(
-                                                      context,
-                                                    );
-                                                    return;
-                                                  }
-                                                  showSubscribeToCourseDialog(
-                                                    context,
-                                                    courseId: widget.courseId,
-                                                  );
-                                                },
-                                              );
+                                        return CoursatyPrimaryButton(
+                                          isLoading: state.scanCode.isLoading,
+                                          label: 'اشترك بالكورس',
+                                          onPressed: () {
+                                            if (GetIt.I<PrefsRepository>()
+                                                .isGuest) {
+                                              showGuestContentDialog(context);
+                                              return;
+                                            }
+                                            showSubscribeToCourseDialog(
+                                              context,
+                                              courseId: widget.courseId,
+                                            );
+                                          },
+                                        );
                                       },
                                     ),
                                   );
@@ -419,10 +436,10 @@ class _DetailsTab extends StatelessWidget {
                         width: 40.r,
                         height: 40.r,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => SizedBox(
+                        placeholder: (_, __) => ImageSkeleton(
                           width: 40.r,
                           height: 40.r,
-                          child: Center(child: CircularProgressIndicator()),
+                          shape: BoxShape.circle,
                         ),
                         errorWidget: (_, __, ___) => const Icon(Icons.error),
                       ),
@@ -512,27 +529,35 @@ class _DetailsTab extends StatelessWidget {
             height: 1.8,
           ),
         ),
-        if (_telegramUrl != null || details.introVideoUrl != null) ...{
-          15.verticalSpace,
-          Divider(color: AppColors.secondary.withValues(alpha: 0.2)),
-          15.verticalSpace,
-        },
+        // The Coursaty links are always shown, so the divider is too.
+        15.verticalSpace,
+        Divider(color: AppColors.secondary.withValues(alpha: 0.2)),
+        15.verticalSpace,
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (details.instagramUrl != null) ...{
-              MediaItem(
-                assetUrl: AppAssets.instagram,
-                isSvg: true,
-                color: Color(0xffDB2877),
-                onTap: () {
-                  HelperFunctions.urlLauncher(details.instagramUrl!);
-                },
-                title: "صفحة الانستا للاستاذ",
-              ),
-              15.verticalSpace,
-            },
+            // Coursaty's channel and page, then the course's own group.
+            CourseLinkTile(
+              assetUrl: AppAssets.telegramLogo,
+              isSvg: true,
+              onTap: () {
+                HelperFunctions.urlLauncher(
+                  CoursatySocialLinks.telegramChannel,
+                );
+              },
+              title: "قناة التلجرام",
+            ),
+            15.verticalSpace,
+            CourseLinkTile(
+              assetUrl: AppAssets.instagram,
+              isSvg: true,
+              onTap: () {
+                HelperFunctions.urlLauncher(CoursatySocialLinks.instagram);
+              },
+              title: "صفحة الإنستجرام",
+            ),
+            15.verticalSpace,
             if (_telegramUrl != null) ...{
               BlocBuilder<HomeBloc, HomeState>(
                 builder: (context, state) {
@@ -543,9 +568,9 @@ class _DetailsTab extends StatelessWidget {
                   if (!subscribed && PaidContentPolicy.hidePaid) {
                     return const SizedBox.shrink();
                   }
-                  return MediaItem(
-                    assetUrl: AppAssets.telegram,
-                    color: Color(0xff1DA0E0),
+                  return CourseLinkTile(
+                    assetUrl: AppAssets.telegramLogo,
+                    isSvg: true,
                     onTap: () {
                       if (!state.activeCourses.any(
                             (item) => item.id == course.id,
@@ -556,7 +581,7 @@ class _DetailsTab extends StatelessWidget {
                       }
                       HelperFunctions.urlLauncher(_telegramUrl!);
                     },
-                    title: "كروب المناقشة على التلغرام",
+                    title: "غروب المناقشة مع الأستاذ",
                   );
                 },
               ),
@@ -599,12 +624,17 @@ class _LecturesTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: List.generate(lectures.length, (index) {
         return InkWell(
+          borderRadius: BorderRadius.circular(12),
           onTap: () {
             context.push(
               "${GRouter.config.applicationRoutes.lectureDetails}/${lectures[index].id}/${lectures[index].title}/$courseId/$isFree",
             );
           },
-          child: LectureItem(index: index, lectureName: lectures[index].title!),
+          child: LectureItem(
+            index: index,
+            lectureName: lectures[index].title!,
+            trailing: LectureStudiedBadge(lectureId: lectures[index].id!),
+          ),
         );
       }),
     );

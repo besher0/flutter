@@ -85,6 +85,17 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        // All AppHaptics kinds (lightTap, selection, success, error, warning),
+        // played through the vibration motor. ⚠️ performHapticFeedback (what
+        // Flutter's HapticFeedback and the old CONFIRM/REJECT used) depends on
+        // the system "touch feedback" setting, which Xiaomi and Honor ship off,
+        // and those systems ignore its light effects: nothing was felt there.
+        // Answers false when the phone cannot vibrate (Dart then falls back).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "coursaty/haptics")
+            .setMethodCallHandler { call, result ->
+                result.success(AppVibration.play(applicationContext, call.method))
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "coursaty/background_downloads")
             .setMethodCallHandler { call, result ->
                 when (call.method) {

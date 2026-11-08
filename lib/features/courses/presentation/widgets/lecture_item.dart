@@ -12,9 +12,13 @@ class LectureItem extends StatelessWidget {
     this.onDelete,
     required this.lectureName,
     required this.index,
+    this.trailing,
   });
 
   final Function()? onEdit, onDelete;
+
+  /// Shown after the name, e.g. the downloads' "studied" badge.
+  final Widget? trailing;
   final String lectureName;
   final int index;
 
@@ -74,6 +78,7 @@ class LectureItem extends StatelessWidget {
               ),
             ),
           ),
+          if (trailing != null) ...[trailing!, 6.horizontalSpace],
           if (onEdit != null) ...{
             IconButton(onPressed: onEdit, icon: Icon(Icons.edit)),
           },
