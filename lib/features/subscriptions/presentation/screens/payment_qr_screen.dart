@@ -13,6 +13,7 @@ import 'package:coursaty_student_and_teacher/features/subscriptions/data/models/
 import 'package:coursaty_student_and_teacher/features/subscriptions/data/services/qr_image_saver.dart';
 import 'package:coursaty_student_and_teacher/features/subscriptions/presentation/bloc/subscription_bloc.dart';
 import 'package:coursaty_student_and_teacher/features/subscriptions/presentation/screens/receipt_upload_screen.dart';
+import 'package:coursaty_student_and_teacher/features/subscriptions/presentation/widgets/payment_video_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -248,20 +249,20 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
                               const _StepRow(
                                 number: '1',
                                 text:
-                                    'امسح رمز Qr أو التقط لقطة شاشة لحساب الشام كاش وادفع المبلغ المطلوب',
+                                    'قم بتنزيل صورة QR الشام كاش وادفع المبلغ المطلوب',
                               ),
                               const SizedBox(height: 8),
                               const _StepRow(
                                 number: '2',
-                                text:
-                                    'اذهب إلى قسم اهتماماتي الموجود في صفحة اشتراكاتي',
+                                text: 'خذ لقطة شاشة لإشعار (إيصال) التحويل .',
                               ),
                               const SizedBox(height: 8),
                               const _StepRow(
                                 number: '3',
                                 text:
-                                    'ارفع الإيصال ( الإشعار ) للكورس الذي قمت بدفع مبلغه',
+                                    'ارفع اللقطة في نفس الصفحة أو في صفحة اشتراكاتي داخل تبويب اهتماماتي .',
                               ),
+                              PaymentVideoLink(url: info.paymentVideoUrl),
                               const SizedBox(height: 18),
                               _QrCard(
                                 url: info.paymentQrUrl!,

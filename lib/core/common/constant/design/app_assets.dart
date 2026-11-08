@@ -58,6 +58,8 @@ abstract final class AppAssets {
   /// Onboarding page 3 illustration.
   static const String onboarding3 = '$assetsImages/onboarding_3.png';
   static const String telegram = '$assetsImages/telegram.png';
+  /// Vector Telegram logo, sharp at any size (course page links).
+  static const String telegramLogo = '$assetsIcons/telegram_logo.svg';
   static const String youTube = '$assetsImages/you_tube.png';
 
   /// Sign-up success screen illustration (user with checkmark in circle).
