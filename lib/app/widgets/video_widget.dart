@@ -1,3 +1,5 @@
+import 'package:coursaty_student_and_teacher/app/widgets/desktop_video_player.dart';
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/loading_indicator/coursaty_app_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:better_player_plus/better_player_plus.dart';
@@ -20,7 +22,8 @@ class _MyVideoWidgetBetterPlayerState extends State<VideoWidget> {
   bool initialized = false;
 
   Future<void> init() async {
-    if (initialized) return;
+    // Desktop: better_player has no Windows version (MissingPluginException).
+    if (initialized || AppPlatform.isDesktop) return;
     betterPlayerDataSource = BetterPlayerDataSource(
       BetterPlayerDataSourceType.network,
       widget.videoUrl,
@@ -53,12 +56,18 @@ class _MyVideoWidgetBetterPlayerState extends State<VideoWidget> {
   @override
   void dispose() {
     _wakelock?.dispose();
-    betterPlayerController.dispose();
+    if (initialized) betterPlayerController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (AppPlatform.isDesktop) {
+      return Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: SimpleDesktopVideo(source: widget.videoUrl),
+      );
+    }
     return initialized
         ? Padding(
             padding: const EdgeInsets.all(8.0),

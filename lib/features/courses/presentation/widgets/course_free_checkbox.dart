@@ -31,33 +31,39 @@ class IsFreeCourseTile extends StatelessWidget {
                   : Colors.grey.withValues(alpha: 0.3),
             ),
           ),
-          child: CheckboxListTile(
-            value: isFree,
-            onChanged: enabled
-                ? (value) {
-                    isFreeNotifier.value = value ?? false;
-                  }
-                : null,
-            activeColor: Theme.of(context).colorScheme.primary,
-            controlAffinity: ListTileControlAffinity.leading,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            title: Text(
-              title ?? 'الدورة مجانية',
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).colorScheme.onSurface,
+          // The box's colour would hide the tile's ink splash (debug
+          // assertion "ListTile background color or ink splashes may be
+          // invisible"): the tile paints on its own transparent Material.
+          child: Material(
+            type: MaterialType.transparency,
+            child: CheckboxListTile(
+              value: isFree,
+              onChanged: enabled
+                  ? (value) {
+                      isFreeNotifier.value = value ?? false;
+                    }
+                  : null,
+              activeColor: Theme.of(context).colorScheme.primary,
+              controlAffinity: ListTileControlAffinity.leading,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
-            ),
-            subtitle: Text(
-              description ??
-                  'عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الدورة مجاناً',
-              style: GoogleFonts.cairo(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
+              title: Text(
+                title ?? 'الدورة مجانية',
+                style: GoogleFonts.cairo(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              subtitle: Text(
+                description ??
+                    'عند تفعيل هذا الخيار سيتمكن الطلاب من الوصول إلى الدورة مجاناً',
+                style: GoogleFonts.cairo(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade600,
+                ),
               ),
             ),
           ),

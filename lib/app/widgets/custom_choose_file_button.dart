@@ -112,52 +112,58 @@ class _CustomChooseFileButtonState extends ThemeState<CustomChooseFileButton> {
                         style: GoogleFonts.cairo(fontSize: 14),
                       ),
                     ),
-                    ValueListenableBuilder<XFile?>(
-                      valueListenable: widget.choosedFile,
-                      builder: (context, file, _) {
-                        if (_picking) {
-                          return Container(
-                            width: 1.sw - 150,
-                            padding: EdgeInsets.all(5),
-                            child: Row(
-                              children: [
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                                8.horizontalSpace,
-                                Flexible(
-                                  child: Text(
-                                    widget.usedForImage || widget.usedForFile
-                                        ? "جارٍ تجهيز الملف…"
-                                        : "جارٍ تجهيز الفيديو من الذاكرة…",
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.cairo(fontSize: 14),
+                    // Takes the rest of the row (was `1.sw - 150`, which on a
+                    // desktop window is wider than the form and overflowed).
+                    Expanded(
+                      child: ValueListenableBuilder<XFile?>(
+                        valueListenable: widget.choosedFile,
+                        builder: (context, file, _) {
+                          if (_picking) {
+                            return Container(
+                              padding: EdgeInsets.all(5),
+                              child: Row(
+                                children: [
+                                  const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  8.horizontalSpace,
+                                  Flexible(
+                                    child: Text(
+                                      widget.usedForImage || widget.usedForFile
+                                          ? "جارٍ تجهيز الملف…"
+                                          : "جارٍ تجهيز الفيديو من الذاكرة…",
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.cairo(fontSize: 14),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          return Container(
+                            padding: EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(6),
+                                bottomLeft: Radius.circular(6),
+                              ),
+                            ),
+                            child: Text(
+                              file == null ? "إضافة ملف" : file.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.cairo(
+                                fontWeight: FontWeight.w400,
+                                fontSize: 16,
+                              ),
                             ),
                           );
-                        }
-                        return Container(
-                          width: 1.sw - 150,
-                          padding: EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(6),
-                              bottomLeft: Radius.circular(6),
-                            ),
-                          ),
-                          child: Text(
-                            file == null ? "إضافة ملف" : file.name,
-                            style: GoogleFonts.cairo(
-                              fontWeight: FontWeight.w400,
-                              fontSize: 16,
-                            ),
-                          ),
-                        );
-                      },
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -175,7 +181,7 @@ class _CustomChooseFileButtonState extends ThemeState<CustomChooseFileButton> {
                         ? Image.file(
                             File(file.path),
                             height: 150,
-                            width: 1.sw - 40,
+                            width: double.infinity,
                           )
                         : SizedBox.shrink(),
                     widget.choosedFileSize != null &&

@@ -245,6 +245,21 @@ withdrawals, `dashboard/*`) are the ones this app consumes.
   Telegram channel and Instagram page (`CoursatySocialLinks` in
   `core/common/constant/configuration/social_links.dart`), then the course's teacher group
   (`telegramUrl`, subscribers only, hidden on the iPhone with paid content).
+- **Windows desktop** (branch `feat/windows-desktop`, teachers first): one codebase. Ask
+  `AppPlatform` (`core/platform/app_platform.dart`) before using a phone-only plugin — no Windows
+  version: better_player, fluttertoast, firebase_messaging/crashlytics, no_screenshot,
+  root_checker_plus, device_safety_info, get_thumbnail_video, cryptography_flutter. Startup skips
+  Firebase, the emulator gate and the update check there. Video: `DesktopVideoPlayer` (media_kit,
+  libmpv bundled for Windows only) inside `MyVideoWidgetBetterPlayer`; never add
+  `media_kit_libs_android_*`/`_ios_*` (would bundle libmpv into the phone apps, which play with
+  better_player). Layout: ScreenUtil is 1:1 on
+  desktop and measures the centred 1280-px frame (`coursaty_app.dart`), so `.w/.h/.sp` are plain
+  pixels and `1.sw` is the frame width; use `AppLayout.isWide`, `AdaptiveCardRow`, `DesktopFormWidth`,
+  `AppLayout.courseCardWidth` for desktop-aware sizes. ⚠️ Mouse drag is **not** on app-wide: it made scrolling pages swallow clicks on the
+  desktop video controls; wrap a horizontal list in `HorizontalMouseDrag` instead. Plain-file/URL
+  players (upload preview, ad preview) use `SimpleDesktopVideo` on desktop. ⚠️ HTTPS on Windows needs the bundled Mozilla
+  roots (`DesktopTls`, loaded in `main` and passed to the proxy isolate): a new isolate that makes
+  HTTPS requests must call `DesktopTls.trustInThisIsolate`. Build: `flutter build windows`.
 - Besides the unit tests, the practical way to validate a change against the real backend is the same
   one used in the admin project: have the user log in and save the token, then drive the app's real
   data sources from a throwaway `test/zz_tmp_*.dart` (Dio + token in headers) and delete it afterwards.

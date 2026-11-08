@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -18,7 +19,7 @@ class CourseCardSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SkeletonCard(
-      width: 0.8.sw,
+      width: AppLayout.courseCardWidth,
       height: height,
       radius: 10,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),

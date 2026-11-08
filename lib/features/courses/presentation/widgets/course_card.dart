@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -32,7 +33,7 @@ class CourseCard extends StatelessWidget {
 
       onTap: onTap,
       child: Container(
-        width: 0.8.sw,
+        width: AppLayout.courseCardWidth,
         height: height,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
         decoration: BoxDecoration(

@@ -1,3 +1,5 @@
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/delete_from_download_dialo.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
 import 'package:coursaty_student_and_teacher/core/utils/extensions/build_context.dart';
@@ -43,130 +45,139 @@ class ContentItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final quality = GetIt.I<PrefsRepository>().getQuality(fileUrl ?? '');
-    return InkWell(
-      onTap: onTap,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              spreadRadius: 0,
-              blurRadius: 10.22,
-              offset: Offset(0, 2.5),
-            ),
-          ],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primaryLightTrack),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                constraints: BoxConstraints(minHeight: 80),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadiusDirectional.only(
-                    topStart: Radius.circular(12),
-                    bottomStart: Radius.circular(12),
-                  ),
-                  color:
-                      itemColor ??
-                      [
-                        Theme.of(context).colorScheme.primary,
-                        AppColors.secondary,
-                      ][index % 2],
-                ),
-                child: Center(
-                  child: Padding(
-                    padding: HWEdgeInsets.symmetric(horizontal: 12.0),
-                    child: iconPath != null
-                        ? SvgPicture.asset(
-                            iconPath!,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                            height: 15,
-                          )
-                        : Text(
-                            '${index + 1}',
-                            style: GoogleFonts.cairo(
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              fontSize: 16,
-                            ),
-                          ),
-                  ),
-                ),
+    // The whole card is the button (opens the video or file): it shrinks
+    // under the finger and gives a light tap. The buttons inside (studied,
+    // download, delete) keep their own taps.
+    return AppPressScale(
+      scale: PressScale.card,
+      child: InkWell(
+        onTap: () {
+          AppHaptics.lightTap();
+          onTap();
+        },
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                spreadRadius: 0,
+                blurRadius: 10.22,
+                offset: Offset(0, 2.5),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.cairo(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color:
-                            itemColor ??
-                            Theme.of(context).colorScheme.onSurface,
-                      ),
+            ],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primaryLightTrack),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  constraints: BoxConstraints(minHeight: 80),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadiusDirectional.only(
+                      topStart: Radius.circular(12),
+                      bottomStart: Radius.circular(12),
                     ),
-                    if (isVideo && isExist && quality != null) ...[
-                      5.verticalSpace,
+                    color:
+                        itemColor ??
+                        [
+                          Theme.of(context).colorScheme.primary,
+                          AppColors.secondary,
+                        ][index % 2],
+                  ),
+                  child: Center(
+                    child: Padding(
+                      padding: HWEdgeInsets.symmetric(horizontal: 12.0),
+                      child: iconPath != null
+                          ? SvgPicture.asset(
+                              iconPath!,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              height: 15,
+                            )
+                          : Text(
+                              '${index + 1}',
+                              style: GoogleFonts.cairo(
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.onPrimary,
+                                fontSize: 16,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                       Text(
-                        "الدقة: $quality",
+                        title,
                         style: GoogleFonts.cairo(
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.primary,
-                          fontSize: 12,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              itemColor ??
+                              Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
-                    ],
-                  ],
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(left: 10.w),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (int i = 0; i < actions.length; i++) ...[
-                      actions[i],
-                      if (i != actions.length - 1) ...[
-                        5.horizontalSpace,
-                        SizedBox(
-                          height: 30,
-                          child: VerticalDivider(
-                            color: AppColors.greyLight,
-                            width: 1,
+                      if (isVideo && isExist && quality != null) ...[
+                        5.verticalSpace,
+                        Text(
+                          "الدقة: $quality",
+                          style: GoogleFonts.cairo(
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.primary,
+                            fontSize: 12,
                           ),
                         ),
-                        5.horizontalSpace,
                       ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              if (onEdit != null) ...{
-                InkWell(onTap: onEdit, child: Icon(Icons.edit)),
-                10.horizontalSpace,
-              },
-              if (onDelete != null || isExist) ...{
-                InkWell(
-                  onTap:
-                      onDelete ??
-                      () {
-                        _deleteConfirmation(context);
-                      },
-                  child: Icon(Icons.delete, color: Colors.red),
+                Padding(
+                  padding: EdgeInsets.only(left: 10.w),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (int i = 0; i < actions.length; i++) ...[
+                        actions[i],
+                        if (i != actions.length - 1) ...[
+                          5.horizontalSpace,
+                          SizedBox(
+                            height: 30,
+                            child: VerticalDivider(
+                              color: AppColors.greyLight,
+                              width: 1,
+                            ),
+                          ),
+                          5.horizontalSpace,
+                        ],
+                      ],
+                    ],
+                  ),
                 ),
-                10.horizontalSpace,
-              },
-            ],
+                if (onEdit != null) ...{
+                  InkWell(onTap: onEdit, child: Icon(Icons.edit)),
+                  10.horizontalSpace,
+                },
+                if (onDelete != null || isExist) ...{
+                  InkWell(
+                    onTap:
+                        onDelete ??
+                        () {
+                          _deleteConfirmation(context);
+                        },
+                    child: Icon(Icons.delete, color: Colors.red),
+                  ),
+                  10.horizontalSpace,
+                },
+              ],
+            ),
           ),
         ),
       ),

@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
@@ -68,116 +69,103 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           },
         ),
         backgroundColor: Theme.of(context).colorScheme.surface,
-        body: SafeArea(
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CoursatyTextField(
-                    label: 'كلمة المرور الحالية',
-                    hint: '*********',
-                    controller: currentPasswordController,
-                    withObscureText: true,
-                    validator: passwordValidator,
-                  ),
-                  const SizedBox(height: 16),
+        body: DesktopFormWidth(
+          child: SafeArea(
+            child: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    CoursatyTextField(
+                      label: 'كلمة المرور الحالية',
+                      hint: '*********',
+                      controller: currentPasswordController,
+                      withObscureText: true,
+                      validator: passwordValidator,
+                    ),
+                    const SizedBox(height: 16),
 
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CoursatyTextField(
-                        label: 'كلمة المرور الجديدة',
-                        hint: '*********',
-                        controller: passwordController,
-                        withObscureText: true,
-                        validator: passwordValidator,
-                      ),
-                      const SizedBox(height: 16),
-                      CoursatyTextField(
-                        label: 'تأكيد كلمة المرور الجديدة',
-                        hint: '*********',
-                        controller: passwordConfirmController,
-                        withObscureText: true,
-                        validator: (v) {
-                          final confirm = v ?? '';
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CoursatyTextField(
+                          label: 'كلمة المرور الجديدة',
+                          hint: '*********',
+                          controller: passwordController,
+                          withObscureText: true,
+                          validator: passwordValidator,
+                        ),
+                        const SizedBox(height: 16),
+                        CoursatyTextField(
+                          label: 'تأكيد كلمة المرور الجديدة',
+                          hint: '*********',
+                          controller: passwordConfirmController,
+                          withObscureText: true,
+                          validator: (v) {
+                            final confirm = v ?? '';
 
-                          if (confirm.trim().isEmpty) {
-                            return 'تأكيد كلمة المرور مطلوب';
-                          }
+                            if (confirm.trim().isEmpty) {
+                              return 'تأكيد كلمة المرور مطلوب';
+                            }
 
-                          if (confirm.length < 8) {
-                            return 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
-                          }
+                            if (confirm.length < 8) {
+                              return 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+                            }
 
-                          if (confirm != passwordController.text) {
-                            return 'غير متطابقة';
-                          }
+                            if (confirm != passwordController.text) {
+                              return 'غير متطابقة';
+                            }
 
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
 
-                  BlocConsumer<AuthBloc, AuthState>(
-                    listenWhen: (p, c) => p.changePassword != c.changePassword,
-                    listener: (context, state) {
-                      if (state.changePassword.isSuccess) {
-                        AppHaptics.success();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "تم تغيير كلمة المرور بنجاح",
-                              style: GoogleFonts.cairo(),
-                            ),
-                          ),
-                        );
-
-                        context.pop();
-                      }
-
-                      if (state.changePassword.isFailed) {
-                        AppHaptics.error();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              state.errorMessage,
-                              style: GoogleFonts.cairo(),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    buildWhen: (p, c) => p.changePassword != c.changePassword,
-                    builder: (context, state) {
-                      return CoursatyPrimaryButton(
-                        isLoading: state.changePassword.isLoading,
-                        label: "حفظ",
-                        onPressed: () {
-                          if (!_didFillAnything) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  "يرجى تعبئة الحقول المطلوبة",
-                                  style: GoogleFonts.cairo(),
-                                ),
+                    BlocConsumer<AuthBloc, AuthState>(
+                      listenWhen: (p, c) =>
+                          p.changePassword != c.changePassword,
+                      listener: (context, state) {
+                        if (state.changePassword.isSuccess) {
+                          AppHaptics.success();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                "تم تغيير كلمة المرور بنجاح",
+                                style: GoogleFonts.cairo(),
                               ),
-                            );
+                            ),
+                          );
 
-                            return;
-                          }
+                          context.pop();
+                        }
 
-                          if (_formKey.currentState!.validate()) {
-                            if (currentPasswordController.text ==
-                                passwordController.text) {
+                        if (state.changePassword.isFailed) {
+                          AppHaptics.error();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                state.errorMessage,
+                                style: GoogleFonts.cairo(),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      buildWhen: (p, c) => p.changePassword != c.changePassword,
+                      builder: (context, state) {
+                        return CoursatyPrimaryButton(
+                          isLoading: state.changePassword.isLoading,
+                          label: "حفظ",
+                          onPressed: () {
+                            if (!_didFillAnything) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    "كلمة المرور الجديدة يجب أن تكون مختلفة عن الحالية",
+                                    "يرجى تعبئة الحقول المطلوبة",
                                     style: GoogleFonts.cairo(),
                                   ),
                                 ),
@@ -186,23 +174,39 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                               return;
                             }
 
-                            BlocProvider.of<AuthBloc>(context).add(
-                              ChangePasswordEvent(
-                                params: ChangePasswordParams(
-                                  currentPassword:
-                                      currentPasswordController.text,
-                                  newPassword: passwordController.text,
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
+                            if (_formKey.currentState!.validate()) {
+                              if (currentPasswordController.text ==
+                                  passwordController.text) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      "كلمة المرور الجديدة يجب أن تكون مختلفة عن الحالية",
+                                      style: GoogleFonts.cairo(),
+                                    ),
+                                  ),
+                                );
 
-                  const SizedBox(height: 20),
-                ],
+                                return;
+                              }
+
+                              BlocProvider.of<AuthBloc>(context).add(
+                                ChangePasswordEvent(
+                                  params: ChangePasswordParams(
+                                    currentPassword:
+                                        currentPasswordController.text,
+                                    newPassword: passwordController.text,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ),

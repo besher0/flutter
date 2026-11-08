@@ -45,13 +45,18 @@ enum AppHapticType {
 /// * For a short moment after an outcome, taps and selections are dropped,
 ///   and the same outcome is not repeated (rebuilds, double listeners).
 ///
-/// Success / error / warning use the platform's notification haptics when it
-/// has them (iOS `UINotificationFeedbackGenerator`, Android 11+
-/// `CONFIRM`/`REJECT`) through the `coursaty/haptics` channel, and otherwise a
-/// short pattern of impacts. All of them go through the system's haptic
-/// service, so the user's system "touch feedback / system haptics" setting is
-/// respected. Haptics are never the only feedback: every caller keeps its
-/// visual state.
+/// Android: every kind is played by the app itself through the vibration
+/// motor (`coursaty/haptics` channel, `MainActivity`). ⚠️ Flutter's
+/// [HapticFeedback] asks the view for "touch feedback", which Xiaomi
+/// (MIUI/HyperOS) and Honor (MagicOS) ship turned off and whose light effects
+/// they ignore: nothing was felt on those phones. The phone's silent mode is
+/// respected (no vibration).
+///
+/// iOS: success / error / warning use `UINotificationFeedbackGenerator`
+/// through the same channel, taps and selections Flutter's [HapticFeedback];
+/// where the channel answers false, a short pattern of impacts plays instead.
+/// Haptics are never the only feedback: every caller keeps its visual
+/// state.
 abstract final class AppHaptics {
   AppHaptics._();
 
@@ -140,14 +145,7 @@ abstract final class AppHaptics {
   }
 
   static Future<void> _playOutcome(AppHapticType type, int generation) async {
-    var native = false;
-    try {
-      native = await _channel.invokeMethod<bool>(type.name) ?? false;
-    } on MissingPluginException {
-      native = false;
-    } on PlatformException {
-      native = false;
-    }
+    final native = await _native(type.name);
     if (native || generation != _generation) return;
     await _pattern(type, generation);
   }
@@ -177,10 +175,27 @@ abstract final class AppHaptics {
     }
   }
 
-  static Future<void> _impact(AppHapticType type) => switch (type) {
-    AppHapticType.selection => HapticFeedback.selectionClick(),
-    _ => HapticFeedback.lightImpact(),
-  };
+  static Future<void> _impact(AppHapticType type) async {
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        await _native(type.name)) {
+      return;
+    }
+    await switch (type) {
+      AppHapticType.selection => HapticFeedback.selectionClick(),
+      _ => HapticFeedback.lightImpact(),
+    };
+  }
+
+  /// Plays [method] natively; false when the platform has no such effect.
+  static Future<bool> _native(String method) async {
+    try {
+      return await _channel.invokeMethod<bool>(method) ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
 
   static Future<void> _impactOf(_Impact kind) => switch (kind) {
     _Impact.light => HapticFeedback.lightImpact(),

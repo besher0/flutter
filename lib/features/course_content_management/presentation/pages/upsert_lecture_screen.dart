@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_text_field.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
@@ -121,86 +122,88 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
           },
         ),
 
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 20),
+        body: DesktopFormWidth(
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 20),
 
-                  CoursatyTextField(
-                    label: 'عنوان المحاضرة',
-                    hint: 'عنوان المحاضرة',
-                    controller: _titleController,
-                    textInputAction: TextInputAction.next,
-                    validator: _requiredValidator,
-                  ),
+                    CoursatyTextField(
+                      label: 'عنوان المحاضرة',
+                      hint: 'عنوان المحاضرة',
+                      controller: _titleController,
+                      textInputAction: TextInputAction.next,
+                      validator: _requiredValidator,
+                    ),
 
-                  const SizedBox(height: 18),
+                    const SizedBox(height: 18),
 
-                  CoursatyTextField(
-                    label: 'وصف المحاضرة (اختياري)',
-                    hint: 'وصف المحاضرة (اختياري)',
-                    controller: _descriptionController,
-                    textInputAction: TextInputAction.newline,
-                    minLines: 4,
-                  ),
+                    CoursatyTextField(
+                      label: 'وصف المحاضرة (اختياري)',
+                      hint: 'وصف المحاضرة (اختياري)',
+                      controller: _descriptionController,
+                      textInputAction: TextInputAction.newline,
+                      minLines: 4,
+                    ),
 
-                  const SizedBox(height: 18),
+                    const SizedBox(height: 18),
 
-                  CoursatyTextField(
-                    label: 'ترتيب المحاضرة (اختياري)',
-                    hint: 'ترتيب المحاضرة (اختياري)',
-                    controller: _sortOrderController,
-                    keyboardType: TextInputType.number,
-                    textInputAction: TextInputAction.done,
-                    inputFormatters: [AsciiDigitsFormatter()],
-                  ),
+                    CoursatyTextField(
+                      label: 'ترتيب المحاضرة (اختياري)',
+                      hint: 'ترتيب المحاضرة (اختياري)',
+                      controller: _sortOrderController,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: [AsciiDigitsFormatter()],
+                    ),
 
-                  const SizedBox(height: 40),
+                    const SizedBox(height: 40),
 
-                  BlocConsumer<
-                    CourseContentManagementBloc,
-                    CourseContentManagementState
-                  >(
-                    listenWhen: (p, c) => p.upsertCourse != c.upsertCourse,
-                    buildWhen: (p, c) => p.upsertCourse != c.upsertCourse,
-                    listener: (context, state) {
-                      if (state.upsertCourse.isFailed) {
-                        AppHaptics.error();
-                        showMessage(state.errorMessage);
-                      }
+                    BlocConsumer<
+                      CourseContentManagementBloc,
+                      CourseContentManagementState
+                    >(
+                      listenWhen: (p, c) => p.upsertCourse != c.upsertCourse,
+                      buildWhen: (p, c) => p.upsertCourse != c.upsertCourse,
+                      listener: (context, state) {
+                        if (state.upsertCourse.isFailed) {
+                          AppHaptics.error();
+                          showMessage(state.errorMessage);
+                        }
 
-                      if (state.upsertCourse.isSuccess) {
-                        AppHaptics.success();
-                        showMessage(
-                          widget.isEditMode
-                              ? 'تم تعديل المحاضرة بنجاح'
-                              : 'تمت إضافة المحاضرة بنجاح',
+                        if (state.upsertCourse.isSuccess) {
+                          AppHaptics.success();
+                          showMessage(
+                            widget.isEditMode
+                                ? 'تم تعديل المحاضرة بنجاح'
+                                : 'تمت إضافة المحاضرة بنجاح',
+                          );
+                          context.pop();
+                          BlocProvider.of<CoursesBloc>(context).add(
+                            GetTeacherCourseDetailsEvent(
+                              courseId: widget.courseId,
+                            ),
+                          );
+                        }
+                      },
+                      builder: (context, state) {
+                        return CoursatyPrimaryButton(
+                          isLoading: state.upsertCourse.isLoading,
+                          label: widget.isEditMode
+                              ? 'حفظ التعديلات'
+                              : 'إضافة المحاضرة',
+                          onPressed: _submit,
                         );
-                        context.pop();
-                        BlocProvider.of<CoursesBloc>(context).add(
-                          GetTeacherCourseDetailsEvent(
-                            courseId: widget.courseId,
-                          ),
-                        );
-                      }
-                    },
-                    builder: (context, state) {
-                      return CoursatyPrimaryButton(
-                        isLoading: state.upsertCourse.isLoading,
-                        label: widget.isEditMode
-                            ? 'حفظ التعديلات'
-                            : 'إضافة المحاضرة',
-                        onPressed: _submit,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 30),
-                ],
+                      },
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
               ),
             ),
           ),

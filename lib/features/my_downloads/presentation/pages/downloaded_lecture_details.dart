@@ -43,7 +43,7 @@ class DownloadedLectureDetails extends StatefulWidget {
 
 class _DownloadedLectureDetailsState extends State<DownloadedLectureDetails>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 3, vsync: this , initialIndex: 1);
   ScreenCaptureLease? _captureLease;
 
   @override

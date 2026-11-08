@@ -2,6 +2,31 @@
 
 Notable changes to the Coursaty student & teacher (ST) app. Newest first.
 
+## 2026-11-07 — branch `feat/windows-desktop` (from `fix/player-stability-tablet-zoom`)
+
+### Added
+- **Windows desktop version (teachers first).** `windows/` runner (window 1280×800, minimum
+  1024×680, Arabic title). Same code as the phones; platform checks in `core/platform/app_platform.dart`.
+- **Desktop video player:** `media_kit` + `media_kit_video` + `media_kit_libs_windows_video` (libmpv,
+  Windows only), behind the same `MyVideoWidgetBetterPlayer` (`app/widgets/desktop_video_player.dart`).
+  Same session, loopback proxy, renewal and seek points as the phones; desktop controls (hover,
+  keyboard, full screen) plus a speed menu. The phones keep better_player unchanged.
+- **Desktop layout:** 1:1 scale (the phone design at real size), content centred within 1280 px,
+  home tabs in a side rail, video page as two columns, teacher home metrics in one row, course rows as
+  wrapping grids (`AdaptiveCardRow`), forms limited to 760 px (`DesktopFormWidth`), mouse drag scrolls
+  horizontal lists (`AppScrollBehavior`).
+- **Bundled root certificates on Windows** (`assets/certs/mozilla_roots.pem`, `core/platform/desktop_tls.dart`):
+  Dart on Windows only trusts roots already in the Windows store, and a fresh PC often lacks the Bunny
+  CDN's root ("SSL.com TLS RSA Root CA 2022"), so every image and video segment failed.
+
+### Changed
+- Startup on Windows skips Firebase (push, Crashlytics), hardware crypto, the emulator gate and the
+  app-update check (the server has Android/iOS policies only); messages show as a SnackBar (the toast
+  plugin has no Windows version).
+- Fixed in passing: `HydratedBloc.storage` was set inside the Firebase `try`, so a Firebase failure
+  left the saved blocs without storage.
+- The splash logo has a fixed width on desktop (the very large image filled the window).
+
 ## 2026-11-03 — branch `fix/player-stability-tablet-zoom`
 
 ### Added

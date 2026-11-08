@@ -32,7 +32,7 @@ class SubscriptionsScreen extends StatefulWidget {
   State<SubscriptionsScreen> createState() => _SubscriptionsScreenState();
 }
 
-class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
+class _SubscriptionsScreenState extends State<SubscriptionsScreen>  with SingleTickerProviderStateMixin{
   void _onBellTap() {
     context.push(GRouter.config.applicationRoutes.notifications);
   }
@@ -54,6 +54,18 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       BlocProvider.of<SubscriptionBloc>(context).add(LoadCourseInterests());
     }
   }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  late final TabController _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: 1
+  );
 
   Widget _tab({
     required bool loading,
@@ -98,6 +110,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               // ✅ Tabs
               TabBar(
                 onTap: (_) => tabTapHaptic(context),
+                controller: _tabController,
                 indicatorColor: AppColors.secondary,
                 labelColor: AppColors.secondary,
                 unselectedLabelColor: AppColors.greyNormal,
@@ -134,6 +147,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   builder: (context, state) {
                     return TabBarView(
                       physics: AlwaysScrollableScrollPhysics(),
+                      controller: _tabController,
                       children: [
                         if (!PaidContentPolicy.hidePaid)
                           InterestsTab(onRefresh: _refreshAll),

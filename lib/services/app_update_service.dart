@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -59,6 +60,9 @@ class AppUpdateService {
   /// Null when the check cannot run (offline, server error): a failed check
   /// must never lock anyone out of the app.
   static Future<AppUpdateInfo?> check() async {
+    // The server keeps policies for Android and iOS only; Windows would have
+    // been offered the Android APK.
+    if (!AppPlatform.isMobile) return null;
     try {
       final info = await PackageInfo.fromPlatform();
       final build = int.tryParse(info.buildNumber);

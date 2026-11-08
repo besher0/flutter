@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/app/widgets/adaptive_card_row.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/bloc/courses_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -162,55 +163,46 @@ class _TabBarViewItem extends StatelessWidget {
                               showMore: false,
                               color: AppColors.text,
                             ),
-                            SizedBox(
+                            AdaptiveCardRow(
                               height: 260,
-                              child: ListView.separated(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 15,
-                                ),
-                                shrinkWrap: true,
-                                scrollDirection: Axis.horizontal,
-                                itemCount: years[index].courses?.length ?? 0,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(width: 12),
-                                itemBuilder: (_, i) {
-                                  final item = years[index].courses![i];
-                                  return CourseCard(
-                                    height: 230,
-                                    title: item.name ?? '',
-                                    imageUrl: item.imageUrl ?? '',
-                                    chips: [
-                                      if (!(item.isFree ?? false))
-                                        CourseChipData(
-                                          '+${item.studentsCount ?? 0} طالب',
-                                          AppAssets.iconUser,
-                                          iconColor: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
-                                      if (years[index].year?.name != null)
-                                        CourseChipData(
-                                          years[index].year!.name!,
-                                          AppAssets.iconLayers,
-                                          iconColor: AppColors.secondary,
-                                        ),
-                                      if (item.season?.name != null)
-                                        CourseChipData(
-                                          item.season!.name!,
-                                          AppAssets.iconDocument,
-                                          iconColor: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
-                                    ],
-                                    onTap: () {
-                                      context.push(
-                                        "${GRouter.config.applicationRoutes.teacherCourseDetails}/${item.id}",
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
+                              itemCount: years[index].courses?.length ?? 0,
+                              itemBuilder: (_, i) {
+                                final item = years[index].courses![i];
+                                return CourseCard(
+                                  height: 230,
+                                  title: item.name ?? '',
+                                  imageUrl: item.imageUrl ?? '',
+                                  chips: [
+                                    if (!(item.isFree ?? false))
+                                      CourseChipData(
+                                        '+${item.studentsCount ?? 0} طالب',
+                                        AppAssets.iconUser,
+                                        iconColor: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                    if (years[index].year?.name != null)
+                                      CourseChipData(
+                                        years[index].year!.name!,
+                                        AppAssets.iconLayers,
+                                        iconColor: AppColors.secondary,
+                                      ),
+                                    if (item.season?.name != null)
+                                      CourseChipData(
+                                        item.season!.name!,
+                                        AppAssets.iconDocument,
+                                        iconColor: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                  ],
+                                  onTap: () {
+                                    context.push(
+                                      "${GRouter.config.applicationRoutes.teacherCourseDetails}/${item.id}",
+                                    );
+                                  },
+                                );
+                              },
                             ),
                           ],
                         );

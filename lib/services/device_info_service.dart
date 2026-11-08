@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
 import 'dart:convert';
 import 'dart:math';
 
@@ -160,7 +161,10 @@ class DeviceInfoService {
   /// "unknown" or "sdk" anywhere in the build strings, which unbranded tablets
   /// carry, so they do not decide.
   /// iOS: refuses the Simulator and iPhone apps running on a Mac.
+  /// Windows: a PC is the device itself (the teachers' version; refusing
+  /// virtual machines comes with the students' version).
   static bool isPhysicalDevice() {
+    if (AppPlatform.isWindows) return true;
     if (kIsIOS) {
       return iosDeviceInfo.isPhysicalDevice && !iosDeviceInfo.isiOSAppOnMac;
     } else if (kIsAndroid) {

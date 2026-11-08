@@ -42,7 +42,14 @@ void _installRecorders(TestWidgetsFlutterBinding binding) {
     call,
   ) async {
     if (!_nativeOutcomes) throw MissingPluginException();
-    _played.add('native:${call.method}');
+    // Android plays taps and selections natively too (the vibration motor,
+    // see AppVibration.kt); recorded like Flutter's so expectations read the
+    // same on both paths.
+    _played.add(switch (call.method) {
+      'lightTap' => 'light',
+      'selection' => 'selection',
+      final outcome => 'native:$outcome',
+    });
     return true;
   });
 }
@@ -94,6 +101,34 @@ void main() {
     testWidgets('a tap plays one light impact', (tester) async {
       AppHaptics.lightTap();
       expect(_played, isEmpty, reason: 'queued to the end of the event');
+      await tester.pump();
+      expect(_played, ['light']);
+    });
+
+    testWidgets('Android: taps go to the native vibration channel', (
+      tester,
+    ) async {
+      final methods = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('coursaty/haptics'),
+        (call) async {
+          methods.add(call.method);
+          return true;
+        },
+      );
+      AppHaptics.lightTap();
+      await tester.pump();
+      AppHaptics.debugReset();
+      AppHaptics.selection();
+      await tester.pump();
+      expect(methods, ['lightTap', 'selection']);
+    });
+
+    testWidgets('without the native channel, taps fall back to Flutter', (
+      tester,
+    ) async {
+      _nativeOutcomes = false;
+      AppHaptics.lightTap();
       await tester.pump();
       expect(_played, ['light']);
     });

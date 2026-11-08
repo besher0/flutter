@@ -3,16 +3,17 @@ import 'package:flutter/material.dart';
 
 import '../../../services/haptics/app_haptics.dart';
 
-/// Press scales used across the app.
+/// Press scales used across the app (made deeper on 2026-11-08: the first
+/// values, 0.97 / 0.95 / 0.98, were hardly visible on a phone).
 abstract final class PressScale {
   /// Full-width buttons.
-  static const double button = 0.97;
+  static const double button = 0.94;
 
   /// Small icon buttons and pills.
-  static const double icon = 0.95;
+  static const double icon = 0.90;
 
   /// Selectable cards, answers and list rows.
-  static const double card = 0.98;
+  static const double card = 0.96;
 }
 
 /// Shrinks [child] slightly while a finger is on it and springs it back on

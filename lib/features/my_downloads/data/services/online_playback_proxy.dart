@@ -4,6 +4,9 @@ import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
+import 'dart:typed_data';
+
+import 'package:coursaty_student_and_teacher/core/platform/desktop_tls.dart';
 
 /// Local HTTP proxy between the player and the online HLS stream.
 ///
@@ -26,10 +29,20 @@ import 'dart:math';
 /// seek opens and cancels) competed with drawing frames, so the player felt
 /// heavy. This class only talks to that isolate.
 class OnlinePlaybackProxy {
-  OnlinePlaybackProxy._(this._isolate, this._commands, this._port, this._secret);
+  OnlinePlaybackProxy._(
+    this._isolate,
+    this._commands,
+    this._port,
+    this._secret,
+  );
 
   static const _tokenSegmentPrefix = 'bcdn_token=';
-  static const _tokenQueryKeys = {'token', 'expires', 'token_path', 'bcdn_token'};
+  static const _tokenQueryKeys = {
+    'token',
+    'expires',
+    'token_path',
+    'bcdn_token',
+  };
 
   /// How long the isolate may take to start or to confirm a command.
   static const _replyTimeout = Duration(seconds: 5);
@@ -50,7 +63,14 @@ class OnlinePlaybackProxy {
     try {
       isolate = await Isolate.spawn(
         _proxyIsolateMain,
-        [replies.sendPort, secret, upstream.toString(), headers],
+        [
+          replies.sendPort,
+          secret,
+          upstream.toString(),
+          headers,
+          // Windows: the bundled root certificates (see DesktopTls).
+          DesktopTls.roots,
+        ],
         debugName: 'OnlinePlaybackProxy',
         onError: replies.sendPort,
       );
@@ -160,6 +180,14 @@ class OnlinePlaybackProxy {
 /// on the reply port it carries.
 Future<void> _proxyIsolateMain(List<Object?> arguments) async {
   final ready = arguments[0] as SendPort;
+  final roots = arguments.length > 4 ? arguments[4] : null;
+  if (roots is Uint8List) {
+    try {
+      DesktopTls.trustInThisIsolate(roots);
+    } catch (_) {
+      // Keep the store's own roots; a request that needs more fails as before.
+    }
+  }
   final server = await _ProxyServer.start(
     secret: arguments[1] as String,
     upstream: Uri.parse(arguments[2] as String),

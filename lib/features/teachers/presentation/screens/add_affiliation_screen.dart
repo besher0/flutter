@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_dropdown.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/theme/app_colors.dart';
@@ -59,230 +60,234 @@ class _AddAffiliationScreenState extends State<AddAffiliationScreen> {
           },
         ),
         backgroundColor: Theme.of(context).colorScheme.surface,
-        body: SafeArea(
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  /// الجامعة
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      return !state.getUniversities.isSuccess
-                          ? FieldLoadingPlaceholder(
-                              labelWidth: 60,
-                              failed: state.getUniversities.isFailed,
-                              onRetry: () => BlocProvider.of<AuthBloc>(
-                                context,
-                              ).add(GetUniversitiesEvent()),
-                            )
-                          : CoursatyDropdown<String>(
-                              label: 'الجامعة',
-                              hint: 'اختر الجامعة',
-                              value: universityController.text.isEmpty
-                                  ? null
-                                  : universityController.text,
-                              validator: _requiredValidator,
-                              onChanged: (item) {
-                                if (item == null) {
-                                  return;
-                                }
-
-                                universityController.text = item;
-
-                                collegeController.clear();
-
-                                departmentController.clear();
-
-                                BlocProvider.of<AuthBloc>(
+        body: DesktopFormWidth(
+          child: SafeArea(
+            child: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    /// الجامعة
+                    BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        return !state.getUniversities.isSuccess
+                            ? FieldLoadingPlaceholder(
+                                labelWidth: 60,
+                                failed: state.getUniversities.isFailed,
+                                onRetry: () => BlocProvider.of<AuthBloc>(
                                   context,
-                                ).add(GetCollegesEvent(universityId: item));
-                              },
-                              items:
-                                  state.universitiesResponseModel
-                                      ?.map(
-                                        (item) => DropdownMenuItem<String>(
-                                          value: item.id,
-                                          child: Text(item.name ?? ''),
-                                        ),
-                                      )
-                                      .toList() ??
-                                  [],
-                            );
-                    },
-                  ),
+                                ).add(GetUniversitiesEvent()),
+                              )
+                            : CoursatyDropdown<String>(
+                                label: 'الجامعة',
+                                hint: 'اختر الجامعة',
+                                value: universityController.text.isEmpty
+                                    ? null
+                                    : universityController.text,
+                                validator: _requiredValidator,
+                                onChanged: (item) {
+                                  if (item == null) {
+                                    return;
+                                  }
 
-                  16.verticalSpace,
+                                  universityController.text = item;
 
-                  /// الكلية
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      if (state.getColleges.isInit) {
-                        return const SizedBox.shrink();
-                      }
+                                  collegeController.clear();
 
-                      return !state.getColleges.isSuccess
-                          ? FieldLoadingPlaceholder(
-                              labelWidth: 50,
-                              failed: state.getColleges.isFailed,
-                              onRetry: () =>
-                                  BlocProvider.of<AuthBloc>(context).add(
-                                    GetCollegesEvent(
-                                      universityId: universityController.text,
+                                  departmentController.clear();
+
+                                  BlocProvider.of<AuthBloc>(
+                                    context,
+                                  ).add(GetCollegesEvent(universityId: item));
+                                },
+                                items:
+                                    state.universitiesResponseModel
+                                        ?.map(
+                                          (item) => DropdownMenuItem<String>(
+                                            value: item.id,
+                                            child: Text(item.name ?? ''),
+                                          ),
+                                        )
+                                        .toList() ??
+                                    [],
+                              );
+                      },
+                    ),
+
+                    16.verticalSpace,
+
+                    /// الكلية
+                    BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        if (state.getColleges.isInit) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return !state.getColleges.isSuccess
+                            ? FieldLoadingPlaceholder(
+                                labelWidth: 50,
+                                failed: state.getColleges.isFailed,
+                                onRetry: () =>
+                                    BlocProvider.of<AuthBloc>(context).add(
+                                      GetCollegesEvent(
+                                        universityId: universityController.text,
+                                      ),
                                     ),
-                                  ),
-                            )
-                          : CoursatyDropdown<String>(
-                              label: 'الكلية',
-                              hint: 'اختر الكلية',
-                              validator: _requiredValidator,
-                              value: collegeController.text.isEmpty
-                                  ? null
-                                  : collegeController.text,
-                              onChanged: (item) {
-                                if (item == null) {
-                                  return;
-                                }
+                              )
+                            : CoursatyDropdown<String>(
+                                label: 'الكلية',
+                                hint: 'اختر الكلية',
+                                validator: _requiredValidator,
+                                value: collegeController.text.isEmpty
+                                    ? null
+                                    : collegeController.text,
+                                onChanged: (item) {
+                                  if (item == null) {
+                                    return;
+                                  }
 
-                                collegeController.text = item;
+                                  collegeController.text = item;
 
-                                departmentController.clear();
+                                  departmentController.clear();
 
-                                BlocProvider.of<AuthBloc>(
-                                  context,
-                                ).add(GetDepartmentsEvent(collegeId: item));
-                              },
-                              items:
-                                  state.collegesResponseModel
-                                      ?.map(
-                                        (item) => DropdownMenuItem<String>(
-                                          value: item.id,
-                                          child: Text(item.name ?? ''),
-                                        ),
-                                      )
-                                      .toList() ??
-                                  [],
-                            );
-                    },
-                  ),
+                                  BlocProvider.of<AuthBloc>(
+                                    context,
+                                  ).add(GetDepartmentsEvent(collegeId: item));
+                                },
+                                items:
+                                    state.collegesResponseModel
+                                        ?.map(
+                                          (item) => DropdownMenuItem<String>(
+                                            value: item.id,
+                                            child: Text(item.name ?? ''),
+                                          ),
+                                        )
+                                        .toList() ??
+                                    [],
+                              );
+                      },
+                    ),
 
-                  16.verticalSpace,
+                    16.verticalSpace,
 
-                  /// القسم
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      if (state.getDepartments.isInit) {
-                        return const SizedBox.shrink();
-                      }
+                    /// القسم
+                    BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        if (state.getDepartments.isInit) {
+                          return const SizedBox.shrink();
+                        }
 
-                      return !state.getDepartments.isSuccess
-                          ? FieldLoadingPlaceholder(
-                              labelWidth: 50,
-                              failed: state.getDepartments.isFailed,
-                              onRetry: () =>
-                                  BlocProvider.of<AuthBloc>(context).add(
-                                    GetDepartmentsEvent(
-                                      collegeId: collegeController.text,
+                        return !state.getDepartments.isSuccess
+                            ? FieldLoadingPlaceholder(
+                                labelWidth: 50,
+                                failed: state.getDepartments.isFailed,
+                                onRetry: () =>
+                                    BlocProvider.of<AuthBloc>(context).add(
+                                      GetDepartmentsEvent(
+                                        collegeId: collegeController.text,
+                                      ),
                                     ),
-                                  ),
-                            )
-                          : state.departmentsResponseModel.isNullOrEmpty
-                          ? SizedBox.shrink()
-                          : CoursatyDropdown<String>(
-                              label: 'القسم',
-                              hint: 'اختر القسم',
-                              validator: _requiredValidator,
-                              value: departmentController.text.isEmpty
-                                  ? null
-                                  : departmentController.text,
-                              onChanged: (item) {
-                                if (item == null) {
-                                  return;
-                                }
+                              )
+                            : state.departmentsResponseModel.isNullOrEmpty
+                            ? SizedBox.shrink()
+                            : CoursatyDropdown<String>(
+                                label: 'القسم',
+                                hint: 'اختر القسم',
+                                validator: _requiredValidator,
+                                value: departmentController.text.isEmpty
+                                    ? null
+                                    : departmentController.text,
+                                onChanged: (item) {
+                                  if (item == null) {
+                                    return;
+                                  }
 
-                                departmentController.text = item;
-                              },
-                              items:
-                                  state.departmentsResponseModel
-                                      ?.map(
-                                        (item) => DropdownMenuItem<String>(
-                                          value: item.id,
-                                          child: Text(item.name ?? ''),
-                                        ),
-                                      )
-                                      .toList() ??
-                                  [],
-                            );
-                    },
-                  ),
+                                  departmentController.text = item;
+                                },
+                                items:
+                                    state.departmentsResponseModel
+                                        ?.map(
+                                          (item) => DropdownMenuItem<String>(
+                                            value: item.id,
+                                            child: Text(item.name ?? ''),
+                                          ),
+                                        )
+                                        .toList() ??
+                                    [],
+                              );
+                      },
+                    ),
 
-                  28.verticalSpace,
+                    28.verticalSpace,
 
-                  /// زر الحفظ
-                  BlocConsumer<TeachersBloc, TeachersState>(
-                    buildWhen: (p, c) =>
-                        p.affiliationsStatus != c.affiliationsStatus,
-                    listenWhen: (p, c) =>
-                        p.affiliationsStatus != c.affiliationsStatus,
-                    listener: (context, state) {
-                      if (state.affiliationsStatus.isSuccess) {
-                        context.pop();
-                      }
-                    },
-                    builder: (context, state) {
-                      final loading = state.affiliationsStatus.isLoading;
-                      return InkWell(
-                        onTap: loading
-                            ? null
-                            : () {
-                                AppHaptics.lightTap();
-                                if (!_formKey.currentState!.validate()) {
-                                  return;
-                                }
+                    /// زر الحفظ
+                    BlocConsumer<TeachersBloc, TeachersState>(
+                      buildWhen: (p, c) =>
+                          p.affiliationsStatus != c.affiliationsStatus,
+                      listenWhen: (p, c) =>
+                          p.affiliationsStatus != c.affiliationsStatus,
+                      listener: (context, state) {
+                        if (state.affiliationsStatus.isSuccess) {
+                          context.pop();
+                        }
+                      },
+                      builder: (context, state) {
+                        final loading = state.affiliationsStatus.isLoading;
+                        return InkWell(
+                          onTap: loading
+                              ? null
+                              : () {
+                                  AppHaptics.lightTap();
+                                  if (!_formKey.currentState!.validate()) {
+                                    return;
+                                  }
 
-                                BlocProvider.of<TeachersBloc>(context).add(
-                                  AddOrDeleteTeacherAffiliations(
-                                    params: AddOrRemoveAffiliationsParams(
-                                      universityId: universityController.text,
-                                      collegeId: collegeController.text,
-                                      departmentId:
-                                          departmentController.text
-                                              .trim()
-                                              .isEmpty
-                                          ? null
-                                          : departmentController.text,
-                                      isForDelete: false,
+                                  BlocProvider.of<TeachersBloc>(context).add(
+                                    AddOrDeleteTeacherAffiliations(
+                                      params: AddOrRemoveAffiliationsParams(
+                                        universityId: universityController.text,
+                                        collegeId: collegeController.text,
+                                        departmentId:
+                                            departmentController.text
+                                                .trim()
+                                                .isEmpty
+                                            ? null
+                                            : departmentController.text,
+                                        isForDelete: false,
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                        child: AppPressScale(
-                          enabled: !loading,
-                          child: Container(
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary,
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [AppColors.buttonShadow],
-                            ),
-                            alignment: Alignment.center,
-                            child: LoadingLabel(
-                              label: 'إضافة الانتماء',
-                              isLoading: loading,
-                              style: GoogleFonts.cairo(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Theme.of(context).colorScheme.onPrimary,
+                                  );
+                                },
+                          child: AppPressScale(
+                            enabled: !loading,
+                            child: Container(
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [AppColors.buttonShadow],
+                              ),
+                              alignment: Alignment.center,
+                              child: LoadingLabel(
+                                label: 'إضافة الانتماء',
+                                isLoading: loading,
+                                style: GoogleFonts.cairo(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

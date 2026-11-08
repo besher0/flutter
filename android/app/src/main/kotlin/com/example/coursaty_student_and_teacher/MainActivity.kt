@@ -8,7 +8,6 @@ import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
-import android.view.HapticFeedbackConstants
 import com.google.android.play.core.integrity.IntegrityManagerFactory
 import com.google.android.play.core.integrity.StandardIntegrityManager
 import io.flutter.embedding.android.FlutterActivity
@@ -86,26 +85,15 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        // Notification-style haptics for AppHaptics (success / error). Android
-        // 11+ has dedicated CONFIRM / REJECT effects; older versions (and
-        // "warning") answer false and the Dart side plays its own pattern.
-        // performHapticFeedback honours the system touch-feedback setting.
+        // All AppHaptics kinds (lightTap, selection, success, error, warning),
+        // played through the vibration motor. ⚠️ performHapticFeedback (what
+        // Flutter's HapticFeedback and the old CONFIRM/REJECT used) depends on
+        // the system "touch feedback" setting, which Xiaomi and Honor ship off,
+        // and those systems ignore its light effects: nothing was felt there.
+        // Answers false when the phone cannot vibrate (Dart then falls back).
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "coursaty/haptics")
             .setMethodCallHandler { call, result ->
-                val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    when (call.method) {
-                        "success" -> HapticFeedbackConstants.CONFIRM
-                        "error" -> HapticFeedbackConstants.REJECT
-                        else -> null
-                    }
-                } else {
-                    null
-                }
-                if (effect == null) {
-                    result.success(false)
-                } else {
-                    result.success(window?.decorView?.performHapticFeedback(effect) ?: false)
-                }
+                result.success(AppVibration.play(applicationContext, call.method))
             }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "coursaty/background_downloads")

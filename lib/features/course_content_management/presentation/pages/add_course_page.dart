@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/screens/teacher/course_details_section.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +17,9 @@ class _AddCoursePageState extends State<AddCoursePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: TitleAppBar(title: "إضافة كورس"),
-      body: CourseDetailsSection(subjectId: widget.subjectId),
+      body: DesktopFormWidth(
+        child: CourseDetailsSection(subjectId: widget.subjectId),
+      ),
     );
   }
 }

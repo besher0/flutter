@@ -46,6 +46,7 @@ class _DownloadedCourseDetailsState extends State<DownloadedCourseDetails>
   late final TabController _tabController = TabController(
     length: 2,
     vsync: this,
+      initialIndex: 1
   );
   ScreenCaptureLease? _captureLease;
 

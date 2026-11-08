@@ -14,6 +14,7 @@ class CoursePaymentInfo {
     this.basePrice,
     this.discountedPrice,
     this.paymentQrUrl,
+    this.paymentVideoUrl,
     this.isFree,
     this.isExpired,
     this.expiresAt,
@@ -26,6 +27,10 @@ class CoursePaymentInfo {
   final num? basePrice;
   final num? discountedPrice;
   final String? paymentQrUrl;
+
+  /// Telegram video explaining payment and subscription; null until the
+  /// backend sets one.
+  final String? paymentVideoUrl;
   final bool? isFree;
   final bool? isExpired;
   final DateTime? expiresAt;
@@ -35,6 +40,7 @@ class CoursePaymentInfo {
 
   num get finalPrice => discountedPrice ?? basePrice ?? 0;
   bool get hasPaymentQr => paymentQrUrl?.trim().isNotEmpty == true;
+  bool get hasPaymentVideo => paymentVideoUrl?.trim().isNotEmpty == true;
   bool get isExpiredNow =>
       isExpired == true ||
       (expiresAt != null && !expiresAt!.isAfter(DateTime.now()));
@@ -66,6 +72,7 @@ class CoursePaymentInfo {
       basePrice: _parseNum(raw['basePrice'] ?? raw['price']),
       discountedPrice: _parseNum(raw['discountedPrice']),
       paymentQrUrl: raw['paymentQrUrl']?.toString(),
+      paymentVideoUrl: raw['paymentVideoUrl']?.toString(),
       isFree: raw['isFree'] is bool ? raw['isFree'] as bool : null,
       isExpired: isExpired,
       expiresAt: expiresAt,

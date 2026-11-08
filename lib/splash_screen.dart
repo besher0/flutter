@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/app_update_gate.dart';
 import 'dart:async';
 import 'package:app_links/app_links.dart';
@@ -144,6 +145,9 @@ class _SplashScreenState extends State<SplashScreen> {
     return Image.asset(
       isThemeLight ? AppAssets.logo : AppAssets.logoDark,
       scale: 2,
+      // The logo file is very large: the phone's width limits it, a desktop
+      // window does not (it filled the window and overflowed).
+      width: AppPlatform.isDesktop ? 360 : null,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) => Container(
         width: 0.8.sw,

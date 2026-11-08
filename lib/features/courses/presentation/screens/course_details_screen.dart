@@ -52,6 +52,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
   late final TabController _tabController = TabController(
     length: 2,
     vsync: this,
+    initialIndex: 1
   );
 
   void _fetchActiveCourses() {

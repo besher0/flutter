@@ -61,7 +61,7 @@ class LectureDetailsScreen extends StatefulWidget {
 
 class _LectureDetailsScreenState extends State<LectureDetailsScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 3, vsync: this , initialIndex: 1);
   ScreenCaptureLease? _captureLease;
 
   void _fetchData() {
@@ -755,16 +755,8 @@ class _VideosTab extends StatelessWidget {
                                 // Only a video the student can watch can be
                                 // marked as studied.
                                 if (!isLocked) VideoStudiedToggle(videoId: url),
-                                if ((shownVideos[i].isFree ?? false) ||
-                                    videoExist) ...{
-                                  SvgPicture.asset(
-                                    AppAssets.iconPlayCircle,
-                                    height: 30,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                  ),
-                                },
+                                // No separate play icon: tapping the card plays
+                                // (online, or offline when downloaded).
                                 if (isLocked) ...{
                                   SvgPicture.asset(
                                     AppAssets.iconLock,

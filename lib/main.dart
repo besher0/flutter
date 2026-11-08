@@ -1,3 +1,6 @@
+import 'package:coursaty_student_and_teacher/app/widgets/desktop_video_player.dart';
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
+import 'package:coursaty_student_and_teacher/core/platform/desktop_tls.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
 import 'package:coursaty_student_and_teacher/services/crash_reporting.dart';
@@ -31,28 +34,38 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Hardware AES-GCM for offline videos (javax.crypto / CryptoKit) instead of
   // the much slower pure Dart implementation, which made 1080p stutter.
-  FlutterCryptography.enable();
+  if (AppPlatform.isMobile) FlutterCryptography.enable();
+  // Desktop video player (libmpv); the phones use better_player.
+  if (AppPlatform.isDesktop) DesktopVideoPlayer.ensureInitialized();
+  // Before any request: Windows may lack the CDN's root certificate.
+  await DesktopTls.init();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   var firebaseReady = false;
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    firebaseReady = true;
-    HydratedBloc.storage = await HydratedStorage.build(
-      storageDirectory: HydratedStorageDirectory(
-        (await getApplicationDocumentsDirectory()).path,
-      ),
-    );
-  } catch (e) {
-    print(e);
+  // Firebase is configured for the phones only (Windows has no options, and
+  // its SDK has no push or Crashlytics).
+  if (AppPlatform.hasFirebase) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      firebaseReady = true;
+    } catch (e) {
+      print(e);
+    }
   }
+  // ⚠️ Was inside the Firebase `try`: a Firebase failure (always, on
+  // Windows) left the saved blocs without storage.
+  HydratedBloc.storage = await HydratedStorage.build(
+    storageDirectory: HydratedStorageDirectory(
+      (await getApplicationDocumentsDirectory()).path,
+    ),
+  );
   // Before anything else can fail, so startup errors are reported too.
   if (firebaseReady) await CrashReporting.init();
   await Future.wait([
     EasyLocalization.ensureInitialized(),
     configureDependencies(),
-    NotificationProcess.init(),
+    if (AppPlatform.hasFirebase) NotificationProcess.init(),
     DeviceInfoService.init(),
     PaidContentPolicy.init(),
   ]);

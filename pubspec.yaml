@@ -61,6 +61,11 @@ dependencies:
   tusc: ^3.0.0
   http: ^1.6.0
   better_player_plus: ^1.1.5
+  # Desktop (Windows) video player; the phones keep better_player_plus.
+  # libmpv is bundled for Windows only (no Android/iOS libs package).
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_windows_video: ^1.0.11
   wakelock_plus: ^1.5.2
   root_checker_plus: ^1.0.0
   url_launcher: ^6.1.14
@@ -118,6 +123,8 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/languages/
+    # Root certificates for HTTPS on Windows (lib/core/platform/desktop_tls.dart).
+    - assets/certs/
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
