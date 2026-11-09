@@ -6,10 +6,6 @@ PODS:
     - HLSCachingReverseProxyServer
     - PINCache
   - Cache (6.0.0)
-  - device_safety_info (0.0.1):
-    - Flutter
-    - IOSSecuritySuite
-  - DTTJailbreakDetection (0.4.0)
   - Flutter (1.0.0)
   - GCDWebServer (3.5.4):
     - GCDWebServer/Core (= 3.5.4)
@@ -20,7 +16,6 @@ PODS:
   - HLSCachingReverseProxyServer (0.1.0):
     - GCDWebServer (~> 3.5)
     - PINCache (>= 3.0.1-beta.3)
-  - IOSSecuritySuite (2.2.0)
   - libwebp (1.5.0):
     - libwebp/demux (= 1.5.0)
     - libwebp/mux (= 1.5.0)
@@ -33,6 +28,8 @@ PODS:
   - libwebp/sharpyuv (1.5.0)
   - libwebp/webp (1.5.0):
     - libwebp/sharpyuv
+  - media_kit_video (0.0.1):
+    - Flutter
   - no_screenshot (0.3.2-beta.3):
     - Flutter
   - PINCache (3.0.4):
@@ -43,25 +40,19 @@ PODS:
   - PINCache/Core (3.0.4):
     - PINOperation (~> 1.2.3)
   - PINOperation (1.2.3)
-  - root_checker_plus (0.0.1):
-    - DTTJailbreakDetection
-    - Flutter
 
 DEPENDENCIES:
   - better_player_plus (from `.symlinks/plugins/better_player_plus/ios`)
-  - device_safety_info (from `.symlinks/plugins/device_safety_info/ios`)
   - Flutter (from `Flutter`)
   - get_thumbnail_video (from `.symlinks/plugins/get_thumbnail_video/ios`)
+  - media_kit_video (from `.symlinks/plugins/media_kit_video/ios`)
   - no_screenshot (from `.symlinks/plugins/no_screenshot/ios`)
-  - root_checker_plus (from `.symlinks/plugins/root_checker_plus/ios`)
 
 SPEC REPOS:
   trunk:
     - Cache
-    - DTTJailbreakDetection
     - GCDWebServer
     - HLSCachingReverseProxyServer
-    - IOSSecuritySuite
     - libwebp
     - PINCache
     - PINOperation
@@ -69,33 +60,28 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   better_player_plus:
     :path: ".symlinks/plugins/better_player_plus/ios"
-  device_safety_info:
-    :path: ".symlinks/plugins/device_safety_info/ios"
   Flutter:
     :path: Flutter
   get_thumbnail_video:
     :path: ".symlinks/plugins/get_thumbnail_video/ios"
+  media_kit_video:
+    :path: ".symlinks/plugins/media_kit_video/ios"
   no_screenshot:
     :path: ".symlinks/plugins/no_screenshot/ios"
-  root_checker_plus:
-    :path: ".symlinks/plugins/root_checker_plus/ios"
 
 SPEC CHECKSUMS:
   better_player_plus: 3d40145c650bb83dde08f0d593b21a144196769f
   Cache: 4ca7e00363fca5455f26534e5607634c820ffc2d
-  device_safety_info: 3a276abcf937b3dd43679c044e04a6f6ebdf3229
-  DTTJailbreakDetection: 5e356c5badc17995f65a83ed9483f787a0057b71
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   GCDWebServer: 2c156a56c8226e2d5c0c3f208a3621ccffbe3ce4
   get_thumbnail_video: 1a754d46b860dffefcc57b7290a43089cd5d7e58
   HLSCachingReverseProxyServer: 59935e1e0244ad7f3375d75b5ef46e8eb26ab181
-  IOSSecuritySuite: ba76f34cb367b9230934ac37904e26a40d033e3d
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
+  media_kit_video: f3b0d035d89def15cfbbcf7dc2ae278f201e2f83
   no_screenshot: 5e345998c43ffcad5d6834f249590483fcc037bd
   PINCache: d9a87a0ff397acffe9e2f0db972ac14680441158
   PINOperation: fb563bcc9c32c26d6c78aaff967d405aa2ee74a7
-  root_checker_plus: 0d625cf912b8fa2d7c1976a80a4749acf937ce06
 
-PODFILE CHECKSUM: 53a6aebc29ccee84c41f92f409fc20cd4ca011f1
+PODFILE CHECKSUM: 1857a7cdb7dfafe45f2b0e9a9af44644190f7506
 
 COCOAPODS: 1.17.0
