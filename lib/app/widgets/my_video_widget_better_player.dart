@@ -48,6 +48,7 @@ import 'chip_widget.dart';
 import 'desktop_video_player.dart';
 import 'playback_wakelock.dart';
 import 'smooth_seek_controller.dart';
+import 'player_controls/coursaty_material_controls.dart';
 import 'video_zoom.dart';
 import 'skeleton/skeleton.dart';
 
@@ -66,9 +67,17 @@ class MyVideoWidgetBetterPlayer extends StatefulWidget {
     this.teacher,
     required this.courseId,
     this.pinVideo = false,
+    this.showTitle = false,
+    this.titleTrailing,
   });
 
   final List<Segment> segments;
+
+  /// Shows [videoName] under the video (the video page; its app bar only says
+  /// «تفاصيل الفيديو»), with [titleTrailing] at the end of the same line (the
+  /// studied toggle).
+  final bool showTitle;
+  final Widget? titleTrailing;
 
   /// The video stays in place and only the details under it (teacher,
   /// description, seek points) scroll. Needs a bounded height, so the parent
@@ -587,7 +596,8 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
             onControlsVisibilityChanged: (_) {},
             controlsConfiguration: configuration,
           )
-        : BetterPlayerMaterialControls(
+        // The package's material controls with icon-sized tap targets.
+        : CoursatyMaterialControls(
             onControlsVisibilityChanged: (_) {},
             controlsConfiguration: configuration,
           );
@@ -665,7 +675,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         ),
       );
     }
-    if (!initialized) return Center(child: CoursatyAppLoader());
+    if (!initialized) return _loadingSkeleton();
     return _layout(
       video: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -686,22 +696,7 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Text(
-            //   widget.videoName,
-            //   style: GoogleFonts.cairo(
-            //     fontSize: 18,
-            //     fontWeight: FontWeight.w700,
-            //     color: Theme.of(context).colorScheme.primary,
-            //   ),
-            // ),
-            // const SizedBox(height: 8),
-            // Text(
-            //   widget.duration,
-            //   style: GoogleFonts.cairo(
-            //     fontSize: 16,
-            //     color: AppColors.greyDark,
-            //   ),
-            // ),
+            if (widget.showTitle) ...{_titleRow(), const SizedBox(height: 12)},
             if (widget.teacher != null) ...{
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -799,7 +794,11 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
                                       return state
                                               .upsertVideoInteraction
                                               .isLoading
-                                          ? CoursatyAppLoader()
+                                          // Same footprint as the like chip.
+                                          ? AppShimmer.ensure(
+                                              context,
+                                              const SkeletonChip(width: 56),
+                                            )
                                           : InkWell(
                                               onTap: () {
                                                 if (GetIt.I<PrefsRepository>()
@@ -934,6 +933,71 @@ class _MyVideoWidgetBetterPlayerState extends State<MyVideoWidgetBetterPlayer> {
             },
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _titleRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            widget.videoName,
+            style: GoogleFonts.cairo(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+        if (widget.titleTrailing != null) ...[
+          const SizedBox(width: 10),
+          widget.titleTrailing!,
+        ],
+      ],
+    );
+  }
+
+  /// While the session and player start: the page's shape in shimmer (the
+  /// video, the title line, the teacher row) instead of a spinner.
+  Widget _loadingSkeleton() {
+    final details = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.showTitle) ...[
+            const SkeletonText(fontSize: 18, width: 220),
+            const SizedBox(height: 16),
+          ],
+          if (widget.teacher != null)
+            Row(
+              children: [
+                const SkeletonBox.circle(size: 40),
+                const SizedBox(width: 10),
+                const SkeletonText(fontSize: 16, width: 120),
+                const Spacer(),
+                const SkeletonChip(width: 44),
+                const SizedBox(width: 10),
+                const SkeletonChip(width: 56),
+              ],
+            ),
+        ],
+      ),
+    );
+    return AppShimmer.ensure(
+      context,
+      _layout(
+        video: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: SkeletonBox(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+        details: details,
       ),
     );
   }

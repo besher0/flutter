@@ -254,7 +254,7 @@ class _SubscriptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final coverUrl = isExpired ? item.expiredCoverUrl : item.activeCoverUrl;
 
-    return InkWell(
+    return AppPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
 

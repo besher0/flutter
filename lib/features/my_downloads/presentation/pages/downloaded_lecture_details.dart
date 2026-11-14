@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 import 'dart:io';
 
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
@@ -43,7 +44,11 @@ class DownloadedLectureDetails extends StatefulWidget {
 
 class _DownloadedLectureDetailsState extends State<DownloadedLectureDetails>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this , initialIndex: 1);
+  late final TabController _tabs = TabController(
+    length: 3,
+    vsync: this,
+    initialIndex: 1,
+  );
   ScreenCaptureLease? _captureLease;
 
   @override
@@ -72,7 +77,7 @@ class _DownloadedLectureDetailsState extends State<DownloadedLectureDetails>
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: TitleAppBar(title: "تفاصيل المحاضرة"),
+        appBar: TitleAppBar(title: "تفاصيل الدرس"),
         body: SafeArea(
           child: NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
@@ -119,7 +124,7 @@ class _DownloadedLectureDetailsState extends State<DownloadedLectureDetails>
                                   Row(
                                     children: [
                                       Text(
-                                        'عن المحاضرة',
+                                        'عن الدرس',
                                         style: GoogleFonts.cairo(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w700,
@@ -327,6 +332,7 @@ class _VideosTab extends StatelessWidget {
               isExist: true,
               fileUrl: url,
               isVideo: true,
+              durationSeconds: downloaded[i].durationSeconds,
               onTap: () {
                 context.pushPage(
                   VideoDetailsScreen(
@@ -383,29 +389,32 @@ class _McqTab extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           15.verticalSpace,
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 13),
-            ),
-            onPressed: () {
-              context.pushPage(
-                McqQuestionsScreen(
-                  questions: questions,
-                  courseId: courseId,
-                  fromNetwork: false,
-                  lectureDetailsModelFromDownload: lectureDetailsModel,
+          AppPressScale(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              );
-            },
-            child: Text(
-              'بدء الأتمتة',
-              style: GoogleFonts.cairo(
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+              onPressed: () {
+                AppHaptics.lightTap();
+                context.pushPage(
+                  McqQuestionsScreen(
+                    questions: questions,
+                    courseId: courseId,
+                    fromNetwork: false,
+                    lectureDetailsModelFromDownload: lectureDetailsModel,
+                  ),
+                );
+              },
+              child: Text(
+                'بدء الأتمتة',
+                style: GoogleFonts.cairo(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),

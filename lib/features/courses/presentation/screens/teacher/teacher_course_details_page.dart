@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/helper/content_links.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
 import 'dart:developer';
 import 'package:coursaty_student_and_teacher/app/widgets/revenue_widgets.dart';
@@ -60,7 +61,11 @@ class _TeacherCourseDetailsPageState extends State<TeacherCourseDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: TitleAppBar(title: "تفاصيل الكورس"),
+      appBar: TitleAppBar(
+        title: "تفاصيل الكورس",
+        onCopyLinkTap: () =>
+            ContentLinks.copy(ContentLinks.course(widget.courseId)),
+      ),
       body: SafeArea(
         child: DefaultTabController(
           length: PaidContentPolicy.hidePaid ? 2 : 3,
@@ -145,7 +150,7 @@ class _CourseTabs extends StatelessWidget {
       ),
       tabs: [
         const Tab(text: 'تفاصيل'),
-        const Tab(text: 'المحاضرات'),
+        const Tab(text: 'الدروس'),
         if (!PaidContentPolicy.hidePaid) const Tab(text: 'ايرادات'),
       ],
     );
@@ -234,7 +239,7 @@ class _LecturesTab extends StatelessWidget {
                                       lecture: lecture,
                                       courseId: courseId,
                                       onTap: () => context.push(
-                                        "${GRouter.config.applicationRoutes.lectureDetailsForTeacher}/${lecture.id}/${lecture.title}/$courseId",
+                                        "${GRouter.config.applicationRoutes.lectureDetailsForTeacher}/${lecture.id}/${Uri.encodeComponent(lecture.title ?? '')}/$courseId",
                                       ),
                                     ),
                                   );
@@ -289,12 +294,14 @@ class _LectureTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return AppPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: LectureItem(
         index: index,
         lectureName: lecture.title!,
+        videosCount: lecture.videosCount,
+        videosDurationSeconds: lecture.videosDurationSeconds,
         // onDelete: () {
         //   BlocProvider.of<CourseContentManagementBloc>(context).add(
         //     DeleteLectureEvent(

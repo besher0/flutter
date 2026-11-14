@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/chip_widget.dart';
 import 'package:flutter/material.dart';
@@ -29,9 +30,9 @@ class SubjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      highlightColor: Colors.transparent,
-      splashColor: Colors.transparent,
+    return AppPressable(
+      showRipple: false,
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
         height: 110,

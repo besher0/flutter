@@ -657,15 +657,15 @@ class _QuestionCardState extends State<_QuestionCard> {
                                     state.currentlyDeletingQuestionsIds
                                         .contains(widget.question.id)
                                 ? FittedBox(
-                              fit: BoxFit.scaleDown,
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(4),
-                                    child: InlineLoader(
+                                    fit: BoxFit.scaleDown,
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: InlineLoader(
                                         size: 18,
                                         color: Colors.white,
                                       ),
-                                  ),
-                                )
+                                    ),
+                                  )
                                 : InkWell(
                                     onTap: () {
                                       showDialog<bool>(

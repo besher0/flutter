@@ -54,7 +54,7 @@ class VideoDetailsScreen extends StatefulWidget {
 class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
   late final MyDownloadsState myDownloadsState;
   late final String? filePath;
-  String videoName = '';
+  late String videoName = widget.video.videoName ?? '';
   ScreenCaptureLease? _captureLease;
 
   @override
@@ -91,14 +91,13 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: TitleAppBar(
-        title: widget.video.videoName ?? "تفاصيل الفيديو",
+        // The video's name is under the video (with the studied toggle).
+        title: "تفاصيل الفيديو",
         onBackTap: () {
           context.pop();
         },
         // Offline downloads are a student entitlement; teachers stream only.
-        // Students (and guests) can mark the video as studied (kept on this
-        // device), online and offline.
-        action: _appBarActions(),
+        action: _downloadActionIfAllowed(),
       ),
 
       // The video stays fixed at the top; only the details and seek points under
@@ -122,6 +121,12 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
               teacher: widget.teacher,
               videoDescription: widget.video.description,
               courseId: widget.courseId,
+              showTitle: true,
+              // Students (and guests) mark the video as studied (kept on this
+              // device), online and offline; on the title's line.
+              titleTrailing: GetIt.I<PrefsRepository>().isTeacher
+                  ? null
+                  : VideoStudiedToggle(videoId: widget.video.id!, size: 26),
             ),
           ),
         ),
@@ -129,23 +134,14 @@ class _VideoDetailsScreenState extends State<VideoDetailsScreen> {
     );
   }
 
-  Widget? _appBarActions() {
+  Widget? _downloadActionIfAllowed() {
     final prefs = GetIt.I<PrefsRepository>();
-    final studyToggle = prefs.isTeacher
-        ? null
-        : VideoStudiedToggle(videoId: widget.video.id!, size: 26);
-    final download =
-        !widget.fromNetwork ||
-            prefs.isGuest ||
-            prefs.isTeacher ||
-            prefs.token == null
-        ? null
-        : _downloadAction();
-    if (studyToggle == null || download == null) return studyToggle ?? download;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [studyToggle, download],
-    );
+    final allowed =
+        widget.fromNetwork &&
+        !prefs.isGuest &&
+        !prefs.isTeacher &&
+        prefs.token != null;
+    return allowed ? _downloadAction() : null;
   }
 
   Widget _downloadAction() {

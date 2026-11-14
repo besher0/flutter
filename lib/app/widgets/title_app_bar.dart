@@ -18,12 +18,16 @@ class TitleAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onBellTap,
     this.onBackTap,
     this.onShareTap,
+    this.onCopyLinkTap,
     this.action,
     this.displayName = false,
   });
 
   final String title;
   final VoidCallback? onShareTap;
+
+  /// Teachers copy the page's link (students share it with [onShareTap]).
+  final VoidCallback? onCopyLinkTap;
   final VoidCallback? onBellTap;
   final VoidCallback? onBackTap;
   final Widget? action;
@@ -55,6 +59,18 @@ class TitleAppBar extends StatelessWidget implements PreferredSizeWidget {
                   AppAssets.iconShare,
                   height: 24,
                   color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            if (onCopyLinkTap != null)
+              Tooltip(
+                message: 'نسخ الرابط',
+                child: InkWell(
+                  onTap: onCopyLinkTap,
+                  child: Icon(
+                    Icons.copy_rounded,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ),
             action ?? SizedBox.shrink(),

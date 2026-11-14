@@ -211,7 +211,7 @@ withdrawals, `dashboard/*`) are the ones this app consumes.
   is ~109 minutes, which let ExoPlayer hold ~130 MB in Java heap and could close the app (OOM).
 - Pinch zoom (Android and iOS) scales only the picture; better_player draws no controls inside the
   player (`BetterPlayerTheme.custom` + empty builder) and `_zoomable` draws the platform's controls
-  (`BetterPlayerMaterialControls` / `BetterPlayerCupertinoControls`) above it. A small reset button sits
+  (`CoursatyMaterialControls` — a copy of better_player's material controls in `app/widgets/player_controls/` whose play/pause and ±10 s buttons react only to the icon + 8 px — / `BetterPlayerCupertinoControls`) above it. A small reset button sits
   at the top right while zoomed (below the cupertino top bar on iOS). iOS zoom transforms a platform
   view (UiKitView) and has not been checked on an iPhone yet.
 - Crash reporting: Firebase Crashlytics (`services/crash_reporting.dart`, started in `main.dart` right
@@ -233,7 +233,7 @@ withdrawals, `dashboard/*`) are the ones this app consumes.
   lecture is studied when **all** its videos are: the full video list is remembered from the server's
   lecture details when the online lecture page loads (`rememberLectureVideos`, overwrite); a download's
   snapshot only fills a gap (`overwrite: false`). UI in `study_progress/presentation/widgets/studied_toggle.dart`:
-  `VideoStudiedToggle` (cards + video page top bar), `LectureStudiedBadge` (lecture lists via
+  `VideoStudiedToggle` (cards + the video page, on the video name's line under the player), `LectureStudiedBadge` (lecture lists via
   `LectureItem.trailing`), `LectureStudyProgress` (under lecture titles, «درست X من Y فيديو»). Not in
   `MyDownloadsState`. ⚠️ Never filter the saved `LectureDetailsModel` lists in place (copy them first).
 - iOS universal links: `ios/Runner/Runner.entitlements` (`applinks:coursay.duckdns.org`, linked via

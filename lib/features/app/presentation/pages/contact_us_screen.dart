@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/title_app_bar.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/design/app_assets.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
@@ -31,7 +32,8 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     required Widget icon,
     required void Function() onTap,
   }) {
-    return InkWell(
+    return AppPressable(
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
         height: 81,

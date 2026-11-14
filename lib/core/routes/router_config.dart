@@ -37,6 +37,7 @@ class _ApplicationRoutes {
   final String materials = '/materials';
   final String pointsOfSale = '/points_of_sale';
   final String blockedAccount = '/blocked_account';
+  final String studentDesktopUnavailable = '/student_desktop_unavailable';
   final String teachers = '/teachers';
   final String pointOfSaleDetails = '/point_of_sale_details';
   final String teacherDetails = '/teacher_details';

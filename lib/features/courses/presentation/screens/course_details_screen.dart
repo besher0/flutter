@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/helper/content_links.dart';
 import 'package:coursaty_student_and_teacher/features/study_progress/presentation/widgets/studied_toggle.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/course_link_tile.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/social_links.dart';
@@ -52,7 +53,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
   late final TabController _tabController = TabController(
     length: 2,
     vsync: this,
-    initialIndex: 1
+    initialIndex: 1,
   );
 
   void _fetchActiveCourses() {
@@ -97,9 +98,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
         appBar: TitleAppBar(
           title: 'تفاصيل الكورس',
           onShareTap: () {
-            Share.share(
-              'https://coursay.duckdns.org/course?cid=${widget.courseId}',
-            );
+            Share.share(ContentLinks.course(widget.courseId));
           },
         ),
         body: SafeArea(
@@ -244,7 +243,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen>
                 ),
                 tabs: const [
                   Tab(text: 'تفاصيل'),
-                  Tab(text: 'المحاضرات'),
+                  Tab(text: 'الدروس'),
                 ],
               ),
               BlocBuilder<CoursesBloc, CoursesState>(
@@ -482,7 +481,7 @@ class _DetailsTab extends StatelessWidget {
                 iconColor: Theme.of(context).colorScheme.primary,
               ),
             ChipWidget(
-              text: '${details.lecturesCount ?? 0} محاضرة',
+              text: '${details.lecturesCount ?? 0} درس',
               iconPath: AppAssets.iconBook,
               iconColor: AppColors.secondary,
             ),
@@ -623,16 +622,18 @@ class _LecturesTab extends StatelessWidget {
       crossAxisSpacing: 15.w,
       padding: const EdgeInsets.all(16),
       children: List.generate(lectures.length, (index) {
-        return InkWell(
+        return AppPressable(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
             context.push(
-              "${GRouter.config.applicationRoutes.lectureDetails}/${lectures[index].id}/${lectures[index].title}/$courseId/$isFree",
+              "${GRouter.config.applicationRoutes.lectureDetails}/${lectures[index].id}/${Uri.encodeComponent(lectures[index].title ?? '')}/$courseId/$isFree",
             );
           },
           child: LectureItem(
             index: index,
             lectureName: lectures[index].title!,
+            videosCount: lectures[index].videosCount,
+            videosDurationSeconds: lectures[index].videosDurationSeconds,
             trailing: LectureStudiedBadge(lectureId: lectures[index].id!),
           ),
         );

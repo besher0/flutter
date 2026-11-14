@@ -307,6 +307,10 @@ class Lecture {
   final String? description;
   final String? imageUrl;
   final int? videosCount;
+
+  /// Total length of the lesson's videos, in seconds (null from an older
+  /// server or a download saved before it sent this).
+  final int? videosDurationSeconds;
   final int? filesCount;
   final int? questionsCount;
   final int? sortOrder;
@@ -317,6 +321,7 @@ class Lecture {
     this.description,
     this.imageUrl,
     this.videosCount,
+    this.videosDurationSeconds,
     this.filesCount,
     this.questionsCount,
     this.sortOrder,
@@ -328,6 +333,7 @@ class Lecture {
     String? description,
     String? imageUrl,
     int? videosCount,
+    int? videosDurationSeconds,
     int? filesCount,
     int? questionsCount,
     int? sortOrder,
@@ -337,6 +343,7 @@ class Lecture {
     description: description ?? this.description,
     imageUrl: imageUrl ?? this.imageUrl,
     videosCount: videosCount ?? this.videosCount,
+    videosDurationSeconds: videosDurationSeconds ?? this.videosDurationSeconds,
     filesCount: filesCount ?? this.filesCount,
     questionsCount: questionsCount ?? this.questionsCount,
     sortOrder: sortOrder ?? this.sortOrder,
@@ -348,6 +355,7 @@ class Lecture {
     description: json["description"],
     imageUrl: json["imageUrl"],
     videosCount: json["videosCount"],
+    videosDurationSeconds: (json["videosDurationSeconds"] as num?)?.toInt(),
     filesCount: json["filesCount"],
     questionsCount: json["questionsCount"],
     sortOrder: json["sortOrder"],
@@ -359,6 +367,7 @@ class Lecture {
     "description": description,
     "imageUrl": imageUrl,
     "videosCount": videosCount,
+    "videosDurationSeconds": videosDurationSeconds,
     "filesCount": filesCount,
     "questionsCount": questionsCount,
     "sortOrder": sortOrder,

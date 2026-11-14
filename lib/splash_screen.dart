@@ -64,7 +64,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _navigateToOnboarding() {
     if (!mounted) return;
-    final onboardingSeen = prefs.onBoardingSeen ?? false;
+    // The onboarding offers sign-up and guest browsing, which desktop does
+    // not: straight to the login page there.
+    final onboardingSeen =
+        AppPlatform.isDesktop || (prefs.onBoardingSeen ?? false);
     context.go(
       onboardingSeen
           ? GRouter.config.applicationRoutes.login
@@ -169,6 +172,19 @@ class _SplashScreenState extends State<SplashScreen> {
     final token = prefs.token;
     final isGuest = prefs.isGuest;
     final isStudent = prefs.isStudent ?? true;
+    // Windows is for teachers for now: no guests, and a student account
+    // only sees that the student version is not available yet.
+    if (AppPlatform.isDesktop) {
+      if (token != null && isStudent) {
+        context.go(GRouter.config.applicationRoutes.studentDesktopUnavailable);
+        return;
+      }
+      if (token == null && isGuest) {
+        prefs.setIsGuest(false);
+        Timer(_duration, _navigateToOnboarding);
+        return;
+      }
+    }
     if (token == null) {
       if (isGuest) {
         _navigateToHome();

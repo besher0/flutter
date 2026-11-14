@@ -116,7 +116,7 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
         backgroundColor: Theme.of(context).colorScheme.surface,
 
         appBar: TitleAppBar(
-          title: widget.isEditMode ? 'تعديل المحاضرة' : 'إضافة محاضرة',
+          title: widget.isEditMode ? 'تعديل الدرس' : 'إضافة درس',
           onBackTap: () {
             context.pop();
           },
@@ -134,8 +134,8 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
                     const SizedBox(height: 20),
 
                     CoursatyTextField(
-                      label: 'عنوان المحاضرة',
-                      hint: 'عنوان المحاضرة',
+                      label: 'عنوان الدرس',
+                      hint: 'عنوان الدرس',
                       controller: _titleController,
                       textInputAction: TextInputAction.next,
                       validator: _requiredValidator,
@@ -144,8 +144,8 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
                     const SizedBox(height: 18),
 
                     CoursatyTextField(
-                      label: 'وصف المحاضرة (اختياري)',
-                      hint: 'وصف المحاضرة (اختياري)',
+                      label: 'وصف الدرس (اختياري)',
+                      hint: 'وصف الدرس (اختياري)',
                       controller: _descriptionController,
                       textInputAction: TextInputAction.newline,
                       minLines: 4,
@@ -154,8 +154,8 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
                     const SizedBox(height: 18),
 
                     CoursatyTextField(
-                      label: 'ترتيب المحاضرة (اختياري)',
-                      hint: 'ترتيب المحاضرة (اختياري)',
+                      label: 'ترتيب الدرس (اختياري)',
+                      hint: 'ترتيب الدرس (اختياري)',
                       controller: _sortOrderController,
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.done,
@@ -180,8 +180,8 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
                           AppHaptics.success();
                           showMessage(
                             widget.isEditMode
-                                ? 'تم تعديل المحاضرة بنجاح'
-                                : 'تمت إضافة المحاضرة بنجاح',
+                                ? 'تم تعديل الدرس بنجاح'
+                                : 'تمت إضافة الدرس بنجاح',
                           );
                           context.pop();
                           BlocProvider.of<CoursesBloc>(context).add(
@@ -196,7 +196,7 @@ class _AddOrUpdateLectureScreenState extends State<AddOrUpdateLectureScreen> {
                           isLoading: state.upsertCourse.isLoading,
                           label: widget.isEditMode
                               ? 'حفظ التعديلات'
-                              : 'إضافة المحاضرة',
+                              : 'إضافة الدرس',
                           onPressed: _submit,
                         );
                       },

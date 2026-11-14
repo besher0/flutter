@@ -29,41 +29,39 @@ void navigateFromUri(Uri uri) {
     final free = uri.queryParameters['fc'] != null;
     if (id != null && name != null && cid != null) {
       final route =
-          '${GRouter.config.applicationRoutes.lectureDetails}/$id/$name/$cid/$free';
+          '${GRouter.config.applicationRoutes.lectureDetails}/$id/${Uri.encodeComponent(name)}/$cid/$free';
       GRouter.router.push(route);
     }
   }
 }
 
+/// A link opened inside the teacher app (its notifications): only a course
+/// or a lesson page, in their teacher versions. Other links (a teacher's
+/// profile…) are student pages and do nothing here.
 void navigateFromUriForTeacher(Uri uri) {
-  if (uri.pathSegments.isNotEmpty && uri.pathSegments.first == 'teacher') {
-    final id = uri.queryParameters['tid'];
-    final name = uri.queryParameters['name'];
-    if (id != null && name != null) {
-      final route =
-          '${GRouter.config.applicationRoutes.teacherDetails}/$id/$name';
-      GRouter.router.push(route);
-    }
-  }
+  final page = uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
 
-  if (uri.pathSegments.isNotEmpty && uri.pathSegments.first == 'course') {
+  if (page == 'course') {
     final id = uri.queryParameters['cid'];
-    if (id != null) {
-      final route =
-          '${GRouter.config.applicationRoutes.teacherCourseDetails}/$id';
-      GRouter.router.push(route);
+    if (id != null && id.isNotEmpty) {
+      GRouter.router.push(
+        '${GRouter.config.applicationRoutes.teacherCourseDetails}/$id',
+      );
     }
+    return;
   }
 
-  if (uri.pathSegments.isNotEmpty && uri.pathSegments.first == 'lecture') {
+  if (page == 'lecture') {
     final id = uri.queryParameters['lid'];
     final name = uri.queryParameters['name'];
     final cid = uri.queryParameters['cid'];
-    final free = uri.queryParameters['fc'] != null;
     if (id != null && name != null && cid != null) {
-      final route =
-          '${GRouter.config.applicationRoutes.lectureDetailsForTeacher}/$id/$name/$cid/$free';
-      GRouter.router.push(route);
+      // The teacher's lesson route has no "free" segment, and the name is a
+      // path segment: encoded, so a «/» in it cannot break the route.
+      GRouter.router.push(
+        '${GRouter.config.applicationRoutes.lectureDetailsForTeacher}'
+        '/$id/${Uri.encodeComponent(name)}/$cid',
+      );
     }
   }
 }

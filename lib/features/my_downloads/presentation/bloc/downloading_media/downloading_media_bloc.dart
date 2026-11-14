@@ -255,7 +255,7 @@ class DownloadingMediaBloc
         '[Downloads] blocked download without matching metadata '
         'courseId=${event.courseId} lectureId=${event.lectureId}',
       );
-      showMessage('انتظر حتى تكتمل بيانات المحاضرة ثم أعد المحاولة');
+      showMessage('انتظر حتى تكتمل بيانات الدرس ثم أعد المحاولة');
       return;
     }
     final url = event.fileUrl;

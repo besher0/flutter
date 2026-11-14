@@ -171,17 +171,14 @@ class CoursesRemoteDataSource {
         : (mp4.isNotEmpty
               ? mp4
               : resolutionModelFromJson(
-                  (data['availableResolutions'] as List?)
-                          ?.cast<dynamic>() ??
+                  (data['availableResolutions'] as List?)?.cast<dynamic>() ??
                       const [],
                 ));
 
     return resolutions
         .map(
           (resolution) => resolution.sizeBytes == null
-              ? resolution.copyWith(
-                  sizeBytes: mp4Sizes[resolution.resolution],
-                )
+              ? resolution.copyWith(sizeBytes: mp4Sizes[resolution.resolution])
               : resolution,
         )
         .toList();

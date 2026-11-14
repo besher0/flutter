@@ -27,10 +27,13 @@ class NotificationTile extends StatelessWidget {
       onTap: item.link == null
           ? null
           : () {
+              // A malformed link must not throw from the tap.
+              final uri = Uri.tryParse(item.link!.trim());
+              if (uri == null) return;
               if (fromTeacher) {
-                navigateFromUriForTeacher(Uri.parse(item.link!));
+                navigateFromUriForTeacher(uri);
               } else {
-                navigateFromUri(Uri.parse(item.link!));
+                navigateFromUri(uri);
               }
             },
       child: Padding(

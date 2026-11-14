@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coursaty_student_and_teacher/features/teachers/presentation/bloc/teachers_bloc.dart';
 import 'package:flutter/material.dart';
@@ -30,8 +31,9 @@ class TeacherCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return AppPressable(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(

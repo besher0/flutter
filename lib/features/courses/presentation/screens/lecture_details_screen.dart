@@ -1,3 +1,5 @@
+import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
+import 'package:coursaty_student_and_teacher/core/common/helper/content_links.dart';
 import 'dart:math';
 import 'package:coursaty_student_and_teacher/features/study_progress/presentation/widgets/studied_toggle.dart';
 import 'package:coursaty_student_and_teacher/features/study_progress/data/study_progress_store.dart';
@@ -61,7 +63,11 @@ class LectureDetailsScreen extends StatefulWidget {
 
 class _LectureDetailsScreenState extends State<LectureDetailsScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this , initialIndex: 1);
+  late final TabController _tabs = TabController(
+    length: 3,
+    vsync: this,
+    initialIndex: 1,
+  );
   ScreenCaptureLease? _captureLease;
 
   void _fetchData() {
@@ -101,10 +107,15 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: TitleAppBar(
-          title: "تفاصيل المحاضرة",
+          title: "تفاصيل الدرس",
           onShareTap: () {
             Share.share(
-              'https://coursay.duckdns.org/lecture?lid=${widget.lectureId}&name=${Uri.encodeComponent(widget.lectureName)}&cid=${widget.courseId}${widget.isCourseFree ? "&fc=_de24s2l" : ''}',
+              ContentLinks.lecture(
+                lectureId: widget.lectureId,
+                lectureName: widget.lectureName,
+                courseId: widget.courseId,
+                isCourseFree: widget.isCourseFree,
+              ),
             );
           },
         ),
@@ -188,7 +199,7 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
                                         Row(
                                           children: [
                                             Text(
-                                              'عن المحاضرة',
+                                              'عن الدرس',
                                               style: GoogleFonts.cairo(
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.w700,
@@ -694,6 +705,7 @@ class _VideosTab extends StatelessWidget {
                               isExist: videoExist,
                               fileUrl: url,
                               isVideo: true,
+                              durationSeconds: shownVideos[i].durationSeconds,
                               // size: videoExist ? null : shownVideos[i].videoSize,
                               onTap: () {
                                 if (isLocked) {
@@ -1001,38 +1013,41 @@ class _McqTab extends StatelessWidget {
                 },
               ),
               15.verticalSpace,
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                ),
-                onPressed: () {
-                  if (GetIt.I<PrefsRepository>().isGuest) {
-                    showGuestContentDialog(context);
-                    return;
-                  }
-                  if (!isCourseFree &&
-                      !context.read<HomeBloc>().state.activeCourses.any(
-                        (item) => item.id == courseId,
-                      )) {
-                    showSubscribeToCourseDialog(context, courseId: courseId);
-                    return;
-                  }
-                  context.pushPage(
-                    McqQuestionsScreen(
-                      questions: questions,
-                      courseId: courseId,
+              AppPressScale(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                },
-                child: Text(
-                  'بدء الأتمتة',
-                  style: GoogleFonts.cairo(
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                  onPressed: () {
+                    AppHaptics.lightTap();
+                    if (GetIt.I<PrefsRepository>().isGuest) {
+                      showGuestContentDialog(context);
+                      return;
+                    }
+                    if (!isCourseFree &&
+                        !context.read<HomeBloc>().state.activeCourses.any(
+                          (item) => item.id == courseId,
+                        )) {
+                      showSubscribeToCourseDialog(context, courseId: courseId);
+                      return;
+                    }
+                    context.pushPage(
+                      McqQuestionsScreen(
+                        questions: questions,
+                        courseId: courseId,
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'بدء الأتمتة',
+                    style: GoogleFonts.cairo(
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),

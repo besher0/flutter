@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/app/widgets/tint_chip.dart';
 import 'package:coursaty_student_and_teacher/services/haptics/app_haptics.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 import 'package:coursaty_student_and_teacher/app/widgets/delete_from_download_dialo.dart';
@@ -28,7 +29,11 @@ class ContentItem extends StatelessWidget {
     this.fileUrl,
     this.isExist = false,
     required this.isVideo,
+    this.durationSeconds,
   });
+
+  /// A video's length, shown under its title in the lessons' chip style.
+  final int? durationSeconds;
 
   final Color? itemColor;
   final String? iconPath;
@@ -125,6 +130,8 @@ class ContentItem extends StatelessWidget {
                               Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
+                      if (isVideo)
+                        StudyStatsChips(durationSeconds: durationSeconds),
                       if (isVideo && isExist && quality != null) ...[
                         5.verticalSpace,
                         Text(

@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/helper/content_links.dart';
 import 'dart:developer';
 
 import 'package:coursaty_student_and_teacher/app/widgets/coursaty_button.dart';
@@ -69,12 +70,31 @@ class _TeacherLectureDetailsPageState extends State<TeacherLectureDetailsPage>
     super.dispose();
   }
 
+  /// Free courses open for guests from the copied link (the `fc` flag); known
+  /// from the teacher's course page this lesson was opened from.
+  bool get _isCourseFree {
+    final course = BlocProvider.of<CoursesBloc>(
+      context,
+    ).state.teacherCourseDetailsResponseModel?.course;
+    return course?.id == widget.courseId && (course?.isFree ?? false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: TitleAppBar(title: widget.lectureName),
+        appBar: TitleAppBar(
+          title: widget.lectureName,
+          onCopyLinkTap: () => ContentLinks.copy(
+            ContentLinks.lecture(
+              lectureId: widget.lectureId,
+              lectureName: widget.lectureName,
+              courseId: widget.courseId,
+              isCourseFree: _isCourseFree,
+            ),
+          ),
+        ),
         body: SafeArea(
           child: Column(
             children: [
@@ -317,6 +337,7 @@ class _VideosTab extends StatelessWidget {
             itemBuilder: (_, i) {
               return ContentItem(
                 isVideo: true,
+                durationSeconds: videos[i].durationSeconds,
                 actions: [],
                 onEdit: () {
                   showVideoQualityDialog(

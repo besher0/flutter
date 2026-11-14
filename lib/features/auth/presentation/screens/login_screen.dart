@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/platform/app_platform.dart';
 import 'dart:async';
 
 import 'package:coursaty_student_and_teacher/core/common/helper/show_message.dart';
@@ -219,106 +220,111 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'ليس لديك حساب؟',
-                        style: GoogleFonts.cairo(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: _goToSignUpStudent,
-                        onTapDown: (_) {
-                          initTimer();
-                        },
-                        onTapUp: (_) {
-                          _timer?.cancel();
-                        },
-                        child: Text(
-                          'إنشاء حساب جديد',
+                  // Desktop: login only (no sign-up, no guest browsing).
+                  if (!AppPlatform.isDesktop) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'ليس لديك حساب؟',
                           style: GoogleFonts.cairo(
                             fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Theme.of(context).colorScheme.primary,
-                            decoration: TextDecoration.underline,
-                            decorationColor: Theme.of(
-                              context,
-                            ).colorScheme.primary,
+                            fontWeight: FontWeight.w400,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  BlocConsumer<AuthBloc, AuthState>(
-                    buildWhen: (p, c) =>
-                        p.getOrCreateGuest != c.getOrCreateGuest,
-                    listenWhen: (p, c) =>
-                        p.getOrCreateGuest != c.getOrCreateGuest,
-                    listener: (context, state) {
-                      if (state.getOrCreateGuest.isSuccess) {
-                        _guestSuccess();
-                      } else if (state.getOrCreateGuest.isFailed &&
-                          state.isNotFoundGuestError) {
-                        context.pushPage(CreateGuestScreen());
-                      } else if (state.getOrCreateGuest.isFailed) {
-                        // Other failures were silent: tapping did nothing.
-                        showMessage(state.errorMessage);
-                      }
-                    },
-                    builder: (context, state) {
-                      final loading = state.getOrCreateGuest.isLoading;
-                      return InkWell(
-                        onTap: loading
-                            ? null
-                            : () {
-                                BlocProvider.of<AuthBloc>(
-                                  context,
-                                ).add(GetGuestEvent());
-                              },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          spacing: 10,
-                          children: [
-                            Text(
-                              'أكمل التصفّح كزائر',
-                              style: GoogleFonts.cairo(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: context.colorScheme.primary,
-                              ),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: _goToSignUpStudent,
+                          onTapDown: (_) {
+                            initTimer();
+                          },
+                          onTapUp: (_) {
+                            _timer?.cancel();
+                          },
+                          child: Text(
+                            'إنشاء حساب جديد',
+                            style: GoogleFonts.cairo(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.primary,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
                             ),
-                            Container(
-                              padding: HWEdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    BlocConsumer<AuthBloc, AuthState>(
+                      buildWhen: (p, c) =>
+                          p.getOrCreateGuest != c.getOrCreateGuest,
+                      listenWhen: (p, c) =>
+                          p.getOrCreateGuest != c.getOrCreateGuest,
+                      listener: (context, state) {
+                        if (state.getOrCreateGuest.isSuccess) {
+                          _guestSuccess();
+                        } else if (state.getOrCreateGuest.isFailed &&
+                            state.isNotFoundGuestError) {
+                          context.pushPage(CreateGuestScreen());
+                        } else if (state.getOrCreateGuest.isFailed) {
+                          // Other failures were silent: tapping did nothing.
+                          showMessage(state.errorMessage);
+                        }
+                      },
+                      builder: (context, state) {
+                        final loading = state.getOrCreateGuest.isLoading;
+                        return InkWell(
+                          onTap: loading
+                              ? null
+                              : () {
+                                  BlocProvider.of<AuthBloc>(
+                                    context,
+                                  ).add(GetGuestEvent());
+                                },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            spacing: 10,
+                            children: [
+                              Text(
+                                'أكمل التصفّح كزائر',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: context.colorScheme.primary,
                                 ),
                               ),
-                              child: Center(
-                                child: loading
-                                    ? const InlineLoader(size: 12)
-                                    : Icon(
-                                        Icons.arrow_forward_ios,
-                                        size: 12,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
+                              Container(
+                                padding: HWEdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: loading
+                                      ? const InlineLoader(size: 12)
+                                      : Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 12,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 40),
                 ],
               ),

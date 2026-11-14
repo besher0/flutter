@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 import 'package:coursaty_student_and_teacher/core/common/helper/helper_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -24,7 +25,8 @@ class _CustomerServiceScreenState extends State<CustomerServiceScreen> {
     required String title,
     required String number,
   }) {
-    return InkWell(
+    return AppPressable(
+      borderRadius: BorderRadius.circular(12),
       onTap: () {
         HelperFunctions.openCallApp(number);
       },

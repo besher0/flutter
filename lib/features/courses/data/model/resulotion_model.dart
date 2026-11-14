@@ -32,7 +32,8 @@ class ResolutionModel {
       return ResolutionModel(resolution: json);
     }
     final map = json as Map<String, dynamic>;
-    final rawSize = map['sizeBytes'] ??
+    final rawSize =
+        map['sizeBytes'] ??
         map['fileSizeBytes'] ??
         map['fileSize'] ??
         map['size'] ??

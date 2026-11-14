@@ -1,3 +1,4 @@
+import '../../student_desktop_unavailable_page.dart';
 import 'package:coursaty_student_and_teacher/application_run_in_simulator_page.dart';
 import 'package:coursaty_student_and_teacher/core/routes/router_config.dart';
 import 'package:coursaty_student_and_teacher/core/storage/prefs_repository.dart';
@@ -139,6 +140,13 @@ class GRouter {
         path: _config.applicationRoutes.blockedAccount,
         pageBuilder: (context, state) =>
             _builderPage(child: const BlockedAccountPage(), state: state),
+      ),
+      GoRoute(
+        path: _config.applicationRoutes.studentDesktopUnavailable,
+        pageBuilder: (context, state) => _builderPage(
+          child: const StudentDesktopUnavailablePage(),
+          state: state,
+        ),
       ),
 
       /// Main

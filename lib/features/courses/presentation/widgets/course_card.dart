@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/app/widgets/interaction/app_pressable.dart';
 import 'package:coursaty_student_and_teacher/core/platform/app_layout.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -28,9 +29,8 @@ class CourseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return AppPressable(
       borderRadius: BorderRadius.circular(10),
-
       onTap: onTap,
       child: Container(
         width: AppLayout.courseCardWidth,

@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/core/common/helper/content_links.dart';
 import 'package:coursaty_student_and_teacher/features/courses/presentation/widgets/course_link_tile.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/social_links.dart';
 import 'package:coursaty_student_and_teacher/core/common/constant/configuration/paid_content_policy.dart';
@@ -46,7 +47,7 @@ class _DownloadedCourseDetailsState extends State<DownloadedCourseDetails>
   late final TabController _tabController = TabController(
     length: 2,
     vsync: this,
-      initialIndex: 1
+    initialIndex: 1,
   );
   ScreenCaptureLease? _captureLease;
 
@@ -75,9 +76,7 @@ class _DownloadedCourseDetailsState extends State<DownloadedCourseDetails>
           icon: Icon(Icons.delete, color: context.colorScheme.error),
         ),
         onShareTap: () {
-          Share.share(
-            'https://coursay.duckdns.org/course?cid=${widget.course.course!.id}',
-          );
+          Share.share(ContentLinks.course(widget.course.course!.id!));
         },
       ),
       body: SafeArea(
@@ -180,7 +179,7 @@ class _DownloadedCourseDetailsState extends State<DownloadedCourseDetails>
               ),
               tabs: const [
                 Tab(text: 'تفاصيل'),
-                Tab(text: 'المحاضرات'),
+                Tab(text: 'الدروس'),
               ],
             ),
             Expanded(
@@ -300,7 +299,7 @@ class _DetailsTab extends StatelessWidget {
                 iconColor: Theme.of(context).colorScheme.primary,
               ),
             ChipWidget(
-              text: '${details.lecturesCount ?? 0} محاضرة',
+              text: '${details.lecturesCount ?? 0} درس',
               iconPath: AppAssets.iconBook,
               iconColor: AppColors.secondary,
             ),
@@ -423,7 +422,7 @@ class _LecturesTab extends StatelessWidget {
       crossAxisSpacing: 15.w,
       padding: const EdgeInsets.all(16),
       children: List.generate(lectures.length, (index) {
-        return InkWell(
+        return AppPressable(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
             final lectureDetails = context
@@ -431,7 +430,7 @@ class _LecturesTab extends StatelessWidget {
                 .state
                 .lectureIdToLectureDetailsReferences[lectures[index].id!];
             if (lectureDetails == null) {
-              showMessage("لم تقم بتحميل هذه المحاضرة");
+              showMessage("لم تقم بتحميل هذا الدرس");
               return;
             }
             context.push(
@@ -442,6 +441,8 @@ class _LecturesTab extends StatelessWidget {
           child: LectureItem(
             index: index,
             lectureName: lectures[index].title!,
+            videosCount: lectures[index].videosCount,
+            videosDurationSeconds: lectures[index].videosDurationSeconds,
             trailing: LectureStudiedBadge(lectureId: lectures[index].id!),
           ),
         );

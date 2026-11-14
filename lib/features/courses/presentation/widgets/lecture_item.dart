@@ -1,3 +1,4 @@
+import 'package:coursaty_student_and_teacher/app/widgets/tint_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,7 +14,13 @@ class LectureItem extends StatelessWidget {
     required this.lectureName,
     required this.index,
     this.trailing,
+    this.videosCount,
+    this.videosDurationSeconds,
   });
+
+  /// Shown under the name as «4 فيديو» and the total length («1 ساعة و30 د»).
+  final int? videosCount;
+  final int? videosDurationSeconds;
 
   final Function()? onEdit, onDelete;
 
@@ -69,12 +76,31 @@ class LectureItem extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              lectureName,
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // The card has a fixed height (lesson grid): the name takes
+                  // what the chips leave, up to two lines, never overflowing.
+                  Flexible(
+                    child: Text(
+                      lectureName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.cairo(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  StudyStatsChips(
+                    videosCount: videosCount,
+                    durationSeconds: videosDurationSeconds,
+                  ),
+                ],
               ),
             ),
           ),
