@@ -317,10 +317,6 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
                     children: [
                       _FilesTab(
                         courseId: widget.courseId,
-                        refresh: () {
-                          _fetchData();
-                          _fetchActiveCourses();
-                        },
                         courseDetailsModel: state.courseDetailsModel,
                         lectureDetailsModel: state.lectureDetailsModel,
                         files: files,
@@ -328,10 +324,6 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
                       ),
                       _VideosTab(
                         courseId: widget.courseId,
-                        refresh: () {
-                          _fetchData();
-                          _fetchActiveCourses();
-                        },
                         videos: videos,
                         isCourseFree: widget.isCourseFree,
                         courseDetailsModel: state.courseDetailsModel,
@@ -339,10 +331,6 @@ class _LectureDetailsScreenState extends State<LectureDetailsScreen>
                       ),
                       _McqTab(
                         courseId: widget.courseId,
-                        refresh: () {
-                          _fetchData();
-                          _fetchActiveCourses();
-                        },
                         isCourseFree: widget.isCourseFree,
                         courseDetailsModel: state.courseDetailsModel,
                         lectureDetailsModel: state.lectureDetailsModel,
@@ -365,7 +353,6 @@ class _FilesTab extends StatelessWidget {
     required this.files,
     required this.courseId,
     required this.isCourseFree,
-    required this.refresh,
     this.courseDetailsModel,
     this.lectureDetailsModel,
   });
@@ -373,7 +360,6 @@ class _FilesTab extends StatelessWidget {
   final List<FileElement> files;
   final String courseId;
   final bool isCourseFree;
-  final void Function() refresh;
   final CourseDetailsModel? courseDetailsModel;
   final LectureDetailsModel? lectureDetailsModel;
 
@@ -424,176 +410,168 @@ class _FilesTab extends StatelessWidget {
                 // shape until they are known.
                 return state.getActiveCourses.isLoading
                     ? ContentListSkeleton(count: min(shownFiles.length, 6))
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          refresh();
-                        },
-                        child: ListView.separated(
-                          physics: NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(16),
-                          itemCount: shownFiles.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (_, i) {
-                            final url = shownFiles[i].fileUrl;
-                            final prefs = GetIt.I<PrefsRepository>();
-                            final isGuest =
-                                prefs.isGuest || prefs.token == null;
-                            final isLocked = isLectureFileLocked(
-                              file: shownFiles[i],
-                              courseId: courseId,
-                              isCourseFree: isCourseFree,
-                              isGuest: isGuest,
-                              activeCourseIds: state.activeCourses
-                                  .map((item) => item.id)
-                                  .whereType<String>(),
-                            );
-                            final filePath =
-                                myDownloadState.urlToFileReferences[url];
-                            final bool fileExist =
-                                !isLocked &&
-                                filePath != null &&
-                                (filePath.startsWith('secure-hls://') ||
-                                    File(filePath).existsSync());
-                            return ContentItem(
-                              itemColor: isLocked ? AppColors.greyDark : null,
-                              isExist: fileExist,
-                              fileUrl: url,
-                              isVideo: false,
-                              onTap: () {
-                                if (isLocked) {
-                                  showSubscribeToCourseDialog(
-                                    context,
+                    : ListView.separated(
+                        physics: NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: shownFiles.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (_, i) {
+                          final url = shownFiles[i].fileUrl;
+                          final prefs = GetIt.I<PrefsRepository>();
+                          final isGuest = prefs.isGuest || prefs.token == null;
+                          final isLocked = isLectureFileLocked(
+                            file: shownFiles[i],
+                            courseId: courseId,
+                            isCourseFree: isCourseFree,
+                            isGuest: isGuest,
+                            activeCourseIds: state.activeCourses
+                                .map((item) => item.id)
+                                .whereType<String>(),
+                          );
+                          final filePath =
+                              myDownloadState.urlToFileReferences[url];
+                          final bool fileExist =
+                              !isLocked &&
+                              filePath != null &&
+                              (filePath.startsWith('secure-hls://') ||
+                                  File(filePath).existsSync());
+                          return ContentItem(
+                            itemColor: isLocked ? AppColors.greyDark : null,
+                            isExist: fileExist,
+                            fileUrl: url,
+                            isVideo: false,
+                            onTap: () {
+                              if (isLocked) {
+                                showSubscribeToCourseDialog(
+                                  context,
+                                  courseId: courseId,
+                                );
+                                return;
+                              }
+                              if (fileExist) {
+                                context.pushPage(
+                                  LectureViewer(
+                                    lecture: shownFiles[i],
+                                    filePath: filePath,
+                                  ),
+                                );
+                              } else if (canOpenLectureFileAsGuest(
+                                file: shownFiles[i],
+                                isCourseFree: isCourseFree,
+                                isGuest: isGuest,
+                              )) {
+                                context.pushPage(
+                                  LectureViewer(
+                                    lecture: shownFiles[i],
+                                    filePath: url!,
+                                    fromNetwork: true,
+                                  ),
+                                );
+                              } else {
+                                BlocProvider.of<DownloadingMediaBloc>(
+                                  context,
+                                ).add(
+                                  DownloadFileEvent(
+                                    fileUrl: url!,
+                                    fileType: 'file',
+                                    downloadUrl: url,
+                                    fileName: shownFiles[i].fileName,
                                     courseId: courseId,
-                                  );
-                                  return;
-                                }
-                                if (fileExist) {
-                                  context.pushPage(
-                                    LectureViewer(
-                                      lecture: shownFiles[i],
-                                      filePath: filePath,
-                                    ),
-                                  );
-                                } else if (canOpenLectureFileAsGuest(
-                                  file: shownFiles[i],
-                                  isCourseFree: isCourseFree,
-                                  isGuest: isGuest,
-                                )) {
-                                  context.pushPage(
-                                    LectureViewer(
-                                      lecture: shownFiles[i],
-                                      filePath: url!,
-                                      fromNetwork: true,
-                                    ),
-                                  );
-                                } else {
-                                  BlocProvider.of<DownloadingMediaBloc>(
-                                    context,
-                                  ).add(
-                                    DownloadFileEvent(
-                                      fileUrl: url!,
-                                      fileType: 'file',
-                                      downloadUrl: url,
-                                      fileName: shownFiles[i].fileName,
-                                      courseId: courseId,
-                                      lectureId:
-                                          lectureDetailsModel?.lecture?.id,
-                                      courseDetailsModel: courseDetailsModel,
-                                      lectureDetailsModel: lectureDetailsModel,
-                                    ),
-                                  );
-                                }
+                                    lectureId: lectureDetailsModel?.lecture?.id,
+                                    courseDetailsModel: courseDetailsModel,
+                                    lectureDetailsModel: lectureDetailsModel,
+                                  ),
+                                );
+                              }
+                            },
+                            size: fileExist ? null : shownFiles[i].size,
+                            actions: [
+                              if (fileExist) ...{
+                                SvgPicture.asset(
+                                  AppAssets.iconDocument,
+                                  color: i % 2 == 0
+                                      ? Theme.of(context).colorScheme.primary
+                                      : AppColors.secondary,
+                                  height: 25,
+                                ),
                               },
-                              size: fileExist ? null : shownFiles[i].size,
-                              actions: [
-                                if (fileExist) ...{
-                                  SvgPicture.asset(
-                                    AppAssets.iconDocument,
-                                    color: i % 2 == 0
-                                        ? Theme.of(context).colorScheme.primary
-                                        : AppColors.secondary,
-                                    height: 25,
-                                  ),
-                                },
-                                if (isLocked) ...{
-                                  SvgPicture.asset(
-                                    AppAssets.iconLock,
-                                    color: isLocked
-                                        ? AppColors.greyDark
-                                        : i % 2 == 0
-                                        ? Theme.of(context).colorScheme.primary
-                                        : AppColors.secondary,
-                                    height: 25,
-                                  ),
-                                },
-                                if (!fileExist && !isGuest) ...{
-                                  downloadState.downloadingStatus[url] == true
-                                      ? Row(
-                                          spacing: 5,
-                                          children: [
-                                            SizedBox(
-                                              height: 30.r,
-                                              width: 30.r,
-                                              child: FittedBox(
-                                                child: ProgressIndicatorWidget(
-                                                  percent: downloadState
-                                                      .downloadingProcesses[url],
-                                                  backGroundColor:
-                                                      AppColors.greyNormal,
-                                                  textColor: Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary,
-                                                ),
-                                              ),
-                                            ),
-                                            IconButton(
-                                              onPressed: () {
-                                                if (isLocked) {
-                                                  showSubscribeToCourseDialog(
-                                                    context,
-                                                    courseId: courseId,
-                                                  );
-                                                  return;
-                                                }
-                                                BlocProvider.of<
-                                                      DownloadingMediaBloc
-                                                    >(context)
-                                                    .add(
-                                                      CancelDownloadEvent(
-                                                        fileUrl: url!,
-                                                        fileType: 'file',
-                                                        fileName: shownFiles[i]
-                                                            .fileName,
-                                                      ),
-                                                    );
-                                              },
-                                              icon: Icon(
-                                                Icons.cancel_outlined,
-                                                color:
-                                                    context.colorScheme.primary,
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : SvgPicture.asset(
-                                          AppAssets.iconDownload2,
-                                          color: isLocked
-                                              ? AppColors.greyDark
-                                              : i % 2 == 0
-                                              ? Theme.of(
+                              if (isLocked) ...{
+                                SvgPicture.asset(
+                                  AppAssets.iconLock,
+                                  color: isLocked
+                                      ? AppColors.greyDark
+                                      : i % 2 == 0
+                                      ? Theme.of(context).colorScheme.primary
+                                      : AppColors.secondary,
+                                  height: 25,
+                                ),
+                              },
+                              if (!fileExist && !isGuest) ...{
+                                downloadState.downloadingStatus[url] == true
+                                    ? Row(
+                                        spacing: 5,
+                                        children: [
+                                          SizedBox(
+                                            height: 30.r,
+                                            width: 30.r,
+                                            child: FittedBox(
+                                              child: ProgressIndicatorWidget(
+                                                percent: downloadState
+                                                    .downloadingProcesses[url],
+                                                backGroundColor:
+                                                    AppColors.greyNormal,
+                                                textColor: Theme.of(
                                                   context,
-                                                ).colorScheme.primary
-                                              : AppColors.secondary,
-                                          height: 25,
-                                        ),
-                                },
-                              ],
-                              title: shownFiles[i].fileName ?? '',
-                              index: i,
-                            );
-                          },
-                        ),
+                                                ).colorScheme.primary,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            onPressed: () {
+                                              if (isLocked) {
+                                                showSubscribeToCourseDialog(
+                                                  context,
+                                                  courseId: courseId,
+                                                );
+                                                return;
+                                              }
+                                              BlocProvider.of<
+                                                    DownloadingMediaBloc
+                                                  >(context)
+                                                  .add(
+                                                    CancelDownloadEvent(
+                                                      fileUrl: url!,
+                                                      fileType: 'file',
+                                                      fileName: shownFiles[i]
+                                                          .fileName,
+                                                    ),
+                                                  );
+                                            },
+                                            icon: Icon(
+                                              Icons.cancel_outlined,
+                                              color:
+                                                  context.colorScheme.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : SvgPicture.asset(
+                                        AppAssets.iconDownload2,
+                                        color: isLocked
+                                            ? AppColors.greyDark
+                                            : i % 2 == 0
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.primary
+                                            : AppColors.secondary,
+                                        height: 25,
+                                      ),
+                              },
+                            ],
+                            title: shownFiles[i].fileName ?? '',
+                            index: i,
+                          );
+                        },
                       );
               },
             );
@@ -609,7 +587,6 @@ class _VideosTab extends StatelessWidget {
     required this.videos,
     required this.courseId,
     required this.isCourseFree,
-    required this.refresh,
     this.courseDetailsModel,
     this.lectureDetailsModel,
   });
@@ -617,7 +594,6 @@ class _VideosTab extends StatelessWidget {
   final String courseId;
   final List<Video> videos;
   final bool isCourseFree;
-  final void Function() refresh;
   final CourseDetailsModel? courseDetailsModel;
   final LectureDetailsModel? lectureDetailsModel;
 
@@ -666,219 +642,207 @@ class _VideosTab extends StatelessWidget {
                     : videos;
                 return state.getActiveCourses.isLoading
                     ? ContentListSkeleton(count: min(shownVideos.length, 6))
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          refresh();
-                        },
-                        child: ListView.separated(
-                          physics: NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(16),
-                          itemCount: shownVideos.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (_, i) {
-                            final url = shownVideos[i].id;
-                            final canDownload =
-                                shownVideos[i].offlineDownloadEnabled ?? true;
-                            final prefs = GetIt.I<PrefsRepository>();
-                            final isGuest =
-                                prefs.isGuest || prefs.token == null;
-                            final isFree =
-                                isCourseFree ||
-                                (shownVideos[i].isFree ?? false);
-                            print(myDownloadState.urlToFileReferences);
-                            bool isLocked =
-                                url == null ||
-                                shownVideos[i].locked == true ||
-                                (isGuest
-                                    ? !(shownVideos[i].isFree ?? false)
-                                    : (!isFree &&
-                                          !state.activeCourses.any(
-                                            (item) => item.id == courseId,
-                                          )));
-                            bool videoExist =
-                                !isLocked &&
-                                myDownloadState.urlToFileReferences[url] !=
-                                    null;
-                            return ContentItem(
-                              itemColor: isLocked ? AppColors.greyDark : null,
-                              isExist: videoExist,
-                              fileUrl: url,
-                              isVideo: true,
-                              durationSeconds: shownVideos[i].durationSeconds,
-                              // size: videoExist ? null : shownVideos[i].videoSize,
-                              onTap: () {
-                                if (isLocked) {
-                                  showSubscribeToCourseDialog(
-                                    context,
+                    : ListView.separated(
+                        physics: NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: shownVideos.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (_, i) {
+                          final url = shownVideos[i].id;
+                          final canDownload =
+                              shownVideos[i].offlineDownloadEnabled ?? true;
+                          final prefs = GetIt.I<PrefsRepository>();
+                          final isGuest = prefs.isGuest || prefs.token == null;
+                          final isFree =
+                              isCourseFree || (shownVideos[i].isFree ?? false);
+                          print(myDownloadState.urlToFileReferences);
+                          bool isLocked =
+                              url == null ||
+                              shownVideos[i].locked == true ||
+                              (isGuest
+                                  ? !(shownVideos[i].isFree ?? false)
+                                  : (!isFree &&
+                                        !state.activeCourses.any(
+                                          (item) => item.id == courseId,
+                                        )));
+                          bool videoExist =
+                              !isLocked &&
+                              myDownloadState.urlToFileReferences[url] != null;
+                          return ContentItem(
+                            itemColor: isLocked ? AppColors.greyDark : null,
+                            isExist: videoExist,
+                            fileUrl: url,
+                            isVideo: true,
+                            durationSeconds: shownVideos[i].durationSeconds,
+                            // size: videoExist ? null : shownVideos[i].videoSize,
+                            onTap: () {
+                              if (isLocked) {
+                                showSubscribeToCourseDialog(
+                                  context,
+                                  courseId: courseId,
+                                );
+                                return;
+                              }
+                              if (downloadState.downloadingStatus[url] ==
+                                  true) {
+                                return;
+                              }
+                              if (videoExist) {
+                                context.pushPage(
+                                  VideoDetailsScreen(
+                                    video: shownVideos[i],
                                     courseId: courseId,
-                                  );
-                                  return;
-                                }
-                                if (downloadState.downloadingStatus[url] ==
-                                    true) {
-                                  return;
-                                }
-                                if (videoExist) {
-                                  context.pushPage(
-                                    VideoDetailsScreen(
-                                      video: shownVideos[i],
-                                      courseId: courseId,
-                                      fromNetwork: false,
-                                      isFree: shownVideos[i].isFree ?? false,
-                                      courseDetailsModel: courseDetailsModel,
-                                      lectureDetailsModel: lectureDetailsModel,
-                                      teacher: BlocProvider.of<CoursesBloc>(
-                                        context,
-                                        listen: false,
-                                      ).state.lectureDetailsModel!.teacher,
-                                    ),
-                                  );
-                                } else {
-                                  showVideoQualityDialog(
-                                    context,
-                                    toDownload: false,
-                                    videoId: shownVideos[i].id!,
-
-                                    onChooseQuality: (context, quality) {
-                                      context.pushPage(
-                                        VideoDetailsScreen(
-                                          video: shownVideos[i],
-                                          courseId: courseId,
-                                          quality: quality,
-                                          fromNetwork: !videoExist,
-                                          isFree:
-                                              shownVideos[i].isFree ?? false,
-                                          courseDetailsModel:
-                                              courseDetailsModel,
-                                          lectureDetailsModel:
-                                              lectureDetailsModel,
-                                          teacher: BlocProvider.of<CoursesBloc>(
-                                            context,
-                                            listen: false,
-                                          ).state.lectureDetailsModel!.teacher,
-                                        ),
-                                      );
-                                    },
-                                  );
-                                }
-                              },
-                              actions: [
-                                // Only a video the student can watch can be
-                                // marked as studied.
-                                if (!isLocked) VideoStudiedToggle(videoId: url),
-                                // No separate play icon: tapping the card plays
-                                // (online, or offline when downloaded).
-                                if (isLocked) ...{
-                                  SvgPicture.asset(
-                                    AppAssets.iconLock,
-                                    color: isLocked
-                                        ? AppColors.greyDark
-                                        : i % 2 == 0
-                                        ? Theme.of(context).colorScheme.primary
-                                        : AppColors.secondary,
-                                    height: 25,
+                                    fromNetwork: false,
+                                    isFree: shownVideos[i].isFree ?? false,
+                                    courseDetailsModel: courseDetailsModel,
+                                    lectureDetailsModel: lectureDetailsModel,
+                                    teacher: BlocProvider.of<CoursesBloc>(
+                                      context,
+                                      listen: false,
+                                    ).state.lectureDetailsModel!.teacher,
                                   ),
-                                },
-                                if (!isGuest && !videoExist && canDownload) ...{
-                                  downloadState.downloadingStatus[url] == true
-                                      ? Row(
-                                          spacing: 5,
-                                          children: [
-                                            SizedBox(
-                                              height: 30.r,
-                                              width: 30.r,
-                                              child: FittedBox(
-                                                child: ProgressIndicatorWidget(
-                                                  percent: downloadState
-                                                      .downloadingProcesses[url],
-                                                  backGroundColor:
-                                                      AppColors.greyNormal,
-                                                  textColor: Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary,
-                                                ),
+                                );
+                              } else {
+                                showVideoQualityDialog(
+                                  context,
+                                  toDownload: false,
+                                  videoId: shownVideos[i].id!,
+
+                                  onChooseQuality: (context, quality) {
+                                    context.pushPage(
+                                      VideoDetailsScreen(
+                                        video: shownVideos[i],
+                                        courseId: courseId,
+                                        quality: quality,
+                                        fromNetwork: !videoExist,
+                                        isFree: shownVideos[i].isFree ?? false,
+                                        courseDetailsModel: courseDetailsModel,
+                                        lectureDetailsModel:
+                                            lectureDetailsModel,
+                                        teacher: BlocProvider.of<CoursesBloc>(
+                                          context,
+                                          listen: false,
+                                        ).state.lectureDetailsModel!.teacher,
+                                      ),
+                                    );
+                                  },
+                                );
+                              }
+                            },
+                            actions: [
+                              // Only a video the student can watch can be
+                              // marked as studied.
+                              if (!isLocked) VideoStudiedToggle(videoId: url),
+                              // No separate play icon: tapping the card plays
+                              // (online, or offline when downloaded).
+                              if (isLocked) ...{
+                                SvgPicture.asset(
+                                  AppAssets.iconLock,
+                                  color: isLocked
+                                      ? AppColors.greyDark
+                                      : i % 2 == 0
+                                      ? Theme.of(context).colorScheme.primary
+                                      : AppColors.secondary,
+                                  height: 25,
+                                ),
+                              },
+                              if (!isGuest && !videoExist && canDownload) ...{
+                                downloadState.downloadingStatus[url] == true
+                                    ? Row(
+                                        spacing: 5,
+                                        children: [
+                                          SizedBox(
+                                            height: 30.r,
+                                            width: 30.r,
+                                            child: FittedBox(
+                                              child: ProgressIndicatorWidget(
+                                                percent: downloadState
+                                                    .downloadingProcesses[url],
+                                                backGroundColor:
+                                                    AppColors.greyNormal,
+                                                textColor: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
                                               ),
                                             ),
-                                            IconButton(
-                                              onPressed: () {
-                                                BlocProvider.of<
-                                                      DownloadingMediaBloc
-                                                    >(context)
-                                                    .add(
-                                                      CancelDownloadEvent(
-                                                        fileUrl: url!,
-                                                        fileType: 'video',
-                                                        fileName: shownVideos[i]
-                                                            .videoName,
-                                                      ),
-                                                    );
-                                              },
-                                              icon: Icon(
-                                                Icons.cancel_outlined,
-                                                color:
-                                                    context.colorScheme.primary,
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : InkWell(
-                                          onTap: () {
-                                            if (isLocked) {
-                                              showSubscribeToCourseDialog(
-                                                context,
-                                                courseId: courseId,
-                                              );
-                                              return;
-                                            }
-                                            showVideoQualityDialog(
-                                              context,
-                                              videoId: shownVideos[i].id!,
-                                              toDownload: true,
-                                              onChooseQuality: (context, quality) {
-                                                BlocProvider.of<
-                                                      DownloadingMediaBloc
-                                                    >(context)
-                                                    .add(
-                                                      DownloadFileEvent(
-                                                        fileUrl: url,
-                                                        downloadUrl: url,
-                                                        quality: quality,
-                                                        fileType: 'video',
-                                                        fileName: shownVideos[i]
-                                                            .videoName,
-                                                        courseId: courseId,
-                                                        lectureId:
-                                                            shownVideos[i]
-                                                                .lectureId,
-                                                        courseDetailsModel:
-                                                            courseDetailsModel,
-                                                        lectureDetailsModel:
-                                                            lectureDetailsModel,
-                                                      ),
-                                                    );
-                                              },
-                                            );
-                                          },
-                                          child: SvgPicture.asset(
-                                            AppAssets.iconDownload2,
-                                            color: isLocked
-                                                ? AppColors.greyDark
-                                                : i % 2 == 0
-                                                ? Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary
-                                                : AppColors.secondary,
-                                            height: 25,
                                           ),
+                                          IconButton(
+                                            onPressed: () {
+                                              BlocProvider.of<
+                                                    DownloadingMediaBloc
+                                                  >(context)
+                                                  .add(
+                                                    CancelDownloadEvent(
+                                                      fileUrl: url!,
+                                                      fileType: 'video',
+                                                      fileName: shownVideos[i]
+                                                          .videoName,
+                                                    ),
+                                                  );
+                                            },
+                                            icon: Icon(
+                                              Icons.cancel_outlined,
+                                              color:
+                                                  context.colorScheme.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : InkWell(
+                                        onTap: () {
+                                          if (isLocked) {
+                                            showSubscribeToCourseDialog(
+                                              context,
+                                              courseId: courseId,
+                                            );
+                                            return;
+                                          }
+                                          showVideoQualityDialog(
+                                            context,
+                                            videoId: shownVideos[i].id!,
+                                            toDownload: true,
+                                            onChooseQuality: (context, quality) {
+                                              BlocProvider.of<
+                                                    DownloadingMediaBloc
+                                                  >(context)
+                                                  .add(
+                                                    DownloadFileEvent(
+                                                      fileUrl: url,
+                                                      downloadUrl: url,
+                                                      quality: quality,
+                                                      fileType: 'video',
+                                                      fileName: shownVideos[i]
+                                                          .videoName,
+                                                      courseId: courseId,
+                                                      lectureId: shownVideos[i]
+                                                          .lectureId,
+                                                      courseDetailsModel:
+                                                          courseDetailsModel,
+                                                      lectureDetailsModel:
+                                                          lectureDetailsModel,
+                                                    ),
+                                                  );
+                                            },
+                                          );
+                                        },
+                                        child: SvgPicture.asset(
+                                          AppAssets.iconDownload2,
+                                          color: isLocked
+                                              ? AppColors.greyDark
+                                              : i % 2 == 0
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
+                                              : AppColors.secondary,
+                                          height: 25,
                                         ),
-                                },
-                              ],
-                              title: shownVideos[i].videoName ?? '',
-                              index: i,
-                            );
-                          },
-                        ),
+                                      ),
+                              },
+                            ],
+                            title: shownVideos[i].videoName ?? '',
+                            index: i,
+                          );
+                        },
                       );
               },
             );
@@ -894,7 +858,6 @@ class _McqTab extends StatelessWidget {
     required this.questions,
     required this.courseId,
     required this.isCourseFree,
-    required this.refresh,
     this.courseDetailsModel,
     this.lectureDetailsModel,
   });
@@ -902,7 +865,6 @@ class _McqTab extends StatelessWidget {
   final String courseId;
   final List<QuestionModel> questions;
   final bool isCourseFree;
-  final void Function() refresh;
   final CourseDetailsModel? courseDetailsModel;
   final LectureDetailsModel? lectureDetailsModel;
 
@@ -937,123 +899,114 @@ class _McqTab extends StatelessWidget {
     final questions = lockedAsPaid ? const <QuestionModel>[] : this.questions;
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: RefreshIndicator(
-        onRefresh: () async {
-          refresh();
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SvgPicture.asset(
-              AppAssets.iconQuiz,
-              height: 100,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SvgPicture.asset(
+            AppAssets.iconQuiz,
+            height: 100,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          Text(
+            '${questions.length} سؤال',
+            style: GoogleFonts.cairo(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
               color: Theme.of(context).colorScheme.primary,
             ),
-            Text(
-              '${questions.length} سؤال',
-              style: GoogleFonts.cairo(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (questions.isNotEmpty) ...{
-              15.verticalSpace,
-              BlocBuilder<MyDownloadsBloc, MyDownloadsState>(
-                builder: (context, state) {
-                  bool allDownloaded = true;
-                  for (var item in questions) {
-                    final url = item.imageUrl;
-                    if (url != null && state.urlToFileReferences[url] == null) {
-                      allDownloaded = false;
-                      break;
-                    }
+            textAlign: TextAlign.center,
+          ),
+          if (questions.isNotEmpty) ...{
+            15.verticalSpace,
+            BlocBuilder<MyDownloadsBloc, MyDownloadsState>(
+              builder: (context, state) {
+                bool allDownloaded = true;
+                for (var item in questions) {
+                  final url = item.imageUrl;
+                  if (url != null && state.urlToFileReferences[url] == null) {
+                    allDownloaded = false;
+                    break;
                   }
-                  return allDownloaded
-                      ? SizedBox.shrink()
-                      : BlocConsumer<
-                          DownloadingMediaBloc,
-                          DownloadingMediaState
-                        >(
-                          listenWhen: (p, c) =>
-                              p.currentDownloadingImagesTasks !=
-                                  c.currentDownloadingImagesTasks &&
-                              c.currentDownloadingImagesTasks == 0,
-                          listener: (context, state) {
-                            showMessage("اكتمل التحميل");
-                          },
-                          builder: (context, state) {
-                            return CoursatyPrimaryButton(
-                              isLoading:
-                                  state.currentDownloadingImagesTasks > 0,
-                              label: "تحميل الأتمتات",
-                              onPressed: () {
-                                if (GetIt.I<PrefsRepository>().isGuest) {
-                                  showGuestContentDialog(context);
-                                  return;
-                                }
-                                if (!isCourseFree &&
-                                    !context
-                                        .read<HomeBloc>()
-                                        .state
-                                        .activeCourses
-                                        .any((item) => item.id == courseId)) {
-                                  showSubscribeToCourseDialog(
-                                    context,
-                                    courseId: courseId,
-                                  );
-                                  return;
-                                }
-                                _download(context);
-                              },
-                            );
-                          },
-                        );
-                },
-              ),
-              15.verticalSpace,
-              AppPressScale(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                }
+                return allDownloaded
+                    ? SizedBox.shrink()
+                    : BlocConsumer<DownloadingMediaBloc, DownloadingMediaState>(
+                        listenWhen: (p, c) =>
+                            p.currentDownloadingImagesTasks !=
+                                c.currentDownloadingImagesTasks &&
+                            c.currentDownloadingImagesTasks == 0,
+                        listener: (context, state) {
+                          showMessage("اكتمل التحميل");
+                        },
+                        builder: (context, state) {
+                          return CoursatyPrimaryButton(
+                            isLoading: state.currentDownloadingImagesTasks > 0,
+                            label: "تحميل الأتمتات",
+                            onPressed: () {
+                              if (GetIt.I<PrefsRepository>().isGuest) {
+                                showGuestContentDialog(context);
+                                return;
+                              }
+                              if (!isCourseFree &&
+                                  !context
+                                      .read<HomeBloc>()
+                                      .state
+                                      .activeCourses
+                                      .any((item) => item.id == courseId)) {
+                                showSubscribeToCourseDialog(
+                                  context,
+                                  courseId: courseId,
+                                );
+                                return;
+                              }
+                              _download(context);
+                            },
+                          );
+                        },
+                      );
+              },
+            ),
+            15.verticalSpace,
+            AppPressScale(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  onPressed: () {
-                    AppHaptics.lightTap();
-                    if (GetIt.I<PrefsRepository>().isGuest) {
-                      showGuestContentDialog(context);
-                      return;
-                    }
-                    if (!isCourseFree &&
-                        !context.read<HomeBloc>().state.activeCourses.any(
-                          (item) => item.id == courseId,
-                        )) {
-                      showSubscribeToCourseDialog(context, courseId: courseId);
-                      return;
-                    }
-                    context.pushPage(
-                      McqQuestionsScreen(
-                        questions: questions,
-                        courseId: courseId,
-                      ),
-                    );
-                  },
-                  child: Text(
-                    'بدء الأتمتة',
-                    style: GoogleFonts.cairo(
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+                onPressed: () {
+                  AppHaptics.lightTap();
+                  if (GetIt.I<PrefsRepository>().isGuest) {
+                    showGuestContentDialog(context);
+                    return;
+                  }
+                  if (!isCourseFree &&
+                      !context.read<HomeBloc>().state.activeCourses.any(
+                        (item) => item.id == courseId,
+                      )) {
+                    showSubscribeToCourseDialog(context, courseId: courseId);
+                    return;
+                  }
+                  context.pushPage(
+                    McqQuestionsScreen(
+                      questions: questions,
+                      courseId: courseId,
                     ),
+                  );
+                },
+                child: Text(
+                  'بدء الأتمتة',
+                  style: GoogleFonts.cairo(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
                 ),
               ),
-            },
-          ],
-        ),
+            ),
+          },
+        ],
       ),
     );
   }

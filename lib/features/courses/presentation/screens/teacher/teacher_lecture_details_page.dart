@@ -159,14 +159,12 @@ class _TeacherLectureDetailsPageState extends State<TeacherLectureDetailsPage>
                             children: [
                               _FilesTab(
                                 courseId: widget.courseId,
-                                refresh: fetchData,
                                 lectureId:
                                     state.lectureDetailsModel!.lecture!.id!,
                                 files: state.lectureDetailsModel!.files ?? [],
                               ),
                               _VideosTab(
                                 courseId: widget.courseId,
-                                refresh: fetchData,
                                 lectureId:
                                     state.lectureDetailsModel!.lecture!.id!,
                                 videos: state.lectureDetailsModel!.videos ?? [],
@@ -175,7 +173,6 @@ class _TeacherLectureDetailsPageState extends State<TeacherLectureDetailsPage>
                                 builder: (context, state) {
                                   return _McqTab(
                                     courseId: widget.courseId,
-                                    refresh: fetchData,
                                     lectureId:
                                         state.lectureDetailsModel!.lecture!.id!,
                                     questions:
@@ -205,66 +202,59 @@ class _FilesTab extends StatelessWidget {
     required this.files,
     required this.courseId,
     required this.lectureId,
-    required this.refresh,
   });
 
   final List<FileElement> files;
   final String courseId;
   final String lectureId;
-  final void Function() refresh;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       alignment: Alignment.bottomLeft,
       children: [
-        RefreshIndicator(
-          onRefresh: () async {
-            refresh();
+        ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: files.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, i) {
+            return ContentItem(
+              isVideo: false,
+              onTap: () {
+                context.pushPage(
+                  LectureViewer(
+                    lecture: files[i],
+                    filePath: files[i].fileUrl!,
+                    fromNetwork: true,
+                  ),
+                );
+              },
+              title: files[i].fileName ?? '',
+              index: i,
+              actions: [],
+              onDelete: () {
+                _deleteConfirmation(
+                  context,
+                  false,
+                  DeleteFromCourseParams(
+                    id: files[i].id!,
+                    endpoint: EndPoints.deleteFile(files[i].id!),
+                  ),
+                  lectureId,
+                  courseId,
+                );
+              },
+              onEdit: () {
+                context.pushPage(
+                  AddFileScreen(
+                    lectureId: lectureId,
+                    courseId: courseId,
+                    fileElement: files[i],
+                  ),
+                );
+              },
+            );
           },
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: files.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) {
-              return ContentItem(
-                isVideo: false,
-                onTap: () {
-                  context.pushPage(
-                    LectureViewer(
-                      lecture: files[i],
-                      filePath: files[i].fileUrl!,
-                      fromNetwork: true,
-                    ),
-                  );
-                },
-                title: files[i].fileName ?? '',
-                index: i,
-                actions: [],
-                onDelete: () {
-                  _deleteConfirmation(
-                    context,
-                    false,
-                    DeleteFromCourseParams(
-                      id: files[i].id!,
-                      endpoint: EndPoints.deleteFile(files[i].id!),
-                    ),
-                    lectureId,
-                    courseId,
-                  );
-                },
-                onEdit: () {
-                  context.pushPage(
-                    AddFileScreen(
-                      lectureId: lectureId,
-                      courseId: courseId,
-                      fileElement: files[i],
-                    ),
-                  );
-                },
-              );
-            },
-          ),
         ),
         Padding(
           padding: const EdgeInsets.all(8.0),
@@ -313,85 +303,78 @@ class _VideosTab extends StatelessWidget {
     required this.videos,
     required this.courseId,
     required this.lectureId,
-    required this.refresh,
   });
 
   final String lectureId;
   final String courseId;
   final List<Video> videos;
-  final void Function() refresh;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       alignment: Alignment.bottomLeft,
       children: [
-        RefreshIndicator(
-          onRefresh: () async {
-            refresh();
+        ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: videos.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, i) {
+            return ContentItem(
+              isVideo: true,
+              durationSeconds: videos[i].durationSeconds,
+              actions: [],
+              onEdit: () {
+                showVideoQualityDialog(
+                  context,
+                  toDownload: false,
+                  videoId: videos[i].id!,
+                  onChooseQuality: (context, quality) {
+                    context.pushPage(
+                      AddVideoScreen(
+                        lectureId: lectureId,
+                        courseId: courseId,
+                        preferredResolution: quality,
+                        video: videos[i],
+                        isForEdit: true,
+                      ),
+                    );
+                  },
+                );
+              },
+              onDelete: () {
+                _deleteConfirmation(
+                  context,
+                  false,
+                  DeleteFromCourseParams(
+                    id: videos[i].id!,
+                    endpoint: EndPoints.deleteVideo(videos[i].id!),
+                  ),
+                  lectureId,
+                  courseId,
+                );
+              },
+              onTap: () {
+                showVideoQualityDialog(
+                  context,
+                  toDownload: false,
+                  videoId: videos[i].id!,
+                  onChooseQuality: (context, quality) {
+                    context.pushPage(
+                      AddVideoScreen(
+                        lectureId: lectureId,
+                        courseId: courseId,
+                        preferredResolution: quality,
+                        video: videos[i],
+                        isForEdit: true,
+                      ),
+                    );
+                  },
+                );
+              },
+              title: videos[i].videoName ?? '',
+              index: i,
+            );
           },
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: videos.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) {
-              return ContentItem(
-                isVideo: true,
-                durationSeconds: videos[i].durationSeconds,
-                actions: [],
-                onEdit: () {
-                  showVideoQualityDialog(
-                    context,
-                    toDownload: false,
-                    videoId: videos[i].id!,
-                    onChooseQuality: (context, quality) {
-                      context.pushPage(
-                        AddVideoScreen(
-                          lectureId: lectureId,
-                          courseId: courseId,
-                          preferredResolution: quality,
-                          video: videos[i],
-                          isForEdit: true,
-                        ),
-                      );
-                    },
-                  );
-                },
-                onDelete: () {
-                  _deleteConfirmation(
-                    context,
-                    false,
-                    DeleteFromCourseParams(
-                      id: videos[i].id!,
-                      endpoint: EndPoints.deleteVideo(videos[i].id!),
-                    ),
-                    lectureId,
-                    courseId,
-                  );
-                },
-                onTap: () {
-                  showVideoQualityDialog(
-                    context,
-                    toDownload: false,
-                    videoId: videos[i].id!,
-                    onChooseQuality: (context, quality) {
-                      context.pushPage(
-                        AddVideoScreen(
-                          lectureId: lectureId,
-                          courseId: courseId,
-                          preferredResolution: quality,
-                          video: videos[i],
-                          isForEdit: true,
-                        ),
-                      );
-                    },
-                  );
-                },
-                title: videos[i].videoName ?? '',
-                index: i,
-              );
-            },
-          ),
         ),
         Padding(
           padding: const EdgeInsets.all(8.0),
@@ -418,93 +401,83 @@ class _McqTab extends StatelessWidget {
     required this.questions,
     required this.courseId,
     required this.lectureId,
-    required this.refresh,
   });
 
   final String lectureId;
   final String courseId;
   final List<QuestionModel> questions;
-  final void Function() refresh;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: RefreshIndicator(
-        onRefresh: () async {
-          refresh();
-        },
-        child: SingleChildScrollView(
-          physics: AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SvgPicture.asset(
-                AppAssets.iconQuiz,
-                height: 100,
+      child: SingleChildScrollView(
+        physics: AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SvgPicture.asset(
+              AppAssets.iconQuiz,
+              height: 100,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            Text(
+              '${questions.length} سؤال',
+              style: GoogleFonts.cairo(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              Text(
-                '${questions.length} سؤال',
-                style: GoogleFonts.cairo(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              CoursatyPrimaryButton(
-                label: "عرض الأسئلة",
-                onPressed: () {
-                  context.pushPage(
-                    BlocProvider.value(
-                      value: BlocProvider.of<CoursesBloc>(context),
-                      child: McqQuestionsScreen(
-                        questions: questions,
-                        courseId: courseId,
-                        onEdit: (QuestionModel q) {
-                          context.pushPage(
-                            UpsertQuestionPage(
-                              lectureId: lectureId,
-                              courseId: courseId,
-                              question: q,
-                            ),
-                          );
-                        },
-                        onDelete: (QuestionModel q) {
-                          BlocProvider.of<CourseContentManagementBloc>(
-                            context,
-                          ).add(
-                            DeleteQuestionEvent(
-                              params: DeleteFromCourseParams(
-                                id: q.id!,
-                                endpoint: EndPoints.deleteQuestionEP(id: q.id!),
-                              ),
-                              lectureId: lectureId,
-                              courseId: courseId,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              CoursatyPrimaryButton(
-                label: "إضافة سؤال جديد",
-                onPressed: () {
-                  context.pushPage(
-                    UpsertQuestionPage(
-                      lectureId: lectureId,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            CoursatyPrimaryButton(
+              label: "عرض الأسئلة",
+              onPressed: () {
+                context.pushPage(
+                  BlocProvider.value(
+                    value: BlocProvider.of<CoursesBloc>(context),
+                    child: McqQuestionsScreen(
+                      questions: questions,
                       courseId: courseId,
+                      onEdit: (QuestionModel q) {
+                        context.pushPage(
+                          UpsertQuestionPage(
+                            lectureId: lectureId,
+                            courseId: courseId,
+                            question: q,
+                          ),
+                        );
+                      },
+                      onDelete: (QuestionModel q) {
+                        BlocProvider.of<CourseContentManagementBloc>(
+                          context,
+                        ).add(
+                          DeleteQuestionEvent(
+                            params: DeleteFromCourseParams(
+                              id: q.id!,
+                              endpoint: EndPoints.deleteQuestionEP(id: q.id!),
+                            ),
+                            lectureId: lectureId,
+                            courseId: courseId,
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-            ],
-          ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            CoursatyPrimaryButton(
+              label: "إضافة سؤال جديد",
+              onPressed: () {
+                context.pushPage(
+                  UpsertQuestionPage(lectureId: lectureId, courseId: courseId),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

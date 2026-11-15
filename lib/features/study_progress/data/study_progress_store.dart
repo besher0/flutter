@@ -70,6 +70,13 @@ class StudyProgressStore extends ChangeNotifier {
     final known = _lectureVideos[lectureId];
     if (known != null && (!overwrite || listEquals(known, ids))) return;
     _lectureVideos[lectureId] = ids;
+    // A video the teacher deleted leaves the student's record too: the lecture
+    // is then measured on the videos it still has (5 of 5 stays studied). A
+    // video moved to another known lecture keeps its mark.
+    if (known != null && overwrite) {
+      final listed = {for (final videos in _lectureVideos.values) ...videos};
+      _studied.removeWhere((id) => known.contains(id) && !listed.contains(id));
+    }
     _save();
     notifyListeners();
   }

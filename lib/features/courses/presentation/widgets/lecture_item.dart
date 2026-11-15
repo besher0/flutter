@@ -77,28 +77,26 @@ class LectureItem extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.only(top: 6, bottom: 10),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // The card has a fixed height (lesson grid): the name takes
-                  // what the chips leave, up to two lines, never overflowing.
-                  Flexible(
-                    child: Text(
-                      lectureName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.cairo(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                  Text(
+                    lectureName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.cairo(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
+                  10.verticalSpace,
                   StudyStatsChips(
                     videosCount: videosCount,
                     durationSeconds: videosDurationSeconds,
+                    isForVideoCard: false,
                   ),
                 ],
               ),

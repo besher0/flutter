@@ -232,7 +232,8 @@ withdrawals, `dashboard/*`) are the ones this app consumes.
   `ChangeNotifier` over SharedPreferences, key per account; marks survive deleting a download). A
   lecture is studied when **all** its videos are: the full video list is remembered from the server's
   lecture details when the online lecture page loads (`rememberLectureVideos`, overwrite); a download's
-  snapshot only fills a gap (`overwrite: false`). UI in `study_progress/presentation/widgets/studied_toggle.dart`:
+  snapshot only fills a gap (`overwrite: false`). A video the teacher deleted (gone from the server list) is dropped from the
+  studied marks, so 5 of 5 stays studied; a new video makes the lecture unstudied. UI in `study_progress/presentation/widgets/studied_toggle.dart`:
   `VideoStudiedToggle` (cards + the video page, on the video name's line under the player), `LectureStudiedBadge` (lecture lists via
   `LectureItem.trailing`), `LectureStudyProgress` (under lecture titles, «درست X من Y فيديو»). Not in
   `MyDownloadsState`. ⚠️ Never filter the saved `LectureDetailsModel` lists in place (copy them first).

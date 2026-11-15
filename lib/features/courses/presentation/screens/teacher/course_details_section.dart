@@ -108,6 +108,8 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
     super.dispose();
   }
 
+  bool get _isEdit => widget.courseDetailsModel != null;
+
   String? get _discussionGroupUrl {
     final url = courseDiscussionGroup.text.trim();
     return url.isEmpty ? null : url;
@@ -301,7 +303,6 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
                         CoursatyDropdown<String>(
                           label: 'فئة الكورس',
                           hint: 'فئة الكورس',
-                          enabled: widget.courseDetailsModel == null,
                           value: categoryController.text.isEmpty
                               ? null
                               : categoryController.text,
@@ -378,7 +379,6 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
             hint: 'اسم الكورس',
             validator: _requiredValidator,
             controller: courseName,
-            readOnly: widget.courseDetailsModel != null,
           ),
           10.verticalSpace,
           CoursatyTextField(
@@ -387,12 +387,13 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
             validator: _requiredValidator,
             minLines: 4,
             controller: courseDescription,
-            readOnly: widget.courseDetailsModel != null,
           ),
           10.verticalSpace,
           // Price and free/visible switches are hidden with paid content
-          // (iPhone). Editing resends the stored values; a new course is sent
-          // with price 0 and is priced by the admin when approving it.
+          // (iPhone); a new course is then sent with price 0 and is priced by
+          // the admin when approving it. An edit never sends the price, the
+          // free state or the expiry: they stay locked (subscribers paid for
+          // them).
           if (!PaidContentPolicy.hidePaid) ...[
             CoursatyTextField(
               label: 'سعر الكورس',
@@ -408,6 +409,7 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
               controller: priceAfterDiscount,
               readOnly: widget.courseDetailsModel != null,
             ),
+            if (_isEdit) const _LockedFieldsNote(),
             10.verticalSpace,
             // CoursatyTextField(
             //   label: 'مدة للكورس',
@@ -430,15 +432,14 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
             ),
             10.verticalSpace,
           ],
-          if (widget.courseDetailsModel?.course?.imageUrl == null)
-            CustomChooseFileButton(
-              usedForImage: true,
-              usedForFile: false,
-              title: widget.courseDetailsModel?.course?.imageUrl != null
-                  ? "تعديل صورة الكورس"
-                  : "رفع صورة للكورس",
-              choosedFile: chooseFile,
-            ),
+          CustomChooseFileButton(
+            usedForImage: true,
+            usedForFile: false,
+            title: widget.courseDetailsModel?.course?.imageUrl != null
+                ? "تعديل صورة الكورس"
+                : "رفع صورة للكورس",
+            choosedFile: chooseFile,
+          ),
           CoursatyTextField(
             label: 'رابط كروب المناقشة (اختياري)',
             hint: 'https://t.me/...',
@@ -449,7 +450,6 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
             label: ' رابط فيديو تعريفي(يوتيوب) (اختياري)',
             hint: 'رابط فيديو تعريفي(يوتيوب) (اختياري)',
             controller: courseYoutube,
-            readOnly: widget.courseDetailsModel != null,
           ),
           10.verticalSpace,
           // CoursatyTextField(
@@ -490,7 +490,18 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
                 AppHaptics.error();
                 showMessage(state.errorMessage);
               }
-              if (state.createCourse.isSuccess) {
+              if (state.createCourse.isSuccess && _isEdit) {
+                AppHaptics.success();
+                showMessage('تم حفظ تعديلات الكورس بنجاح', hasError: false);
+                final courses = BlocProvider.of<CoursesBloc>(context);
+                courses.add(
+                  GetTeacherCourseDetailsEvent(
+                    courseId: widget.courseDetailsModel!.course!.id!,
+                  ),
+                );
+                courses.add(GetTeacherCourses(getActive: true, reset: true));
+                courses.add(GetTeacherCourses(getActive: false, reset: true));
+              } else if (state.createCourse.isSuccess) {
                 AppHaptics.success();
                 context.go(GRouter.config.applicationRoutes.home);
                 BlocProvider.of<HomeBloc>(
@@ -678,5 +689,24 @@ class _CourseDetailsSectionState extends State<CourseDetailsSection> {
       return "الرجاء إدخال عدد موجب";
     }
     return null;
+  }
+}
+
+/// Under the price fields of an existing course.
+class _LockedFieldsNote extends StatelessWidget {
+  const _LockedFieldsNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        'لا يمكن تعديل السعر أو مجانية الكورس أو تاريخ انتهائه بعد إنشائه، '
+        'تواصل مع الإدارة لتعديلها',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
   }
 }

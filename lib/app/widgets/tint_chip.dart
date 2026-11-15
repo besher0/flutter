@@ -16,12 +16,13 @@ class TintChip extends StatelessWidget {
     super.key,
     required this.iconPath,
     required this.text,
-    this.tone = ChipTone.teal,
+    this.tone = ChipTone.teal, required this.isForVideoCard,
   });
 
   final String iconPath;
   final String text;
   final ChipTone tone;
+  final bool isForVideoCard;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +38,7 @@ class TintChip extends StatelessWidget {
             ChipTone.amber => const Color(0xFF9A6418),
           };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: isForVideoCard ? 8 : 10, vertical: isForVideoCard ? 2 : 4),
       decoration: BoxDecoration(
         color: base.withValues(alpha: dark ? 0.18 : 0.12),
         borderRadius: BorderRadius.circular(20),
@@ -47,7 +48,7 @@ class TintChip extends StatelessWidget {
         children: [
           SvgPicture.asset(
             iconPath,
-            height: 14,
+            height: isForVideoCard ? 12 : 14,
             colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn),
           ),
           const SizedBox(width: 5),
@@ -55,7 +56,7 @@ class TintChip extends StatelessWidget {
             text,
             maxLines: 1,
             style: GoogleFonts.cairo(
-              fontSize: 12,
+              fontSize: isForVideoCard ? 10 : 12,
               fontWeight: FontWeight.w700,
               color: foreground,
               height: 1.4,
@@ -82,8 +83,9 @@ String? formatStudyDuration(int? seconds) {
 /// The chips under a lesson's or a video's title: video count (lessons only)
 /// and total length. Nothing when there is nothing to show.
 class StudyStatsChips extends StatelessWidget {
-  const StudyStatsChips({super.key, this.videosCount, this.durationSeconds});
+  const StudyStatsChips({super.key, this.videosCount, this.durationSeconds , this.isForVideoCard = true});
 
+  final bool isForVideoCard;
   final int? videosCount;
   final int? durationSeconds;
 
@@ -101,12 +103,13 @@ class StudyStatsChips extends StatelessWidget {
         runSpacing: 6,
         children: [
           if (count != null && count > 0)
-            TintChip(iconPath: AppAssets.iconPlayCircle, text: '$count فيديو'),
+            TintChip(iconPath: AppAssets.iconPlayCircle, text: '$count فيديو' , isForVideoCard: isForVideoCard),
           if (duration != null)
             TintChip(
               iconPath: AppAssets.iconTimer,
               text: duration,
               tone: ChipTone.amber,
+                isForVideoCard: isForVideoCard ,
             ),
         ],
       ),

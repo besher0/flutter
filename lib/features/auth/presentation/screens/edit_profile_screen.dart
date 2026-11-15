@@ -16,6 +16,7 @@ import '../../../../app/widgets/coursaty_dropdown.dart';
 import '../../../../app/widgets/coursaty_text_field.dart';
 import '../../../../app/widgets/custom_choose_file_button.dart';
 import '../../../../core/common/constant/design/app_assets.dart';
+import '../../../../core/common/helper/show_message.dart';
 import '../bloc/auth_bloc.dart';
 import 'package:coursaty_student_and_teacher/core/utils/ascii_digits_formatter.dart';
 
@@ -41,6 +42,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController description = TextEditingController();
 
   final ValueNotifier<XFile?> chooseFile = ValueNotifier(null);
+
+  /// Whether the save in progress changes the profile picture (its message).
+  bool _savingImage = false;
 
   String? gender = 'MALE';
   final PrefsRepository prefsRepository = GetIt.I<PrefsRepository>();
@@ -226,9 +230,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                   },
                   BlocConsumer<AuthBloc, AuthState>(
-                    listener: (p, c) {
+                    listener: (context, state) {
+                      if (state.updateProfileStatus.isSuccess) {
+                        showMessage(
+                          _savingImage
+                              ? 'تم تحديث الصورة الشخصية بنجاح'
+                              : 'تم حفظ التعديلات بنجاح',
+                          hasError: false,
+                        );
+                        // The new picture now comes from the profile.
+                        if (mounted) chooseFile.value = null;
+                      }
+                      // A failure is shown by the drawer's listener.
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        setState(() {});
+                        if (mounted) setState(() {});
                       });
                     },
                     listenWhen: (p, c) =>
@@ -241,6 +256,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         label: 'حفظ',
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
+                            _savingImage = chooseFile.value != null;
                             BlocProvider.of<AuthBloc>(context).add(
                               UpdateProfileEvent(
                                 image: chooseFile.value,

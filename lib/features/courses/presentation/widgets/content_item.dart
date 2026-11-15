@@ -122,6 +122,8 @@ class ContentItem extends StatelessWidget {
                     children: [
                       Text(
                         title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.cairo(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -132,57 +134,65 @@ class ContentItem extends StatelessWidget {
                       ),
                       if (isVideo)
                         StudyStatsChips(durationSeconds: durationSeconds),
-                      if (isVideo && isExist && quality != null) ...[
-                        5.verticalSpace,
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(left: 10.w),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (int i = 0; i < actions.length; i++) ...[
+                            actions[i],
+                            if (i != actions.length - 1) ...[
+                              5.horizontalSpace,
+                              SizedBox(
+                                height: 30,
+                                child: VerticalDivider(
+                                  color: AppColors.greyLight,
+                                  width: 1,
+                                ),
+                              ),
+                              5.horizontalSpace,
+                            ],
+                          ],
+                          if (onEdit != null) ...{
+                            InkWell(onTap: onEdit, child: Icon(Icons.edit)),
+                            10.horizontalSpace,
+                          },
+                          if (onDelete != null || isExist) ...{
+                            InkWell(
+                              onTap:
+                              onDelete ??
+                                      () {
+                                    _deleteConfirmation(context);
+                                  },
+                              child: Icon(Icons.delete, color: Colors.red),
+                            ),
+                            10.horizontalSpace,
+                          },
+                        ],
+                      ),
+                      // The quality the video was downloaded in, under the
+                      // actions (studied / delete).
+                      if (isVideo && isExist && quality != null)...[
                         Text(
                           "الدقة: $quality",
                           style: GoogleFonts.cairo(
                             fontWeight: FontWeight.w700,
                             color: Theme.of(context).colorScheme.primary,
                             fontSize: 12,
+                            height: 1.4,
                           ),
                         ),
-                      ],
+                        10.verticalSpace
+        ],
                     ],
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.only(left: 10.w),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (int i = 0; i < actions.length; i++) ...[
-                        actions[i],
-                        if (i != actions.length - 1) ...[
-                          5.horizontalSpace,
-                          SizedBox(
-                            height: 30,
-                            child: VerticalDivider(
-                              color: AppColors.greyLight,
-                              width: 1,
-                            ),
-                          ),
-                          5.horizontalSpace,
-                        ],
-                      ],
-                    ],
-                  ),
-                ),
-                if (onEdit != null) ...{
-                  InkWell(onTap: onEdit, child: Icon(Icons.edit)),
-                  10.horizontalSpace,
-                },
-                if (onDelete != null || isExist) ...{
-                  InkWell(
-                    onTap:
-                        onDelete ??
-                        () {
-                          _deleteConfirmation(context);
-                        },
-                    child: Icon(Icons.delete, color: Colors.red),
-                  ),
-                  10.horizontalSpace,
-                },
               ],
             ),
           ),

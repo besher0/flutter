@@ -67,7 +67,24 @@ class UpsertCourseParams {
     // this.departmentId,
   });
 
-  Map<String, dynamic> get map => {
+  /// What the request sends. An edit (`PATCH courses/{id}`) sends only the
+  /// course's own details: the backend refuses a new subject/year/season, and
+  /// the price, free state and expiry stay as they are (they change what
+  /// subscribers paid for).
+  Map<String, dynamic> get map => courseId == null ? _createMap : _editMap;
+
+  Map<String, dynamic> get _editMap => {
+    "name": name,
+    "description": description,
+    if (imageUrl != null) "imageUrl": imageUrl,
+    "categoryId": categoryId,
+    "isPriceVisible": isPriceVisible,
+    "introVideoUrl": introVideoUrl,
+    "telegramUrl": telegramUrl,
+    "discussionGroupUrl": discussionGroupUrl,
+  };
+
+  Map<String, dynamic> get _createMap => {
     "name": name,
     "description": description,
     if (imageUrl != null) "imageUrl": imageUrl,
@@ -85,9 +102,8 @@ class UpsertCourseParams {
     "isPriceVisible": isPriceVisible,
     if (expiresAt != null) "expiresAt": expiresAt!.toIso8601String(),
     if (introVideoUrl != null) "introVideoUrl": introVideoUrl,
-    if (courseId != null || telegramUrl != null) "telegramUrl": telegramUrl,
-    if (courseId != null || discussionGroupUrl != null)
-      "discussionGroupUrl": discussionGroupUrl,
+    if (telegramUrl != null) "telegramUrl": telegramUrl,
+    if (discussionGroupUrl != null) "discussionGroupUrl": discussionGroupUrl,
     if (instagramUrl != null) "instagramUrl": instagramUrl,
   };
 }

@@ -76,6 +76,50 @@ void main() {
       expect(store.totalVideoCountOf('L1'), 3);
     });
 
+    test('a video the teacher deleted leaves the record; the lecture stays '
+        'studied', () {
+      final ids = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'];
+      final store = newStore()..rememberLectureVideos('L1', ids);
+      for (final id in ids) {
+        store.setVideoStudied(id, true);
+      }
+      expect(store.isLectureStudied('L1'), isTrue);
+
+      // The teacher deletes v6; the student opens the lecture online.
+      store.rememberLectureVideos('L1', ids.sublist(0, 5));
+      expect(store.isVideoStudied('v6'), isFalse);
+      expect(store.studiedVideoCountOf('L1'), 5);
+      expect(store.totalVideoCountOf('L1'), 5);
+      expect(store.isLectureStudied('L1'), isTrue);
+      // And it stays so after the app restarts.
+      expect(newStore().isVideoStudied('v6'), isFalse);
+      expect(newStore().isLectureStudied('L1'), isTrue);
+
+      // An older download listing v6 again does not bring it back.
+      store.rememberLectureVideos('L1', ids, overwrite: false);
+      expect(store.totalVideoCountOf('L1'), 5);
+    });
+
+    test('a video moved to another lecture keeps its mark', () {
+      final store = newStore()
+        ..rememberLectureVideos('L1', ['v1', 'v2'])
+        ..rememberLectureVideos('L2', ['v3'])
+        ..setVideoStudied('v2', true);
+
+      store.rememberLectureVideos('L2', ['v3', 'v2']);
+      store.rememberLectureVideos('L1', ['v1']);
+      expect(store.isVideoStudied('v2'), isTrue);
+    });
+
+    test('a new video makes the lecture unstudied again', () {
+      final store = newStore()
+        ..rememberLectureVideos('L1', ['v1'])
+        ..setVideoStudied('v1', true);
+      store.rememberLectureVideos('L1', ['v1', 'v2']);
+      expect(store.isLectureStudied('L1'), isFalse);
+      expect(store.studiedVideoCountOf('L1'), 1);
+    });
+
     test('listeners hear only real changes', () {
       final store = newStore();
       var calls = 0;

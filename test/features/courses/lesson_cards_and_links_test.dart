@@ -101,6 +101,11 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('12 فيديو'), findsOneWidget);
       expect(find.text('14 ساعة و4 د'), findsOneWidget);
+
+      // The chips sit at the bottom of the card, with some space under them.
+      final card = tester.getRect(find.byType(LectureItem));
+      final chips = tester.getRect(find.byType(StudyStatsChips));
+      expect(card.bottom - chips.bottom, inInclusiveRange(8, 16));
     });
   }
 }
